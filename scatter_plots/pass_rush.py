@@ -16,12 +16,8 @@ plt.figure(figsize=(10, 10))
 
 
 def plot_pass_rush(
-    season: int,
-    position: str,
-    opp_threshold: int,
-    x_metric: str,
-    y_metric: str,
-    extra_note: str = "",
+    season: int, position: str, opp_threshold: int,
+    x_metric: str, y_metric: str, custom_title: str = None, extra_note: str = "",
 ):
     if position not in FRONT_7_NAMES.keys():
         raise ValueError("Invalid position. Choose from DI, ED, or LB.")
@@ -82,7 +78,7 @@ def plot_pass_rush(
         )
         placed_texts.append(text)
 
-    title = f"{season} NFL {FRONT_7_NAMES[position]} {x_metric} & {y_metric}"
+    title = f"{season} NFL {FRONT_7_NAMES[position]} {x_metric} & {y_metric}" if custom_title is None else custom_title
     plt.title(title, fontsize=14, pad=40)
 
     note = (
@@ -132,15 +128,14 @@ def plot_pass_rush(
     adjust_text(placed_texts, dict(arrowstyle="-", color="black", linewidth=line_width))
 
     plot_path = os.path.join(
-        OUTPUTS_FOLDER_PATH, f"{season}", f"{position} {x_metric} V.S {y_metric}.jpeg"
+        OUTPUTS_FOLDER_PATH, f"{season}", "Pass Rush", f"{position} {x_metric} V.S {y_metric}.jpeg"
     )
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.close("all")
 
 
 if __name__ == "__main__":
-    from config import HAVOC_RATE_NOTE
-
     plot_pass_rush(
-        2023, "DI", 200, "TPS Win Rate", "TPS Havoc Rate", extra_note=HAVOC_RATE_NOTE
+        2023, "DI", 200,
+        "TPS Win Rate", "Win Rate"
     )
