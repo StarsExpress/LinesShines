@@ -1,8 +1,8 @@
-from config import LOGOS_FOLDER_PATH, LOGOS_PICKLE_PATH, TEAMS
 import os
 from matplotlib.offsetbox import OffsetImage
 import matplotlib.pyplot as plt
 import pickle
+from config import LOGOS_FOLDER_PATH, LOGOS_PICKLE_PATH, TEAMS
 
 
 def save_logo_boxes(zoom: float):

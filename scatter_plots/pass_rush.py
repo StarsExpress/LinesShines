@@ -1,12 +1,12 @@
-from config import DATA_FOLDER_PATH, OUTPUTS_FOLDER_PATH, FRONT_7_NAMES
-from utils.logo_boxes import load_logo_boxes
-from utils.finders import find_median
 import os
 import pandas as pd
 import seaborn as sns
 from matplotlib.offsetbox import AnnotationBbox
 import matplotlib.pyplot as plt
 from adjustText import adjust_text
+from config import DATA_FOLDER_PATH, OUTPUTS_FOLDER_PATH, FRONT_7_NAMES
+from utils.logo_boxes import load_logo_boxes
+from utils.finders import find_median
 
 
 logo_boxes = load_logo_boxes()
