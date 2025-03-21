@@ -4,7 +4,7 @@ from config import DATA_FOLDER_PATH, FRONT_7_NAMES
 from utils.renamers import rename_pass_rush_columns
 
 
-def preprocess_front_7(season: int):
+def preprocess_front_7(season: int) -> None:
     pass_rush_csv_path = os.path.join(
         DATA_FOLDER_PATH, f"{season} NFL Front 7 Pass Rush.csv"
     )

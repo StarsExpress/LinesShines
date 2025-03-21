@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def find_median(series: pd.Series):
+def find_median(series: pd.Series) -> float:
     series = series.dropna()  # Inplace is false to copy input series.
     series.sort_values(inplace=True)
 

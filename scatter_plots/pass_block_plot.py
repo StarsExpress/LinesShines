@@ -12,7 +12,7 @@ from utils.finders import find_median
 def plot_pass_block(
     season: int, position: str, non_spike_threshold: int,
     x_metric: str, y_metric: str, custom_title: str = None, extra_note: str = "",
-):
+) -> None:
     plt.figure(figsize=(10, 10))
     name_size = 6
     line_width = 3

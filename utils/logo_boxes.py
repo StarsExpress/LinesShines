@@ -5,7 +5,7 @@ import pickle
 from config import LOGOS_FOLDER_PATH, LOGOS_PICKLE_PATH, TEAMS
 
 
-def save_logo_boxes(zoom: float):
+def save_logo_boxes(zoom: float) -> None:
     teams_logos = dict()
     for team in TEAMS:
         logo_path = os.path.join(LOGOS_FOLDER_PATH, f"{team}.png")
@@ -15,7 +15,7 @@ def save_logo_boxes(zoom: float):
         pickle.dump(teams_logos, file)
 
 
-def load_logo_boxes():
+def load_logo_boxes() -> dict:
     with open(LOGOS_PICKLE_PATH, "rb") as file:
         logo_boxes = pickle.load(file)
     return logo_boxes
