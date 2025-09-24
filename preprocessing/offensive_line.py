@@ -64,4 +64,4 @@ def preprocess_offensive_line(season: int) -> None:
 
 
 if __name__ == "__main__":
-    preprocess_offensive_line(2024)
+    preprocess_offensive_line(2025)
