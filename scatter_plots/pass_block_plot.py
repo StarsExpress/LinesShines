@@ -137,7 +137,7 @@ def plot_pass_block(
 
 if __name__ == "__main__":
     queries = [
-        [2025, "T", 80], [2025, "G", 80], [2025, "C", 80]
+        [2025, "T", 100], [2025, "G", 100], [2025, "C", 100]
     ]
     for query_season, query_position, query_threshold in queries:
         plot_pass_block(
