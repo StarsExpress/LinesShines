@@ -9,11 +9,11 @@ Such a curiosity further rose when I realized that Senior Bowl is a great place 
 
 I actually have some success in finding very solid OL/DL since 2023:
 
-OL: Saints RT Taliese Fuaga, Cardinals RG Isaiah Adams
+#### OL: Saints RT Taliese Fuaga, Cardinals RG Isaiah Adams
 
-DL: Colts ED Laiatu Latu, Seahawks ED Derick Hall, Steelers DI Keeanu Benton
+#### DL: Colts ED Laiatu Latu, Seahawks ED Derick Hall, Steelers DI Keeanu Benton
 
-Hall, Benton and Adams were all Day 2 picks, but many of their advanced metrics are still among the top quadrant
+#### Hall, Benton and Adams were all Day 2 picks, but many of their advanced metrics are still among the top quadrant
 
 Notes: RT = Right Tackle, RG = Right Guard, ED = Edge Defender, DI = Defensive Interior
 
