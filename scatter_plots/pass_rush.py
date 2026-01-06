@@ -138,7 +138,7 @@ if __name__ == "__main__":
     from config import HAVOC_NOTE
 
     queries = [
-        [2025, "DI", 220], [2025, "ED", 220]
+        [2025, "DI", 230], [2025, "ED", 230]
     ]
     for query_season, query_position, query_threshold in queries:
         plot_pass_rush(
