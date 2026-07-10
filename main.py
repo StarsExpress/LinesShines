@@ -30,16 +30,17 @@ from database.db_models import (
 )
 
 
-# ---- database wiring -------------------------------------------------------
+# ---- Database wiring. -------------------------------------------------------
 
 
 def _resolve_database_url() -> str:
     url = os.environ.get("DATABASE_URL", "sqlite:///./data/lines_shines.db")
-    # Railway historically hands out `postgres://…`, but SQLAlchemy 2.x
-    # only recognizes the `postgresql://` prefix. Normalize it here so the
-    # user doesn't have to remember.
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://") :]
+
+    # Force SQLAlchemy to use psycopg3, which is installed as psycopg[binary].
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://") :]
     return url
 
 
