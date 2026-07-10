@@ -1,0 +1,475 @@
+:root {
+  --turf-950: #0f2119;
+  --turf-800: #16301f;
+  --turf-700: #1e3d28;
+  --turf-600: #2a4d33;
+  --chalk: #f1ecdd;
+  --chalk-dim: #a9b6a9;
+  --flag-gold: #d3a73d;
+  --flag-gold-bright: #e8c15e;
+  --leather: #8a5a3b;
+  --rush-clay: #b4482e;
+  --font-display: "Anton", "Arial Narrow", sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+html, body {
+  margin: 0;
+  background: var(--turf-950);
+  color: var(--chalk);
+  font-family: var(--font-body);
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* subtle yard-line hash texture on the page background */
+.field-texture {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    100deg,
+    rgba(241, 236, 221, 0.028) 0px,
+    rgba(241, 236, 221, 0.028) 2px,
+    transparent 2px,
+    transparent 96px
+  );
+}
+
+.hero, .layout { position: relative; z-index: 1; }
+
+.hero {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--turf-600);
+}
+
+.hero-inner { max-width: 860px; margin: 0 auto; }
+
+.hero-github {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chalk);
+  opacity: 0.8;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+.hero-github svg { width: 20px; height: 20px; display: block; }
+.hero-github:hover,
+.hero-github:focus-visible {
+  color: var(--flag-gold-bright);
+  opacity: 1;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  margin: 0 0 6px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(28px, 5vw, 52px);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  margin: 0 0 10px;
+  color: var(--chalk);
+  text-shadow: 0 2px 0 rgba(0,0,0,0.25);
+}
+
+.hero-byline {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+  max-width: 640px;
+  margin: 0;
+}
+
+/* Same [hidden]-losing-to-author-CSS trap as .empty-state / .scout-card-body:
+   a naked `display: flex` here would beat the UA `[hidden]{display:none}`
+   rule by origin, not specificity, and render as an empty bordered bar
+   whenever is_sample_data is false. */
+.sample-banner {
+  position: relative;
+  z-index: 1;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  max-width: 1180px;
+  margin: 18px auto 0;
+  padding: 10px 16px;
+  background: rgba(211, 167, 61, 0.1);
+  border: 1px solid rgba(211, 167, 61, 0.35);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--flag-gold-bright);
+}
+.sample-banner:not([hidden]) {
+  display: flex;
+}
+.sample-banner-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--flag-gold-bright);
+  box-shadow: 0 0 0 3px rgba(211,167,61,0.18);
+  flex: none;
+}
+
+.layout {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+/* --- control bar --- */
+.control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: end;
+  padding: 18px 20px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  margin-bottom: 22px;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.control label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+}
+
+.control select {
+  background: var(--turf-950);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  min-width: 150px;
+}
+.control select:focus-visible,
+.control input:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 2px;
+}
+
+.control-slider { min-width: 220px; flex: 1 1 220px; }
+
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#threshold-slider {
+  flex: 1 1 auto;
+  width: 100%;
+  accent-color: var(--flag-gold);
+  height: 28px;
+}
+
+#threshold-number {
+  flex: none;
+  width: 70px;
+  background: var(--turf-950);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: center;
+}
+/* Chrome/Safari spinner arrows clash with the turf theme — hide them,
+   the range slider next to it already covers coarse adjustment. */
+#threshold-number::-webkit-inner-spin-button,
+#threshold-number::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#threshold-number { -moz-appearance: textfield; }
+
+.control-check { min-width: auto; }
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--chalk-dim);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.checkbox-label input { accent-color: var(--flag-gold); width: 15px; height: 15px; }
+
+/* --- board: chart + scouting card --- */
+.board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: start;
+  position: relative; /* positioning context for the scout-card overlay */
+}
+
+.chart-panel {
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 720px;
+  position: relative;
+}
+
+#chart { width: 100%; height: 720px; }
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px;
+  color: var(--chalk-dim);
+  font-size: 15px;
+  background: rgba(15, 33, 25, 0.85);
+  border-radius: 10px;
+}
+/* the [hidden] attribute alone isn't enough to beat the rule above once we
+   set display:flex below — without this, an "empty" state panel with
+   position:absolute; inset:0 would sit on top of the chart and silently
+   swallow every hover/click even while invisible. */
+.empty-state:not([hidden]) {
+  display: flex;
+}
+
+/* Shares .empty-state's positioning + the [hidden]-safe display rule above —
+   only the layout direction and content (spinner + text) differ. */
+.logo-preload-state {
+  flex-direction: column;
+  gap: 10px;
+}
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid rgba(241, 236, 221, 0.15);
+  border-top-color: var(--flag-gold);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- scouting card, the signature element ---
+   Desktop: a floating overlay pinned to the chart panel's top-right
+   corner. Collapsed by default (just the gold PROSPECT tab peeking out,
+   ~24px tall) so it never squeezes the chart width, even with 60+ dots.
+   The tab lives outside `.scout-card-panel`'s overflow:hidden box so it
+   never gets clipped while the panel collapses/expands. */
+.scout-card {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 260px;
+  z-index: 5;
+}
+
+.scout-card-tab {
+  position: relative;
+  display: inline-block;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  padding: 6px 9px;
+  border-radius: 4px 4px 0 0;
+  line-height: 1;
+}
+
+.scout-card-panel {
+  width: 100%;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(165deg, rgba(30, 61, 40, 0.9), rgba(22, 48, 31, 0.94));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--turf-600);
+  border-radius: 0 8px 8px 8px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+  transition: max-height 0.28s ease, opacity 0.22s ease;
+}
+
+.scout-card.is-active .scout-card-panel {
+  max-height: 480px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* placeholder text never shows on the desktop overlay — collapsed state
+   is just the 24px tab, see class rule above */
+.scout-card-empty { display: none; }
+
+/* same [hidden]-losing-to-author-CSS trap as .empty-state above: display:flex
+   on this class beats the UA [hidden]{display:none} rule by origin, not
+   specificity, so the hidden attribute alone won't hide it without this. */
+.scout-card-body { display: none; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
+.scout-card-body:not([hidden]) { display: flex; }
+
+.scout-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--turf-600);
+}
+
+.scout-logo-wrap {
+  width: 52px; height: 52px;
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.scout-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+.scout-badge {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--chalk);
+  letter-spacing: 0.02em;
+}
+
+.scout-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  color: var(--chalk);
+  line-height: 1.1;
+}
+.scout-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--flag-gold-bright);
+  margin-top: 4px;
+}
+
+.scout-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px 8px;
+  margin: 0;
+}
+.scout-stats dt {
+  font-size: 12.5px;
+  color: var(--chalk-dim);
+}
+.scout-stats dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--chalk);
+  text-align: right;
+  font-weight: 600;
+}
+.scout-stats dd.is-highlighted { color: var(--flag-gold-bright); }
+
+.footnote {
+  margin-top: 26px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--chalk-dim);
+}
+.footnote a { color: var(--flag-gold-bright); }
+
+@media (max-width: 860px) {
+  .board { grid-template-columns: 1fr; }
+  #chart, .chart-panel { min-height: 460px; }
+  #chart { height: 460px; }
+  .hero { padding: 24px 18px 18px; }
+  .hero-github { top: 14px; right: 16px; }
+  .hero-github svg { width: 18px; height: 18px; }
+
+  /* Below 860px there's no room to float the card over the chart without
+     covering data, so it drops back to a plain block stacked underneath —
+     the pre-overlay behavior, undoing all the desktop overlay rules above.
+     `.scout-card-panel` takes over as the visible card box (padding,
+     background, min-height); `.scout-card` is just a relative anchor for
+     the tab, and `.scout-card-body` gives up its desktop padding since
+     the panel now owns it. */
+  .scout-card {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+  }
+  .scout-card-tab {
+    position: absolute;
+    top: -11px;
+    left: 18px;
+    border-radius: 3px;
+  }
+  .scout-card-panel {
+    max-height: none;
+    overflow: visible;
+    opacity: 1;
+    pointer-events: auto;
+    background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 10px;
+    box-shadow: none;
+    padding: 20px 18px 18px;
+    min-height: 320px;
+  }
+  .scout-card-empty {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    text-align: center;
+    color: var(--chalk-dim);
+    font-size: 13.5px;
+    padding: 0 8px;
+  }
+  .scout-card-empty:not([hidden]) { display: flex; }
+  .scout-card-body { padding: 0; }
+}

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LinesShines · 鋒光</title>
+<meta name="description" content="Interactive scouting dashboard for NFL offensive & defensive line PFF metrics." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+<body>
+
+<div class="field-texture" aria-hidden="true"></div>
+
+<header class="hero">
+  <a class="hero-github" href="https://github.com/StarsExpress/LinesShines"
+     target="_blank" rel="noopener" aria-label="View LinesShines on GitHub">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+  </a>
+  <div class="hero-inner">
+    <h1 class="hero-title">LinesShines · 鋒光</h1>
+    <p class="eyebrow">🏈NFL OL & DL Interactive Metrics</p>
+    <p class="hero-byline">
+      "No Line No Shine."<br><br>
+      Infrastructure is the one that nearly always starts everything,
+      but quite often gets ignored thanks to its unadorned hard works and grit & grind styles.<br><br>
+      For all these under-appreciated.
+    </p>
+  </div>
+</header>
+
+<div id="sample-banner" class="sample-banner" hidden>
+  <span class="sample-banner-dot" aria-hidden="true"></span>
+  <span id="sample-banner-text"></span>
+</div>
+
+<main class="layout">
+
+  <section class="control-bar" aria-label="Filters">
+    <div class="control">
+      <label for="category-select">Unit</label>
+      <select id="category-select">
+        <option value="pass_rush">Pass Rush (DL)</option>
+        <option value="pass_block">Pass Block (OL)</option>
+      </select>
+    </div>
+
+    <div class="control">
+      <label for="season-select">Season</label>
+      <select id="season-select"></select>
+    </div>
+
+    <div class="control">
+      <label for="position-select">Position</label>
+      <select id="position-select"></select>
+    </div>
+
+    <div class="control">
+      <label for="x-metric-select">X axis</label>
+      <select id="x-metric-select"></select>
+    </div>
+
+    <div class="control">
+      <label for="y-metric-select">Y axis</label>
+      <select id="y-metric-select"></select>
+    </div>
+
+    <div class="control control-slider">
+      <label for="threshold-slider">
+        Min <span id="threshold-field-label">opportunities</span>
+      </label>
+      <div class="threshold-row">
+        <input type="range" id="threshold-slider" min="0" max="100" value="0" />
+        <input type="number" id="threshold-number" min="0" step="1"
+               aria-label="min opportunities exact value" />
+      </div>
+    </div>
+
+    <div class="control control-check">
+      <label class="checkbox-label">
+        <input type="checkbox" id="labels-toggle" />
+        Show player labels
+      </label>
+    </div>
+
+    <div class="control control-check">
+      <label class="checkbox-label">
+        <input type="checkbox" id="logos-toggle" checked />
+        Team logos
+      </label>
+    </div>
+  </section>
+
+  <section class="board">
+    <div class="chart-panel">
+      <div id="chart"></div>
+      <div id="logo-preload" class="empty-state logo-preload-state" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Loading team assets…</span>
+      </div>
+      <p id="empty-state" class="empty-state" hidden>
+        No players clear this threshold yet — try lowering the minimum.
+      </p>
+    </div>
+
+    <aside class="scout-card" id="scout-card" aria-live="polite">
+      <div class="scout-card-tab">PROSPECT</div>
+
+      <div class="scout-card-panel">
+        <div class="scout-card-empty" id="scout-card-empty">
+          <p>Hover — or tap — a dot to pull the scouting card.</p>
+        </div>
+
+        <div class="scout-card-body" id="scout-card-body" hidden>
+          <div class="scout-card-top">
+            <div class="scout-logo-wrap">
+              <img id="scout-logo" alt="" />
+              <div id="scout-badge" class="scout-badge" hidden></div>
+            </div>
+            <div class="scout-id">
+              <div class="scout-name" id="scout-name"></div>
+              <div class="scout-meta" id="scout-meta"></div>
+            </div>
+          </div>
+          <dl class="scout-stats" id="scout-stats"></dl>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <p class="footnote">
+    Data: 2022-2025 seasons. Source: PFF premium data, processed locally — raw stats are never published, only
+    season‑level charts. Median lines mark the field for the current filter.
+  </p>
+</main>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
