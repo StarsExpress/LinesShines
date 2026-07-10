@@ -39,6 +39,17 @@ FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
 
 
+def _find_repo_root() -> Path:
+    """Walk up from this file until we find a marker that identifies the repo root."""
+    here = Path(__file__).resolve().parent
+    for candidate in [here, *here.parents]:
+        # Any of these markers means "you found the root"
+        if (candidate / "main.py").exists() or (candidate / ".git").exists():
+            return candidate
+
+    raise RuntimeError("could not locate repo root from " + str(here))
+
+
 def _repo_root() -> Path:
     """Where to find the preprocessed xlsx files.
 
@@ -56,7 +67,7 @@ def _repo_root() -> Path:
     if env_root:
         return Path(env_root) / "data"
 
-    return Path(__file__).parent / "data"
+    return _find_repo_root() / "data"
 
 
 def _safe_int(val):
