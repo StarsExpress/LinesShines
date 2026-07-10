@@ -28,7 +28,7 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
-from db_models import Base, DatasetInfo, PassBlockStat, PassRushStat, Team
+from database.db_models import Base, DatasetInfo, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
