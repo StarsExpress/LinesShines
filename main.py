@@ -21,7 +21,6 @@ from sqlalchemy.orm import sessionmaker
 from config import DEFAULT_THRESHOLDS
 from database.db_models import (
     Base,
-    DatasetInfo,
     PassBlockStat,
     PassRushStat,
     Team,
@@ -156,18 +155,7 @@ def metadata() -> dict:
 
         teams = sess.execute(select(Team)).scalars().all()
 
-        info_rows = sess.execute(select(DatasetInfo)).scalars().all()
-        info = {row.key: row.value for row in info_rows}
-
     return {
-        "is_sample_data": info.get("is_sample_data", "true").lower() == "true",
-        "sample_data_note": info.get(
-            "sample_data_note",
-            "示例数据 (SAMPLE DATA) —— 球员姓名为虚构占位符,数值为随机生成,"
-            "仅用于演示前端交互。运行 ingest_to_db.py 处理你本地的真实 PFF "
-            "导出数据后 sample banner 会自动消失。",
-        ),
-        "last_ingested_at": info.get("last_ingested_at"),
         "pass_rush": {
             "positions": PASS_RUSH_POSITIONS,
             "metrics": PASS_RUSH_METRICS,

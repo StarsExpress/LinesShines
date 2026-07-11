@@ -6,10 +6,8 @@ handles transparently for `Integer` primary keys.
 """
 
 from __future__ import annotations
-from datetime import datetime
 from sqlalchemy import (
     Column,
-    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -93,17 +91,6 @@ class PassBlockStat(Base):
         ),
         Index("idx_pb_filter", "season", "position"),
     )
-
-
-class DatasetInfo(Base):
-    """One-row key/value table so API can advertise dataset provenance
-    (sample vs. real, last-ingested timestamp) without an env-var round-trip.
-    """
-    __tablename__ = "dataset_info"
-
-    key = Column(String, primary_key=True)
-    value = Column(String, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # Serialization helpers used by main.py to keep API payload shape

@@ -20,6 +20,7 @@ const els = {
   yMetric: document.getElementById("y-metric-select"),
   threshold: document.getElementById("threshold-slider"),
   thresholdNumber: document.getElementById("threshold-number"),
+  thresholdSet: document.getElementById("threshold-set"),
   thresholdFieldLabel: document.getElementById("threshold-field-label"),
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
@@ -27,13 +28,8 @@ const els = {
   chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),
   logoPreload: document.getElementById("logo-preload"),
-  chartModal: document.getElementById("chart-modal"),
-  modalChart: document.getElementById("modal-chart"),
-  closeModalBtn: document.getElementById("close-modal"),
   filtersToggle: document.getElementById("toggle-filters"),
   filtersDrawer: document.getElementById("filters-drawer"),
-  sampleBanner: document.getElementById("sample-banner"),
-  sampleBannerText: document.getElementById("sample-banner-text"),
   scoutCard: document.getElementById("scout-card"),
   scoutEmpty: document.getElementById("scout-card-empty"),
   scoutBody: document.getElementById("scout-card-body"),
@@ -48,6 +44,7 @@ let metadata = null;                 // /api/metadata payload
 const sliceCache = new Map();        // key = `${category}:${season}:${position}` → records[]
 let currentRecords = [];             // records for the current slice (all threshold values)
 let currentFiltered = [];            // records >= threshold (what the chart shows)
+let appliedThreshold = null;         // threshold value the chart was last rendered with
 let pinnedIndex = null;
 let logoRelayoutGuard = false;       // suppresses our own relayout from re-triggering itself
 let unhoverTimeout = null;           // debounces the chart mouseleave hide so grazing the edge doesn't flicker the card
@@ -103,7 +100,6 @@ async function loadMetadata() {
   if (!res.ok) throw new Error(`GET /api/metadata → ${res.status}`);
   metadata = await res.json();
 
-  updateSampleBanner();
   populateCategoryDependentControls();
   attachEvents();
   await loadCurrentSlice();
@@ -113,16 +109,6 @@ async function loadMetadata() {
   els.logoPreload.hidden = true;
 
   render();
-}
-
-function updateSampleBanner() {
-  if (!metadata.is_sample_data) {
-    els.sampleBanner.hidden = true;
-    return;
-  }
-  els.sampleBanner.hidden = false;
-  els.sampleBannerText.textContent = metadata.sample_data_note ||
-    "Showing sample data — replace by running ingest_to_db.py on your PFF export.";
 }
 
 function currentCategoryMeta() {
@@ -210,6 +196,14 @@ function updateThresholdRange() {
   els.thresholdNumber.min = 0;
   els.thresholdNumber.max = max;
   els.thresholdNumber.value = els.threshold.value;
+}
+
+// Lights up the Set button whenever the slider/number controls hold a value
+// the chart hasn't been rendered with yet — the only feedback the user gets
+// now that dragging/typing no longer re-renders on their own.
+function updateThresholdPendingState() {
+  const pending = Number(els.thresholdNumber.value) !== appliedThreshold;
+  els.thresholdSet.classList.toggle("pending", pending);
 }
 
 function median(values) {
@@ -314,6 +308,9 @@ function render() {
   const cat = currentCategoryMeta();
 
   const minThreshold = Number(els.thresholdNumber.value);
+  appliedThreshold = minThreshold;
+  updateThresholdPendingState();
+
   currentFiltered = currentRecords.filter(
     (r) => r[cat.threshold_field] >= minThreshold
   );
@@ -395,6 +392,7 @@ function render() {
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
     margin: { l: 60, r: 24, t: 20, b: 56 },
+    dragmode: "zoom",
     xaxis: {
       title: `${xKey}${xMeta.unit ? " (" + xMeta.unit + ")" : ""}`,
       gridcolor: "rgba(241,236,221,0.08)",
@@ -439,7 +437,15 @@ function render() {
   // layout, so leaving it out clears any logos from a previous render when
   // the toggle is off. Sizing needs the post-draw axis range, so logos are
   // added in a follow-up relayout once this render settles.
-  Plotly.react(els.chart, [trace], layout, { displayModeBar: false, responsive: true })
+  // Interim solution: Plotly's own zoom (rescales axes on zoom/drag). The
+  // CSS-transform "photo" zoom was rolled back — it broke content on
+  // desktop scroll — and will be revisited later with a different approach.
+  Plotly.react(els.chart, [trace], layout, {
+    displayModeBar: false,
+    responsive: true,
+    scrollZoom: true,
+    doubleClick: "reset",
+  })
     .then(() => {
       applyLogoImages();
       applyLabelDeclutter();
@@ -527,25 +533,6 @@ function resetScoutCard() {
   els.scoutBody.hidden = true;
 }
 
-// Below the desktop/mobile CSS breakpoint (see style.css), tapping the
-// chart opens the fullscreen modal instead of just pinning the scout card —
-// desktop clicks are left alone so mouse users keep the plain click-to-pin
-// behavior untouched.
-function isMobileViewport() {
-  return window.matchMedia("(max-width: 860px)").matches;
-}
-
-// Physically moves the live #chart node into the dialog rather than
-// cloning/re-rendering it — same Plotly instance, so hover/click listeners
-// and the current pinned point survive the trip with no extra bookkeeping.
-function openChartModal() {
-  if (els.chartModal.open) return;
-  els.modalChart.appendChild(els.chart);
-  els.chart.style.height = "100%";
-  els.chartModal.showModal();
-  requestAnimationFrame(() => Plotly.Plots.resize(els.chart));
-}
-
 function closeFiltersDrawer() {
   els.filtersDrawer.classList.remove("open");
   els.filtersToggle.setAttribute("aria-expanded", "false");
@@ -572,9 +559,13 @@ function attachEvents() {
 
   [els.xMetric, els.yMetric].forEach((el) => el.addEventListener("change", render));
 
+  // Dragging the slider or typing a number only updates the two controls'
+  // own displayed values — the chart holds its current state until the user
+  // clicks Set (or presses Enter in the number field). Re-rendering on every
+  // pixel of drag / every keystroke was the whole problem on dense positions.
   els.threshold.addEventListener("input", () => {
     els.thresholdNumber.value = els.threshold.value;
-    render();
+    updateThresholdPendingState();
   });
 
   els.thresholdNumber.addEventListener("input", () => {
@@ -590,15 +581,19 @@ function attachEvents() {
     // Slider snaps to the nearest step just to keep the handle in sync
     // visually — filtering below still uses the exact typed number.
     els.threshold.value = min + Math.round((raw - min) / step) * step;
+    updateThresholdPendingState();
+  });
+
+  els.thresholdNumber.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
     render();
   });
 
+  els.thresholdSet.addEventListener("click", render);
+
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
-
-  els.chart.addEventListener("click", () => {
-    if (isMobileViewport()) openChartModal();
-  });
 
   // Bound once (not in render()) since plain addEventListener isn't cleaned
   // up by Plotly's removeAllListeners — rebinding on every render would
@@ -613,16 +608,6 @@ function attachEvents() {
     unhoverTimeout = setTimeout(() => {
       if (!chartHovered) resetScoutCard();
     }, 150);
-  });
-
-  els.closeModalBtn.addEventListener("click", () => els.chartModal.close());
-
-  // Fires on every close path (button, Esc, backdrop) — single place to
-  // undo the reparent so #chart always ends up back in .chart-panel first.
-  els.chartModal.addEventListener("close", () => {
-    els.chart.style.height = "";
-    els.chartPanel.insertBefore(els.chart, els.chartPanel.firstChild);
-    requestAnimationFrame(() => Plotly.Plots.resize(els.chart));
   });
 
   els.filtersToggle.addEventListener("click", () => {

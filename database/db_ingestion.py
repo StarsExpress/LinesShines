@@ -23,12 +23,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
-from database.db_models import Base, DatasetInfo, PassBlockStat, PassRushStat, Team
+from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
@@ -200,24 +199,6 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     return total
 
 
-def _set_dataset_info(sess: Session) -> None:
-    """Flag this DB as production (not sample), stamp ingest time."""
-    updates = {
-        "is_sample_data": "false",
-        "last_ingested_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-    }
-
-    for key, value in updates.items():
-        existing = sess.get(DatasetInfo, key)
-        if existing:
-            existing.value = value
-
-        else:
-            sess.add(DatasetInfo(key=key, value=value))
-
-    sess.commit()
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 
@@ -254,7 +235,6 @@ def main() -> None:
         upsert_teams(sess)
         pass_rush_rows = ingest_pass_rush(sess, data_dir, args.seasons)
         pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
-        _set_dataset_info(sess)
 
     print(f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows.")
 

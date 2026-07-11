@@ -41,11 +41,6 @@
   </div>
 </header>
 
-<div id="sample-banner" class="sample-banner" hidden>
-  <span class="sample-banner-dot" aria-hidden="true"></span>
-  <span id="sample-banner-text"></span>
-</div>
-
 <main class="layout">
 
   <div class="controls-toggle">
@@ -57,10 +52,10 @@
   <div id="filters-drawer" class="filters-drawer">
     <section class="control-bar" aria-label="Filters">
       <div class="control">
-        <label for="category-select">Unit</label>
+        <label for="category-select">Category</label>
         <select id="category-select">
-          <option value="pass_rush">Pass Rush (DL)</option>
-          <option value="pass_block">Pass Block (OL)</option>
+          <option value="pass_rush">DL Pass Rush</option>
+          <option value="pass_block">OL Pass Block</option>
         </select>
       </div>
 
@@ -92,6 +87,7 @@
           <input type="range" id="threshold-slider" min="0" max="100" value="0" />
           <input type="number" id="threshold-number" min="0" step="1"
                  aria-label="min opportunities exact value" />
+          <button id="threshold-set" type="button" class="threshold-set-btn">Set</button>
         </div>
       </div>
 
@@ -153,14 +149,6 @@
     Median lines mark the field for the current filter.
   </p>
 </main>
-
-<dialog id="chart-modal" class="chart-modal">
-  <div class="modal-header">
-    <button id="close-modal" type="button" aria-label="Close chart">✕</button>
-  </div>
-  <div id="modal-chart"></div>
-  <p class="modal-hint">Pinch to zoom · Long-press to save</p>
-</dialog>
 
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="app.js"></script>

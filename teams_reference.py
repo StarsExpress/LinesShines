@@ -1,7 +1,7 @@
 """Shared reference data for the 32 NFL teams.
 
-Kept in one place so `seed_sample_data.py` and `ingest_to_db.py` don't
-drift from each other, and so `main.py`'s /api/metadata payload can serve
+Kept in one place so `ingest_to_db.py` doesn't drift,
+and so `main.py`'s /api/metadata payload can serve
 these values to the frontend (rather than the frontend hard-coding them,
 which was the case in the earlier static-JSON version).
 """
