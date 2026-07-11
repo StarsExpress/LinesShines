@@ -14,7 +14,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -27,6 +27,12 @@ from database.db_models import (
     pass_block_row_to_dict,
     pass_rush_row_to_dict,
 )
+
+# Railway sets this per-deploy; falls back to "dev" for local runs. Used to
+# cache-bust static assets referenced from index.html so iOS Safari (and
+# other aggressive mobile caches) pick up new JS/CSS/Plotly after a deploy
+# instead of serving a stale bundle against a changed API.
+COMMIT_SHA = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "dev")[:7]
 
 
 # ---- Database wiring. -------------------------------------------------------
@@ -256,6 +262,12 @@ for _logos_dir in _logo_candidates:
 
 _frontend_dir = _here / "frontend"
 if _frontend_dir.exists():
+    _index_path = _frontend_dir / "index.html"
+
+    @app.get("/", response_class=HTMLResponse)
+    def serve_index() -> str:
+        return _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA)
+
     app.mount(
         "/",
         StaticFiles(directory=str(_frontend_dir), html=True),

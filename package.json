@@ -1,0 +1,13 @@
+{
+  "name": "game-of-trenches",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dev-only tooling to fetch a local Plotly bundle for frontend/vendor/plotly.min.js. Railway does not run npm install for the frontend; the built file is committed.",
+  "scripts": {
+    "vendor:plotly": "cp node_modules/plotly.js-dist-min/plotly.min.js frontend/vendor/plotly.min.js"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "plotly.js-dist-min": "^3.7.0"
+  }
+}

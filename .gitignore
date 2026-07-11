@@ -17,3 +17,8 @@ data/*.db-wal
 .env
 .idea/
 .vscode/
+
+# npm dependency used only to fetch frontend/vendor/plotly.min.js, which
+# IS committed (see CLAUDE.md — Railway doesn't run npm install for the
+# frontend, so the bundle must be pre-built and checked in).
+node_modules/
