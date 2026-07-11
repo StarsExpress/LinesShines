@@ -6,7 +6,7 @@ from utils.renamers import rename_pass_block_columns, shorten_first_name
 
 def preprocess_offensive_line(season: int) -> None:
     pass_block_csv_path = os.path.join(
-        DATA_FOLDER_PATH, f"{season} NFL OL Pass Block.csv"
+        DATA_FOLDER_PATH, "ol_pass_block", f"{season}.csv"
     )
     pass_block_df = pd.read_csv(pass_block_csv_path)
     pass_block_df.fillna(inplace=True, value=0)
@@ -56,7 +56,7 @@ def preprocess_offensive_line(season: int) -> None:
         positional_sheets.update({position: positional_df})
 
     destination_path = os.path.join(
-        DATA_FOLDER_PATH, f"{season} NFL OL Pass Block.xlsx"
+        DATA_FOLDER_PATH, "ol_pass_block", f"{season}.xlsx"
     )
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():

@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.pytest_cache/
 
 # Local SQLite DB — Railway uses managed Postgres, not this file.
 data/*.db

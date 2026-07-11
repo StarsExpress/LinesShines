@@ -255,15 +255,10 @@ def pass_block(
 
 _here = Path(__file__).parent
 
-# Team logos live in the LinesShines repo's /logos/ folder. When this
-# service is deployed as a sibling folder (e.g. LinesShines/web/), the
-# logos folder sits one directory up. When deployed standalone, we look
-# inside frontend/logos/ instead. First match wins.
+# Team logos live in frontend/images/team_logos/.
 
 _logo_candidates = [
-    _here.parent / "logos",  # <repo>/logos when this is <repo>/web
-    _here / "logos",  # bundled copy
-    _here / "frontend" / "logos",  # bundled inside frontend/
+    _here / "frontend" / "images" / "team_logos",
 ]
 
 for _logos_dir in _logo_candidates:

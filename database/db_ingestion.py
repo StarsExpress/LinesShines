@@ -1,7 +1,7 @@
 """Ingest preprocessed PFF Excel workbooks into database.
 
-Reads `{season} NFL Front 7 Pass Rush.xlsx` and
-`{season} NFL OL Pass Block.xlsx` files that
+Reads `front_7_pass_rush/{season}.xlsx` and
+`ol_pass_block/{season}.xlsx` files that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
 produce, and upserts them into `pass_rush_stats` / `pass_block_stats` tables.
 
@@ -95,7 +95,7 @@ def upsert_teams(sess: Session) -> None:
 def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     total = 0
     for season in seasons:
-        path = data_dir / f"{season} NFL Front 7 Pass Rush.xlsx"
+        path = data_dir / "front_7_pass_rush" / f"{season}.xlsx"
 
         if not path.exists():
             print(f"Skip pass rush {season}: {path} not found")
@@ -149,7 +149,7 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
 def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     total = 0
     for season in seasons:
-        path = data_dir / f"{season} NFL OL Pass Block.xlsx"
+        path = data_dir / "ol_pass_block" / f"{season}.xlsx"
         if not path.exists():
             print(f"Skip pass block {season}: {path} not found")
             continue
