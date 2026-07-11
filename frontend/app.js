@@ -24,8 +24,14 @@ const els = {
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
   chart: document.getElementById("chart"),
+  chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),
   logoPreload: document.getElementById("logo-preload"),
+  chartModal: document.getElementById("chart-modal"),
+  modalChart: document.getElementById("modal-chart"),
+  closeModalBtn: document.getElementById("close-modal"),
+  filtersToggle: document.getElementById("toggle-filters"),
+  filtersDrawer: document.getElementById("filters-drawer"),
   sampleBanner: document.getElementById("sample-banner"),
   sampleBannerText: document.getElementById("sample-banner-text"),
   scoutCard: document.getElementById("scout-card"),
@@ -44,6 +50,8 @@ let currentRecords = [];             // records for the current slice (all thres
 let currentFiltered = [];            // records >= threshold (what the chart shows)
 let pinnedIndex = null;
 let logoRelayoutGuard = false;       // suppresses our own relayout from re-triggering itself
+let unhoverTimeout = null;           // debounces the chart mouseleave hide so grazing the edge doesn't flicker the card
+let chartHovered = false;            // tracks pointer-inside-#chart, not "hovering a marker" — far less noisy at the edges
 
 // True right after page load and right after a category switch — both cases
 // where the threshold should snap to that category's configured default
@@ -347,12 +355,10 @@ function render() {
       opacity: showLogos ? 0 : 1,
       line: { color: "rgba(15,33,25,0.65)", width: 1 },
     },
-    customdata: currentFiltered.map((r) => teamName(r.team)),
-    hovertemplate:
-      `<b>%{text}</b> · %{customdata}<br>` +
-      `${xKey}: %{x}${xMeta.unit || ""}<br>` +
-      `${yKey}: %{y}${yMeta.unit || ""}` +
-      `<extra></extra>`,
+    // The scouting card is the hover UI — Plotly's own tooltip would just
+    // duplicate it right next to the cursor, so suppress it here. hover/click
+    // events still fire with hoverinfo:'none', only the built-in popup dies.
+    hoverinfo: "none",
   };
 
   const xMedian = median(xVals);
@@ -441,7 +447,11 @@ function render() {
 
   // Clear stale listeners each render — Plotly.react reuses the same graph
   // div, and every call otherwise adds another copy of the hover handler.
-  ["plotly_hover", "plotly_unhover", "plotly_click", "plotly_relayout"].forEach((evt) =>
+  // No plotly_unhover here — it fires/unfires too readily near label text;
+  // the chart's mouseenter/mouseleave listeners (bound once in attachEvents)
+  // decide hiding instead, since "is the pointer still inside the chart box"
+  // has none of that per-marker noise.
+  ["plotly_hover", "plotly_click", "plotly_relayout"].forEach((evt) =>
     els.chart.removeAllListeners?.(evt)
   );
 
@@ -457,12 +467,9 @@ function render() {
 
   els.chart.on("plotly_hover", (e) => {
     if (pinnedIndex != null) return;
+    if (unhoverTimeout) clearTimeout(unhoverTimeout);
     const idx = e.points[0].pointIndex;
     showScoutCard(currentFiltered[idx]);
-  });
-  els.chart.on("plotly_unhover", () => {
-    if (pinnedIndex != null) return;
-    resetScoutCard();
   });
   els.chart.on("plotly_click", (e) => {
     const idx = e.points[0].pointIndex;
@@ -520,6 +527,30 @@ function resetScoutCard() {
   els.scoutBody.hidden = true;
 }
 
+// Below the desktop/mobile CSS breakpoint (see style.css), tapping the
+// chart opens the fullscreen modal instead of just pinning the scout card —
+// desktop clicks are left alone so mouse users keep the plain click-to-pin
+// behavior untouched.
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 860px)").matches;
+}
+
+// Physically moves the live #chart node into the dialog rather than
+// cloning/re-rendering it — same Plotly instance, so hover/click listeners
+// and the current pinned point survive the trip with no extra bookkeeping.
+function openChartModal() {
+  if (els.chartModal.open) return;
+  els.modalChart.appendChild(els.chart);
+  els.chart.style.height = "100%";
+  els.chartModal.showModal();
+  requestAnimationFrame(() => Plotly.Plots.resize(els.chart));
+}
+
+function closeFiltersDrawer() {
+  els.filtersDrawer.classList.remove("open");
+  els.filtersToggle.setAttribute("aria-expanded", "false");
+}
+
 function attachEvents() {
   els.category.addEventListener("change", async () => {
     pinnedIndex = null;
@@ -564,6 +595,53 @@ function attachEvents() {
 
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
+
+  els.chart.addEventListener("click", () => {
+    if (isMobileViewport()) openChartModal();
+  });
+
+  // Bound once (not in render()) since plain addEventListener isn't cleaned
+  // up by Plotly's removeAllListeners — rebinding on every render would
+  // stack duplicate handlers, each closing over its own stale timeout.
+  els.chart.addEventListener("mouseenter", () => {
+    chartHovered = true;
+    if (unhoverTimeout) clearTimeout(unhoverTimeout);
+  });
+  els.chart.addEventListener("mouseleave", () => {
+    chartHovered = false;
+    if (pinnedIndex != null) return;
+    unhoverTimeout = setTimeout(() => {
+      if (!chartHovered) resetScoutCard();
+    }, 150);
+  });
+
+  els.closeModalBtn.addEventListener("click", () => els.chartModal.close());
+
+  // Fires on every close path (button, Esc, backdrop) — single place to
+  // undo the reparent so #chart always ends up back in .chart-panel first.
+  els.chartModal.addEventListener("close", () => {
+    els.chart.style.height = "";
+    els.chartPanel.insertBefore(els.chart, els.chartPanel.firstChild);
+    requestAnimationFrame(() => Plotly.Plots.resize(els.chart));
+  });
+
+  els.filtersToggle.addEventListener("click", () => {
+    const isOpen = els.filtersDrawer.classList.toggle("open");
+    els.filtersToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  // Picking a value closes the drawer so the chart underneath is visible
+  // right away; the slider/number/checkboxes are left alone since users
+  // typically want to keep adjusting those without the drawer snapping shut.
+  [els.category, els.season, els.position, els.xMetric, els.yMetric].forEach((el) =>
+    el.addEventListener("change", closeFiltersDrawer)
+  );
+
+  document.addEventListener("click", (e) => {
+    if (!els.filtersDrawer.classList.contains("open")) return;
+    if (els.filtersDrawer.contains(e.target) || els.filtersToggle.contains(e.target)) return;
+    closeFiltersDrawer();
+  });
 }
 
 loadMetadata().catch((err) => {

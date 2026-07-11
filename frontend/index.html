@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive scouting dashboard for NFL offensive & defensive line PFF metrics." />
+<meta name="description" content="Interactive dashboard for NFL OL & DL PFF metrics." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,13 @@
 
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="images/favicon-512x512.png">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
 </head>
 <body>
 
@@ -41,60 +48,68 @@
 
 <main class="layout">
 
-  <section class="control-bar" aria-label="Filters">
-    <div class="control">
-      <label for="category-select">Unit</label>
-      <select id="category-select">
-        <option value="pass_rush">Pass Rush (DL)</option>
-        <option value="pass_block">Pass Block (OL)</option>
-      </select>
-    </div>
+  <div class="controls-toggle">
+    <button id="toggle-filters" type="button" aria-expanded="false" aria-controls="filters-drawer">
+      ⚙ Filters
+    </button>
+  </div>
 
-    <div class="control">
-      <label for="season-select">Season</label>
-      <select id="season-select"></select>
-    </div>
-
-    <div class="control">
-      <label for="position-select">Position</label>
-      <select id="position-select"></select>
-    </div>
-
-    <div class="control">
-      <label for="x-metric-select">X axis</label>
-      <select id="x-metric-select"></select>
-    </div>
-
-    <div class="control">
-      <label for="y-metric-select">Y axis</label>
-      <select id="y-metric-select"></select>
-    </div>
-
-    <div class="control control-slider">
-      <label for="threshold-slider">
-        Min <span id="threshold-field-label">opportunities</span>
-      </label>
-      <div class="threshold-row">
-        <input type="range" id="threshold-slider" min="0" max="100" value="0" />
-        <input type="number" id="threshold-number" min="0" step="1"
-               aria-label="min opportunities exact value" />
+  <div id="filters-drawer" class="filters-drawer">
+    <section class="control-bar" aria-label="Filters">
+      <div class="control">
+        <label for="category-select">Unit</label>
+        <select id="category-select">
+          <option value="pass_rush">Pass Rush (DL)</option>
+          <option value="pass_block">Pass Block (OL)</option>
+        </select>
       </div>
-    </div>
 
-    <div class="control control-check">
-      <label class="checkbox-label">
-        <input type="checkbox" id="labels-toggle" />
-        Show player labels
-      </label>
-    </div>
+      <div class="control">
+        <label for="season-select">Season</label>
+        <select id="season-select"></select>
+      </div>
 
-    <div class="control control-check">
-      <label class="checkbox-label">
-        <input type="checkbox" id="logos-toggle" checked />
-        Team logos
-      </label>
-    </div>
-  </section>
+      <div class="control">
+        <label for="position-select">Position</label>
+        <select id="position-select"></select>
+      </div>
+
+      <div class="control">
+        <label for="x-metric-select">X axis</label>
+        <select id="x-metric-select"></select>
+      </div>
+
+      <div class="control">
+        <label for="y-metric-select">Y axis</label>
+        <select id="y-metric-select"></select>
+      </div>
+
+      <div class="control control-slider">
+        <label for="threshold-slider">
+          Min <span id="threshold-field-label">opportunities</span>
+        </label>
+        <div class="threshold-row">
+          <input type="range" id="threshold-slider" min="0" max="100" value="0" />
+          <input type="number" id="threshold-number" min="0" step="1"
+                 aria-label="min opportunities exact value" />
+        </div>
+      </div>
+
+      <div class="control control-check">
+        <label class="checkbox-label">
+          <input type="checkbox" id="labels-toggle" />
+          Show player labels
+        </label>
+      </div>
+
+      <div class="control control-check">
+        <label class="checkbox-label">
+          <input type="checkbox" id="logos-toggle" checked />
+          Team logos
+        </label>
+      </div>
+    </section>
+  </div>
 
   <section class="board">
     <div class="chart-panel">
@@ -134,10 +149,18 @@
   </section>
 
   <p class="footnote">
-    Data: 2022-2025 seasons. Source: PFF premium data, processed locally — raw stats are never published, only
-    season‑level charts. Median lines mark the field for the current filter.
+    Source: PFF premium data preprocessed locally. Raw stats are never published.
+    Median lines mark the field for the current filter.
   </p>
 </main>
+
+<dialog id="chart-modal" class="chart-modal">
+  <div class="modal-header">
+    <button id="close-modal" type="button" aria-label="Close chart">✕</button>
+  </div>
+  <div id="modal-chart"></div>
+  <p class="modal-hint">Pinch to zoom · Long-press to save</p>
+</dialog>
 
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="app.js"></script>

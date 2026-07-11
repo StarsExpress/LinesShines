@@ -1,4 +1,9 @@
+<p align="center">
+  <img src="frontend/images/lines_shines_logo.png" width="200">
+</p>
+
 # 🏈LinesShines
+
 ### ⚓️ How Curiosity About Linemen Started
 Perhaps being a Fantasy Football player causes me to not focus entirely on QB & skill positions.
 

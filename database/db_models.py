@@ -29,7 +29,7 @@ class Team(Base):
 
     code = Column(String(4), primary_key=True)
     full_name = Column(String, nullable=False)
-    primary_color = Column(String(7))  # hex like "#0085CA"
+    primary_color = Column(String(7))  # Hex like "#0085CA".
 
     pass_rush_stats = relationship("PassRushStat", back_populates="team")
     pass_block_stats = relationship("PassBlockStat", back_populates="team")
@@ -40,20 +40,20 @@ class PassRushStat(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     season = Column(Integer, nullable=False)
-    position = Column(String(4), nullable=False)  # DI / ED / LB
+    position = Column(String(4), nullable=False)  # DI / ED.
     team_code = Column(String(4), ForeignKey("teams.code"), nullable=False)
     player = Column(String, nullable=False)
     abbr_name = Column(String, nullable=False)
 
     games = Column(Integer)
-    pr_opp = Column(Integer)              # "PR Opp"
-    tps_pr_opp = Column(Integer)          # "TPS PR Opp"
-    win_rate = Column(Float)              # "Win Rate"
-    tps_win_rate = Column(Float)          # "TPS Win Rate"
-    pressure_rate = Column(Float)         # "Pressure Rate"
-    tps_pressure_rate = Column(Float)     # "TPS Pressure Rate"
-    havoc_rate = Column(Float)            # "Havoc Rate"
-    tps_havoc_rate = Column(Float)        # "TPS Havoc Rate"
+    pr_opp = Column(Integer)              # PR Opp.
+    tps_pr_opp = Column(Integer)          # TPS PR Opp.
+    win_rate = Column(Float)              # Win Rate.
+    tps_win_rate = Column(Float)          # TPS Win Rate.
+    pressure_rate = Column(Float)         # Pressure Rate.
+    tps_pressure_rate = Column(Float)     # TPS Pressure Rate.
+    havoc_rate = Column(Float)            # Havoc Rate.
+    tps_havoc_rate = Column(Float)        # TPS Havoc Rate.
 
     team = relationship("Team", back_populates="pass_rush_stats")
 
@@ -77,12 +77,12 @@ class PassBlockStat(Base):
     abbr_name = Column(String, nullable=False)
 
     games = Column(Integer)
-    non_spike_pb_snaps = Column(Integer)         # "Non Spike PB Snaps"
-    tps_non_spike_pb_snaps = Column(Integer)     # "TPS Non Spike PB Snaps"
-    allowed_pressure_pct = Column(Float)         # "Allowed Pressure %"
-    tps_allowed_pressure_pct = Column(Float)     # "TPS Allowed Pressure %"
-    allowed_havoc_pct = Column(Float)            # "Allowed Havoc %"
-    tps_allowed_havoc_pct = Column(Float)        # "TPS Allowed Havoc %"
+    non_spike_pb_snaps = Column(Integer)         # Non Spike PB Snaps.
+    tps_non_spike_pb_snaps = Column(Integer)     # TPS Non Spike PB Snaps.
+    allowed_pressure_pct = Column(Float)         # Allowed Pressure %.
+    tps_allowed_pressure_pct = Column(Float)     # TPS Allowed Pressure %.
+    allowed_havoc_pct = Column(Float)            # Allowed Havoc %.
+    tps_allowed_havoc_pct = Column(Float)        # TPS Allowed Havoc %.
 
     team = relationship("Team", back_populates="pass_block_stats")
 
@@ -96,7 +96,7 @@ class PassBlockStat(Base):
 
 
 class DatasetInfo(Base):
-    """One-row key/value table so the API can advertise dataset provenance
+    """One-row key/value table so API can advertise dataset provenance
     (sample vs. real, last-ingested timestamp) without an env-var round-trip.
     """
     __tablename__ = "dataset_info"
@@ -106,8 +106,8 @@ class DatasetInfo(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-# Serialization helpers used by main.py to keep the API payload shape
-# identical to what the frontend already expects (space-and-mixed-case keys
+# Serialization helpers used by main.py to keep API payload shape
+# identical to what frontend already expects (space-and-mixed-case keys
 # preserved so no client-side renaming is needed). ---
 
 def pass_rush_row_to_dict(row: PassRushStat) -> dict:

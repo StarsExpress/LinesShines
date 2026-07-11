@@ -1,22 +1,22 @@
-"""Ingest the preprocessed PFF Excel workbooks into the database.
+"""Ingest preprocessed PFF Excel workbooks into database.
 
-Reads the `{season} NFL Front 7 Pass Rush.xlsx` and
+Reads `{season} NFL Front 7 Pass Rush.xlsx` and
 `{season} NFL OL Pass Block.xlsx` files that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
-produce, and upserts them into the `pass_rush_stats` / `pass_block_stats`
-tables.
+produce, and upserts them into `pass_rush_stats` / `pass_block_stats` tables.
 
-Idempotent: rerunning for the same season/position first deletes existing
+Idempotent: rerunning for same season/position first deletes existing
 rows for that slice, then bulk-inserts fresh ones — cleaner than
 per-row upsert and dialect-agnostic (works on both SQLite and Postgres).
 
-Usage (from the repo root, after running the two preprocessing scripts):
+Usage:
+1. Must always go from repo root.
+2. After running two preprocessing scripts.
+3. python -m database.db_ingestion
 
-    DATABASE_URL=sqlite:///./data/lines_shines.db python db_ingestion.py
-
-For Railway, set DATABASE_URL to the Postgres URL Railway assigns.
-Point LINESHINES_REPO_ROOT at the LinesShines repo root so the script can
-locate the xlsx files under $LINESHINES_REPO_ROOT/data/.
+For Railway, set DATABASE_URL to Postgres URL Railway assigns.
+Point LINESHINES_REPO_ROOT at LinesShines repo root so scripts can
+locate xlsx files under $LINESHINES_REPO_ROOT/data/.
 """
 
 from __future__ import annotations
@@ -43,15 +43,14 @@ def _find_repo_root() -> Path:
     """Walk up from this file until we find a marker that identifies the repo root."""
     here = Path(__file__).resolve().parent
     for candidate in [here, *here.parents]:
-        # Any of these markers means "you found the root"
-        if (candidate / "main.py").exists() or (candidate / ".git").exists():
-            return candidate
+        if (candidate / ".gitignore").exists():
+            return candidate  # Root is found.
 
     raise RuntimeError("could not locate repo root from " + str(here))
 
 
 def _repo_root() -> Path:
-    """Where to find the preprocessed xlsx files.
+    """Where to find preprocessed xlsx files.
 
     Order of precedence:
       1. --data-dir CLI flag
@@ -99,7 +98,7 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
         path = data_dir / f"{season} NFL Front 7 Pass Rush.xlsx"
 
         if not path.exists():
-            print(f"  skip pass_rush {season}: {path} not found")
+            print(f"Skip pass rush {season}: {path} not found")
             continue
 
         sheets = pd.read_excel(path, sheet_name=None)
@@ -152,7 +151,7 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     for season in seasons:
         path = data_dir / f"{season} NFL OL Pass Block.xlsx"
         if not path.exists():
-            print(f"  skip pass_block {season}: {path} not found")
+            print(f"Skip pass block {season}: {path} not found")
             continue
 
         sheets = pd.read_excel(path, sheet_name=None)
@@ -202,7 +201,7 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
 
 
 def _set_dataset_info(sess: Session) -> None:
-    """Flag this DB as production (not sample), stamp the ingest time."""
+    """Flag this DB as production (not sample), stamp ingest time."""
     updates = {
         "is_sample_data": "false",
         "last_ingested_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
@@ -241,23 +240,23 @@ def main() -> None:
 
     data_dir = args.data_dir or _repo_root()
     if not data_dir.exists():
-        print(f"data directory not found: {data_dir}", file=sys.stderr)
+        print(f"Data directory not found: {data_dir}", file=sys.stderr)
         print(
-            "set --data-dir or LINESHINES_DATA_DIR/LINESHINES_REPO_ROOT env var",
+            "Set --data-dir or LINESHINES_DATA_DIR/LINESHINES_REPO_ROOT env var",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    print(f"reading xlsx from: {data_dir}")
+    print(f"Reading xlsx from: {data_dir}")
 
     Base.metadata.create_all(engine)
     with SessionLocal() as sess:
         upsert_teams(sess)
-        pr = ingest_pass_rush(sess, data_dir, args.seasons)
-        pb = ingest_pass_block(sess, data_dir, args.seasons)
+        pass_rush_rows = ingest_pass_rush(sess, data_dir, args.seasons)
+        pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
         _set_dataset_info(sess)
 
-    print(f"\ningested {pr} pass-rush rows and {pb} pass-block rows.")
+    print(f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows.")
 
 
 if __name__ == "__main__":

@@ -140,6 +140,32 @@ body {
   padding: 28px 24px 60px;
 }
 
+/* --- mobile filters drawer trigger ---
+   Hidden on desktop by default; the `@media (max-width: 860px)` block at
+   the bottom of this file both reveals it and turns .filters-drawer into a
+   fixed bottom sheet. On desktop .filters-drawer is just a plain wrapper
+   around .control-bar, so nesting it costs nothing there. */
+.controls-toggle { display: none; }
+
+#toggle-filters {
+  width: 100%;
+  background: var(--turf-800);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+#toggle-filters:hover,
+#toggle-filters:focus-visible {
+  border-color: var(--flag-gold);
+  color: var(--flag-gold-bright);
+}
+
 /* --- control bar --- */
 .control-bar {
   display: flex;
@@ -251,6 +277,12 @@ body {
   padding: 12px;
   min-height: 720px;
   position: relative;
+  /* Without this, a pinch gesture aimed at a data point is read by the
+     browser as a page-zoom gesture, blowing the whole layout (controls
+     included) off screen instead of hovering the point. Tapping the chart
+     opens #chart-modal instead, where pinch-zoom is left enabled because
+     there's nothing else on screen for it to disturb. */
+  touch-action: none;
 }
 
 #chart { width: 100%; height: 720px; }
@@ -472,4 +504,114 @@ body {
   }
   .scout-card-empty:not([hidden]) { display: flex; }
   .scout-card-body { padding: 0; }
+
+  /* Filter controls collapse into a bottom-sheet drawer here — left open
+     and flex-wrapped like on desktop, five selects + a slider would eat
+     most of a phone screen before the chart even starts. */
+  .controls-toggle { display: block; margin-bottom: 14px; }
+
+  .filters-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--turf-800);
+    padding: 16px;
+    border-top: 1px solid var(--turf-600);
+    border-radius: 14px 14px 0 0;
+    z-index: 100;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  .filters-drawer.open {
+    transform: translateY(0);
+  }
+
+  /* Undo the desktop card chrome — the drawer itself is already the card —
+     and stack controls in a single column instead of wrapping flex rows. */
+  .filters-drawer .control-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 0;
+    border-radius: 0;
+  }
+  .filters-drawer .control select,
+  .filters-drawer #threshold-number {
+    width: 100%;
+  }
+}
+
+/* --- fullscreen chart modal (mobile pinch-zoom escape hatch) ---
+   #chart is physically reparented into #modal-chart on open and moved back
+   on close (see app.js) — same Plotly instance, no re-render, so hover/click
+   state and listeners survive the trip. Native <dialog> handles the
+   top-layer stacking, focus trap, and Esc-to-close for free. */
+.chart-modal {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(15, 33, 25, 0.97);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.chart-modal::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.chart-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 16px 0;
+  flex: none;
+}
+
+#close-modal {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--turf-800);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+#close-modal:hover,
+#close-modal:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+
+#modal-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 8px 12px;
+}
+
+.modal-hint {
+  flex: none;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--chalk-dim);
+  margin: 0;
+  padding: 4px 16px 18px;
 }
