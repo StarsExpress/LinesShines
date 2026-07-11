@@ -20,7 +20,7 @@ const els = {
   yMetric: document.getElementById("y-metric-select"),
   threshold: document.getElementById("threshold-slider"),
   thresholdNumber: document.getElementById("threshold-number"),
-  thresholdSet: document.getElementById("threshold-set"),
+  applyBtn: document.getElementById("apply-filters"),
   thresholdFieldLabel: document.getElementById("threshold-field-label"),
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
@@ -38,23 +38,34 @@ const els = {
   scoutName: document.getElementById("scout-name"),
   scoutMeta: document.getElementById("scout-meta"),
   scoutStats: document.getElementById("scout-stats"),
+  scoutClose: document.getElementById("scout-close"),
 };
 
 let metadata = null;                 // /api/metadata payload
 const sliceCache = new Map();        // key = `${category}:${season}:${position}` → records[]
 let currentRecords = [];             // records for the current slice (all threshold values)
 let currentFiltered = [];            // records >= threshold (what the chart shows)
-let appliedThreshold = null;         // threshold value the chart was last rendered with
+
+// Snapshot of {category, season, position, xMetric, yMetric, threshold} the
+// chart was last actually rendered with. Every one of those controls can be
+// changed freely without touching the chart — render() and showScoutCard()
+// read from this snapshot, never live off the controls directly — so the
+// Apply button is what commits a batch of changes together, and an
+// unrelated render() trigger (the label/logo toggles) can't accidentally
+// leak in a half-picked axis or threshold that hasn't been applied yet.
+let appliedFilters = null;
 let pinnedIndex = null;
 let logoRelayoutGuard = false;       // suppresses our own relayout from re-triggering itself
-let unhoverTimeout = null;           // debounces the chart mouseleave hide so grazing the edge doesn't flicker the card
-let chartHovered = false;            // tracks pointer-inside-#chart, not "hovering a marker" — far less noisy at the edges
 
 // True right after page load and right after a category switch — both cases
 // where the threshold should snap to that category's configured default
 // rather than carrying over a value from a different threshold_field scale
 // (PR Opp vs Non Spike PB Snaps aren't comparable). Season/position changes
 // within the same category leave this false, so the user's value persists.
+// If the user manually edits the threshold slider/number while a category
+// switch is still pending (not yet Applied), that's an explicit override —
+// it clears this flag so applyFilters() doesn't clobber it with the new
+// category's default.
 let resetThresholdOnNextRange = true;
 
 // Decoded Image objects, keyed by team code, filled once at page load so
@@ -88,12 +99,15 @@ function logoSrc(team) {
   return logoCache[team] ? logoCache[team].src : LOGO_PATH(team);
 }
 
-// Logos are sized as a fraction of plot WIDTH in pixels, not a fixed pixel
-// target — that way they stay proportionally consistent whether the chart
-// shows 20 players or 70, and scale with the container instead of looking
-// tiny on a wide monitor / oversized on mobile. ~2.8% roughly matches the
-// visual scale of the matplotlib reference in scatter_plots/pass_rush_plot.py.
-const LOGO_WIDTH_FRACTION = 0.028;
+// Logos are sized as a fixed pixel target rather than a fraction of plot
+// width so a dense mobile chart (77 overlapping dots on a 342px-wide panel)
+// doesn't inherit the same visual scale as a 1100px desktop chart. Mobile
+// gets a smaller absolute size to cut overlap; desktop's 26px roughly
+// matches the visual scale of the matplotlib reference in
+// scatter_plots/pass_rush_plot.py.
+function targetLogoPx() {
+  return window.innerWidth < 860 ? 18 : 26;
+}
 
 async function loadMetadata() {
   const res = await fetch("/api/metadata");
@@ -103,16 +117,50 @@ async function loadMetadata() {
   populateCategoryDependentControls();
   attachEvents();
   await loadCurrentSlice();
+  appliedFilters = currentFilterState();
 
   els.logoPreload.hidden = false;
   await preloadLogos();
   els.logoPreload.hidden = true;
 
   render();
+  updatePendingState();
 }
 
 function currentCategoryMeta() {
   return metadata[els.category.value];
+}
+
+// The category metadata for whatever's actually plotted right now, as
+// opposed to currentCategoryMeta() which tracks the (possibly still
+// pending, not-yet-applied) category select.
+function appliedCategoryMeta() {
+  return metadata[appliedFilters.category];
+}
+
+function currentFilterState() {
+  return {
+    category: els.category.value,
+    season: els.season.value,
+    position: els.position.value,
+    xMetric: els.xMetric.value,
+    yMetric: els.yMetric.value,
+    threshold: els.thresholdNumber.value,
+  };
+}
+
+function filtersArePending() {
+  if (!appliedFilters) return false;
+  const current = currentFilterState();
+  return Object.keys(current).some((key) => current[key] !== appliedFilters[key]);
+}
+
+// Lights up the Apply button whenever any batched control (category,
+// season, position, either axis, or threshold) holds a value the chart
+// hasn't been rendered with yet — the only feedback the user gets now that
+// none of these re-render on their own.
+function updatePendingState() {
+  els.applyBtn.classList.toggle("pending", filtersArePending());
 }
 
 function populateCategoryDependentControls() {
@@ -198,14 +246,6 @@ function updateThresholdRange() {
   els.thresholdNumber.value = els.threshold.value;
 }
 
-// Lights up the Set button whenever the slider/number controls hold a value
-// the chart hasn't been rendered with yet — the only feedback the user gets
-// now that dragging/typing no longer re-renders on their own.
-function updateThresholdPendingState() {
-  const pending = Number(els.thresholdNumber.value) !== appliedThreshold;
-  els.thresholdSet.classList.toggle("pending", pending);
-}
-
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
@@ -240,9 +280,9 @@ function computeLogoImages(chartDiv, records, xKey, yKey) {
   const yAxis = fullLayout && fullLayout.yaxis;
   if (!xAxis || !yAxis || !xAxis._length || !yAxis._length) return [];
 
-  // Target size in pixels is a fraction of plot WIDTH (kept for both x and y
-  // so logos render square), then converted back to each axis's data units.
-  const targetPx = xAxis._length * LOGO_WIDTH_FRACTION;
+  // Target size in pixels (same for x and y so logos render square), then
+  // converted back to each axis's data units.
+  const targetPx = targetLogoPx();
   const xRangeSpan = Math.abs(xAxis.range[1] - xAxis.range[0]);
   const yRangeSpan = Math.abs(yAxis.range[1] - yAxis.range[0]);
   const sizex = targetPx * (xRangeSpan / xAxis._length);
@@ -305,11 +345,9 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
 }
 
 function render() {
-  const cat = currentCategoryMeta();
+  const cat = appliedCategoryMeta();
 
-  const minThreshold = Number(els.thresholdNumber.value);
-  appliedThreshold = minThreshold;
-  updateThresholdPendingState();
+  const minThreshold = Number(appliedFilters.threshold);
 
   currentFiltered = currentRecords.filter(
     (r) => r[cat.threshold_field] >= minThreshold
@@ -322,8 +360,8 @@ function render() {
   }
   els.emptyState.hidden = true;
 
-  const xKey = els.xMetric.value;
-  const yKey = els.yMetric.value;
+  const xKey = appliedFilters.xMetric;
+  const yKey = appliedFilters.yMetric;
   const xMeta = cat.metrics[xKey] || {};
   const yMeta = cat.metrics[yKey] || {};
 
@@ -385,14 +423,14 @@ function render() {
     },
   ];
 
-  const reversed = els.category.value === "pass_block"; // lower allowed% is better
+  const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
 
   const layout = {
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
     margin: { l: 60, r: 24, t: 20, b: 56 },
-    dragmode: "zoom",
+    dragmode: false,
     xaxis: {
       title: `${xKey}${xMeta.unit ? " (" + xMeta.unit + ")" : ""}`,
       gridcolor: "rgba(241,236,221,0.08)",
@@ -437,7 +475,9 @@ function render() {
   // layout, so leaving it out clears any logos from a previous render when
   // the toggle is off. Sizing needs the post-draw axis range, so logos are
   // added in a follow-up relayout once this render settles.
-  // Interim solution: Plotly's own zoom (rescales axes on zoom/drag). The
+  // Interim solution: Plotly's own scrollZoom (wheel/pinch only — dragmode
+  // is false since clicking is the sole interaction now, so a click-drag on
+  // a marker isn't hijacked into a zoom-rectangle selection). The
   // CSS-transform "photo" zoom was rolled back — it broke content on
   // desktop scroll — and will be revisited later with a different approach.
   Plotly.react(els.chart, [trace], layout, {
@@ -452,12 +492,8 @@ function render() {
     });
 
   // Clear stale listeners each render — Plotly.react reuses the same graph
-  // div, and every call otherwise adds another copy of the hover handler.
-  // No plotly_unhover here — it fires/unfires too readily near label text;
-  // the chart's mouseenter/mouseleave listeners (bound once in attachEvents)
-  // decide hiding instead, since "is the pointer still inside the chart box"
-  // has none of that per-marker noise.
-  ["plotly_hover", "plotly_click", "plotly_relayout"].forEach((evt) =>
+  // div, and every call otherwise adds another copy of the click handler.
+  ["plotly_click", "plotly_relayout"].forEach((evt) =>
     els.chart.removeAllListeners?.(evt)
   );
 
@@ -471,22 +507,20 @@ function render() {
     applyLabelDeclutter();
   });
 
-  els.chart.on("plotly_hover", (e) => {
-    if (pinnedIndex != null) return;
-    if (unhoverTimeout) clearTimeout(unhoverTimeout);
-    const idx = e.points[0].pointIndex;
-    showScoutCard(currentFiltered[idx]);
-  });
   els.chart.on("plotly_click", (e) => {
     const idx = e.points[0].pointIndex;
-    pinnedIndex = pinnedIndex === idx ? null : idx;
-    if (pinnedIndex != null) showScoutCard(currentFiltered[idx]);
-    else resetScoutCard();
+    if (pinnedIndex === idx) {
+      pinnedIndex = null;
+      resetScoutCard();
+    } else {
+      pinnedIndex = idx;
+      showScoutCard(currentFiltered[idx]);
+    }
   });
 }
 
 function showScoutCard(record) {
-  const cat = currentCategoryMeta();
+  const cat = appliedCategoryMeta();
   els.scoutCard.classList.add("is-active");
   els.scoutEmpty.hidden = true;
   els.scoutBody.hidden = false;
@@ -504,10 +538,10 @@ function showScoutCard(record) {
   };
 
   els.scoutName.textContent = record.player;
-  els.scoutMeta.textContent = `${teamName(record.team)} · ${record.position} · ${record.season}`;
+  els.scoutMeta.textContent = `${teamName(record.team)} · ${record.position}`;
 
-  const xKey = els.xMetric.value;
-  const yKey = els.yMetric.value;
+  const xKey = appliedFilters.xMetric;
+  const yKey = appliedFilters.yMetric;
 
   els.scoutStats.innerHTML = "";
   const addRow = (label, value, highlighted) => {
@@ -538,34 +572,56 @@ function closeFiltersDrawer() {
   els.filtersToggle.setAttribute("aria-expanded", "false");
 }
 
-function attachEvents() {
-  els.category.addEventListener("change", async () => {
+// The one entry point that turns pending control values into what's
+// actually plotted — fires on Apply click or Enter in the threshold field,
+// batching however many of category/season/position/axes/threshold the
+// user changed since the last apply into a single fetch + render.
+async function applyFilters() {
+  const sliceChanged =
+    els.category.value !== appliedFilters.category ||
+    els.season.value !== appliedFilters.season ||
+    els.position.value !== appliedFilters.position;
+
+  if (sliceChanged) {
     pinnedIndex = null;
     resetScoutCard();
+    await loadCurrentSlice(); // may also reset/clamp the threshold controls
+  }
+
+  appliedFilters = currentFilterState();
+  closeFiltersDrawer();
+  render();
+  updatePendingState();
+}
+
+function attachEvents() {
+  // Category/season/position/axes are all pending-only now: picking a new
+  // value just updates the control itself (plus, for category, the option
+  // lists that depend on it) and lights up Apply. Nothing fetches or
+  // re-renders until applyFilters() runs, so the user can change several of
+  // these together and commit them in one shot.
+  els.category.addEventListener("change", () => {
     resetThresholdOnNextRange = true;
     populateCategoryDependentControls();
-    await loadCurrentSlice();
-    render();
+    updatePendingState();
   });
 
-  [els.season, els.position].forEach((el) =>
-    el.addEventListener("change", async () => {
-      pinnedIndex = null;
-      resetScoutCard();
-      await loadCurrentSlice();
-      render();
-    })
+  [els.season, els.position, els.xMetric, els.yMetric].forEach((el) =>
+    el.addEventListener("change", updatePendingState)
   );
 
-  [els.xMetric, els.yMetric].forEach((el) => el.addEventListener("change", render));
-
-  // Dragging the slider or typing a number only updates the two controls'
+  // Dragging the slider or typing a number only updates these two controls'
   // own displayed values — the chart holds its current state until the user
-  // clicks Set (or presses Enter in the number field). Re-rendering on every
-  // pixel of drag / every keystroke was the whole problem on dense positions.
+  // clicks Apply (or presses Enter in the number field). Re-rendering on
+  // every pixel of drag / every keystroke was the whole problem on dense
+  // positions.
   els.threshold.addEventListener("input", () => {
     els.thresholdNumber.value = els.threshold.value;
-    updateThresholdPendingState();
+    // The user just gave an explicit threshold — don't let a pending
+    // category switch stomp it back to that category's default at Apply
+    // time (see the resetThresholdOnNextRange comment above its declaration).
+    resetThresholdOnNextRange = false;
+    updatePendingState();
   });
 
   els.thresholdNumber.addEventListener("input", () => {
@@ -581,46 +637,40 @@ function attachEvents() {
     // Slider snaps to the nearest step just to keep the handle in sync
     // visually — filtering below still uses the exact typed number.
     els.threshold.value = min + Math.round((raw - min) / step) * step;
-    updateThresholdPendingState();
+    resetThresholdOnNextRange = false;
+    updatePendingState();
   });
 
   els.thresholdNumber.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    render();
+    applyFilters();
   });
 
-  els.thresholdSet.addEventListener("click", render);
+  els.applyBtn.addEventListener("click", applyFilters);
 
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
 
-  // Bound once (not in render()) since plain addEventListener isn't cleaned
-  // up by Plotly's removeAllListeners — rebinding on every render would
-  // stack duplicate handlers, each closing over its own stale timeout.
-  els.chart.addEventListener("mouseenter", () => {
-    chartHovered = true;
-    if (unhoverTimeout) clearTimeout(unhoverTimeout);
+  els.scoutClose.addEventListener("click", () => {
+    pinnedIndex = null;
+    resetScoutCard();
   });
-  els.chart.addEventListener("mouseleave", () => {
-    chartHovered = false;
-    if (pinnedIndex != null) return;
-    unhoverTimeout = setTimeout(() => {
-      if (!chartHovered) resetScoutCard();
-    }, 150);
+
+  // Closes the pinned scouting card when clicking anywhere outside both
+  // the chart and the card itself.
+  document.addEventListener("click", (e) => {
+    if (pinnedIndex == null) return;
+    if (!els.chart.contains(e.target) && !els.scoutCard.contains(e.target)) {
+      pinnedIndex = null;
+      resetScoutCard();
+    }
   });
 
   els.filtersToggle.addEventListener("click", () => {
     const isOpen = els.filtersDrawer.classList.toggle("open");
     els.filtersToggle.setAttribute("aria-expanded", String(isOpen));
   });
-
-  // Picking a value closes the drawer so the chart underneath is visible
-  // right away; the slider/number/checkboxes are left alone since users
-  // typically want to keep adjusting those without the drawer snapping shut.
-  [els.category, els.season, els.position, els.xMetric, els.yMetric].forEach((el) =>
-    el.addEventListener("change", closeFiltersDrawer)
-  );
 
   document.addEventListener("click", (e) => {
     if (!els.filtersDrawer.classList.contains("open")) return;

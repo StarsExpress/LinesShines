@@ -55,7 +55,22 @@ body {
   border-bottom: 1px solid var(--turf-600);
 }
 
-.hero-inner { max-width: 860px; margin: 0 auto; }
+.hero-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.hero-logo {
+  flex: none;
+  height: 210px;
+  width: auto;
+  border-radius: 10px;
+}
+
+.hero-text { min-width: 0; }
 
 .hero-github {
   position: absolute;
@@ -216,35 +231,38 @@ body {
 }
 #threshold-number { -moz-appearance: textfield; }
 
-.threshold-set-btn {
+.control-check { min-width: auto; }
+.control-apply { min-width: auto; }
+
+/* Governs every filter control now (category/season/position/axes/threshold
+   all sit "pending" in their own inputs until this is clicked), so it's
+   styled as the form's one primary action rather than tucked next to the
+   threshold slider like the old threshold-only Set button was. */
+.apply-btn {
   flex: none;
-  width: 60px;
-  background: var(--turf-800);
-  color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 9px 20px;
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
 }
-.threshold-set-btn:hover,
-.threshold-set-btn:focus-visible {
-  border-color: var(--flag-gold);
-  color: var(--flag-gold-bright);
-}
-/* Lit up while the slider/number value differs from what's actually
-   drawn on the chart — the only cue that a typed/dragged value is
-   sitting unapplied since neither control re-renders on its own anymore. */
-.threshold-set-btn.pending {
+.apply-btn:hover,
+.apply-btn:focus-visible {
+  background: var(--flag-gold-bright);
   border-color: var(--flag-gold-bright);
-  color: var(--flag-gold-bright);
-  box-shadow: 0 0 0 1px var(--flag-gold-bright), 0 0 8px rgba(232, 193, 94, 0.55);
 }
-
-.control-check { min-width: auto; }
+/* Lit up while any control (category/season/position/axes/threshold) holds
+   a value that differs from what's actually drawn on the chart — the only
+   cue that pending selections are sitting unapplied. */
+.apply-btn.pending {
+  box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright), 0 0 10px rgba(232, 193, 94, 0.55);
+}
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -283,6 +301,15 @@ body {
 }
 
 #chart { width: 100%; height: 720px; }
+/* The actual hit-testing layer is Plotly's .nsewdrag overlay rect, which
+   sits above every marker and would otherwise keep its own injected
+   crosshair cursor (a leftover affordance for drag-to-zoom, which is off
+   now that dragmode:false makes click the only interaction) — this is the
+   rule that's actually visible. .points path is kept too: inert today since
+   the overlay covers it, but it becomes the effective rule for free if a
+   future Plotly version changes the layer stacking. */
+#chart .nsewdrag { cursor: pointer; }
+#chart .points path { cursor: pointer; }
 
 .empty-state {
   position: absolute;
@@ -336,6 +363,37 @@ body {
   width: 260px;
   z-index: 5;
 }
+
+/* Positioned relative to .scout-card itself (not .scout-card-panel) so the
+   same top/right offsets land in the right corner whether .scout-card is
+   the absolute desktop overlay or the relative mobile stacked block —
+   both share .scout-card as their positioning root. Hidden until a card is
+   pinned via the shared .is-active toggle, same as the panel body. */
+.scout-close {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.scout-close:hover,
+.scout-close:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.scout-card.is-active .scout-close { display: flex; }
 
 .scout-card-tab {
   position: relative;
@@ -450,9 +508,22 @@ body {
 
 @media (max-width: 860px) {
   .board { grid-template-columns: 1fr; }
-  #chart, .chart-panel { min-height: 460px; }
-  #chart { height: 460px; }
-  .hero { padding: 24px 18px 18px; }
+
+  /* Bleed the chart panel out to the viewport edges — .layout's 24px
+     horizontal padding is otherwise doubled up with the panel's own 12px,
+     eating ~36px of chart width per side on a 390px phone. */
+  .chart-panel {
+    padding: 0;
+    margin: 0 -24px;
+    border-radius: 0;
+  }
+  #chart, .chart-panel { min-height: 600px; }
+  #chart { height: 75vh; min-height: 600px; }
+  .hero { padding: 16px 16px 12px; }
+  .hero-inner { gap: 12px; }
+  .hero-logo { height: 44px; border-radius: 8px; }
+  .hero-title { font-size: clamp(24px, 6vw, 40px); }
+  .hero-byline { display: none; }
   .hero-github { top: 14px; right: 16px; }
   .hero-github svg { width: 18px; height: 18px; }
 
@@ -542,5 +613,9 @@ body {
   .filters-drawer .control select,
   .filters-drawer #threshold-number {
     width: 100%;
+  }
+  .filters-drawer .apply-btn {
+    width: 100%;
+    padding: 12px 20px;
   }
 }
