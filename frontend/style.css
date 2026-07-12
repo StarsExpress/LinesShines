@@ -233,6 +233,7 @@ body {
 
 .control-check { min-width: auto; }
 .control-apply { min-width: auto; }
+.control-png { min-width: auto; }
 
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
@@ -271,16 +272,16 @@ body {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--turf-700);
   color: var(--chalk);
   border: 1px solid var(--turf-600);
   border-radius: 6px;
-  padding: 9px 16px;
+  padding: 5px 9px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -307,8 +308,8 @@ body {
   display: none;
 }
 .png-btn .icon-download {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   opacity: 0.8;
 }
 

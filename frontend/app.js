@@ -197,9 +197,16 @@ function populateCategoryDependentControls() {
     });
   });
   // Distinct defaults, mirroring the pipeline's canonical query pairs
-  // (e.g. TPS Win Rate vs. plain Win Rate).
-  els.xMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[0];
-  els.yMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
+  // (e.g. TPS Win Rate vs. plain Win Rate). Pass rush gets an explicit
+  // Win Rate / Havoc Rate pairing; pass block falls back to the generic
+  // TPS-vs-non-TPS heuristic.
+  if (els.category.value === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("Havoc Rate")) {
+    els.xMetric.value = "Win Rate";
+    els.yMetric.value = "Havoc Rate";
+  } else {
+    els.xMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[0];
+    els.yMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
+  }
 
   els.thresholdFieldLabel.textContent =
     cat.threshold_field === "PR Opp" ? "pass rush opportunities" : "non-spike pass block snaps";
