@@ -614,6 +614,16 @@ body {
   .filters-drawer #threshold-number {
     width: 100%;
   }
+  /* .control-slider's `flex: 1 1 220px` sizes it as a 220px-wide item in
+     the desktop row layout above. In this column-direction drawer, that
+     same flex-basis is read as a 220px *height* instead — the control's
+     actual content (label + slider row) is ~80px, so without this reset
+     it sits in a box ~140px taller than its content, which is exactly
+     the empty gap this rule fixes. */
+  .filters-drawer .control-slider {
+    flex: none;
+    min-width: 0;
+  }
   .filters-drawer .apply-btn {
     width: 100%;
     padding: 12px 20px;
