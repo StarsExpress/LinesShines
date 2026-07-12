@@ -2,9 +2,7 @@
   <img src="frontend/images/lines_shines_logo.png" width="200">
 </p>
 
-# 🏈LinesShines
-
-[//]: # (![Version]&#40;https://img.shields.io/badge/version-v1.0.0-blue&#41;)
+# 🏈LinesShines · 鋒光
 
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
 ![Season](https://img.shields.io/badge/Season-2025-crimson)
