@@ -328,15 +328,22 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
   const CHAR_WIDTH = 6.5; // approx advance width, IBM Plex Mono @ 10px
   const LABEL_HEIGHT = 12;
   const LABEL_GAP = 10;   // vertical offset from marker center to "bottom center" text
+  // Shrink each box by this fraction on every side before the collision test,
+  // so two labels have to genuinely overlap (not just sit close) to bump one
+  // another — trades a bit of edge-touching/kerning overlap for showing more
+  // names in dense clusters.
+  const OVERLAP_TOLERANCE = 0.35;
 
   const boxes = records.map((r) => {
     const label = r.abbr_name || r.player || "";
     const cx = xAxis.l2p(r[xKey]);
     const top = yAxis.l2p(r[yKey]) + LABEL_GAP;
     const halfWidth = (label.length * CHAR_WIDTH) / 2;
+    const shrinkX = halfWidth * OVERLAP_TOLERANCE;
+    const shrinkY = (LABEL_HEIGHT / 2) * OVERLAP_TOLERANCE;
     return {
-      left: cx - halfWidth, right: cx + halfWidth,
-      top, bottom: top + LABEL_HEIGHT,
+      left: cx - halfWidth + shrinkX, right: cx + halfWidth - shrinkX,
+      top: top + shrinkY, bottom: top + LABEL_HEIGHT - shrinkY,
       priority: r[thresholdField] ?? 0,
     };
   });
@@ -479,13 +486,15 @@ function render() {
     margin: { l: 60, r: 24, t: 20, b: 56 },
     dragmode: false,
     xaxis: {
-      title: `${xKey}${xMeta.unit ? " (" + xMeta.unit + ")" : ""}`,
+      // Plotly 3.x requires title as {text: ...} — a bare string is
+      // silently ignored (renders as an empty <g class="g-xtitle">).
+      title: { text: `${xKey}${xMeta.unit ? " (" + xMeta.unit + ")" : ""}` },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
       autorange: reversed ? "reversed" : true,
     },
     yaxis: {
-      title: `${yKey}${yMeta.unit ? " (" + yMeta.unit + ")" : ""}`,
+      title: { text: `${yKey}${yMeta.unit ? " (" + yMeta.unit + ")" : ""}` },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
       autorange: reversed ? "reversed" : true,
