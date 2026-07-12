@@ -21,6 +21,7 @@ const els = {
   threshold: document.getElementById("threshold-slider"),
   thresholdNumber: document.getElementById("threshold-number"),
   applyBtn: document.getElementById("apply-filters"),
+  savePngBtn: document.getElementById("save-png-btn"),
   thresholdFieldLabel: document.getElementById("threshold-field-label"),
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
@@ -246,6 +247,13 @@ function updateThresholdRange() {
   els.thresholdNumber.value = els.threshold.value;
 }
 
+// Metric labels can contain "%" or "/" (e.g. "Pressure %"), which aren't
+// safe/clean in a downloaded filename — collapse any run of non-alphanumeric
+// characters to a single underscore.
+function sanitizeForFilename(value) {
+  return String(value).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
@@ -356,9 +364,13 @@ function render() {
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
     Plotly.purge(els.chart);
+    els.savePngBtn.disabled = true;
+    els.savePngBtn.title = "Load some data first";
     return;
   }
   els.emptyState.hidden = true;
+  els.savePngBtn.disabled = false;
+  els.savePngBtn.title = "Save chart as PNG";
 
   const xKey = appliedFilters.xMetric;
   const yKey = appliedFilters.yMetric;
@@ -648,6 +660,48 @@ function attachEvents() {
   });
 
   els.applyBtn.addEventListener("click", applyFilters);
+
+  // Exports exactly what's on screen — built from appliedFilters (the
+  // last-committed state render() actually drew), not the live controls,
+  // so a pending-but-not-applied axis/season change can't leak into the
+  // downloaded filename or image.
+  els.savePngBtn.addEventListener("click", () => {
+    if (els.savePngBtn.disabled) return;
+    const season = appliedFilters.season;
+    const position = sanitizeForFilename(appliedFilters.position);
+    const xMetric = sanitizeForFilename(appliedFilters.xMetric);
+    const yMetric = sanitizeForFilename(appliedFilters.yMetric);
+    const filename = `LinesShines_${season}_${position}_${xMetric}_vs_${yMetric}`;
+
+    // paper/plot bgcolor are "transparent" on screen — the chart relies on
+    // .chart-panel's dark CSS behind it (see style.css --turf-800). A raster
+    // export has no page behind it, so a transparent export composites onto
+    // whatever's behind it when opened (white, on most viewers/socials),
+    // which washes out the low-opacity gridlines/labels designed for a dark
+    // background. Swap in the panel's actual color just for the export, then
+    // restore transparency so on-screen zoom/pan is unaffected. The guard
+    // suppresses the logo/label relayout handler from reacting to these two
+    // bookkeeping relayouts.
+    els.savePngBtn.disabled = true;
+    logoRelayoutGuard = true;
+    Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" })
+      .then(() =>
+        Plotly.downloadImage(els.chart, {
+          format: "png",
+          filename,
+          width: 2400,
+          height: 1500,
+          scale: 1,
+        })
+      )
+      .then(() =>
+        Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" })
+      )
+      .finally(() => {
+        logoRelayoutGuard = false;
+        els.savePngBtn.disabled = false;
+      });
+  });
 
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);

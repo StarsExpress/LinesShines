@@ -263,6 +263,46 @@ body {
 .apply-btn.pending {
   box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright), 0 0 10px rgba(232, 193, 94, 0.55);
 }
+/* Secondary action next to Apply — turf bg + chalk text, gold reserved for
+   Apply since that's the primary action. Exports whatever's currently
+   rendered on the chart, so it's disabled whenever the chart itself is
+   empty (see the `< 2` check in render()). */
+.png-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--turf-700);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.png-btn:hover,
+.png-btn:focus-visible {
+  background: var(--turf-600);
+  border-color: var(--flag-gold);
+}
+.png-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.png-btn:disabled:hover {
+  background: var(--turf-700);
+  border-color: var(--turf-600);
+}
+.png-btn .icon-download {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -624,8 +664,10 @@ body {
     flex: none;
     min-width: 0;
   }
-  .filters-drawer .apply-btn {
+  .filters-drawer .apply-btn,
+  .filters-drawer .png-btn {
     width: 100%;
+    justify-content: center;
     padding: 12px 20px;
   }
 }

@@ -72,15 +72,38 @@
         <select id="position-select"></select>
       </div>
 
-      <div class="control">
+      <!-- Row-break elements force deterministic line wraps in the control
+           bar (see .row-break in style.css) instead of leaving row grouping
+           to depend on exact viewport width, which is what previously left
+           X/Y axis stranded alone on a row while Team logos/Apply/Save PNG
+           crowded another. Grouping + right-alignment (Save Plot on the
+           axis row, Apply on the toggles row) is driven entirely by CSS
+           `order`, with separate desktop vs. mobile order values — see the
+           `.control-axis`/`.control-png`/`.control-apply` order rules and
+           the @media (max-width: 860px) overrides. -->
+      <div class="row-break" aria-hidden="true"></div>
+
+      <div class="control control-axis">
         <label for="x-metric-select">X axis</label>
         <select id="x-metric-select"></select>
       </div>
 
-      <div class="control">
+      <div class="control control-axis">
         <label for="y-metric-select">Y axis</label>
         <select id="y-metric-select"></select>
       </div>
+
+      <div class="control control-png">
+        <button id="save-png-btn" type="button" class="png-btn" aria-label="Save plot as PNG" title="Save plot as PNG" disabled>
+          <svg class="icon-download" viewBox="0 0 16 16" aria-hidden="true">
+            <path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"/>
+            <path fill="currentColor" d="M2.75 12.5a.75.75 0 0 1 .75.75v.25c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-.25a.75.75 0 0 1 1.5 0v.25A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 13.25v-.25a.75.75 0 0 1 .75-.75Z"/>
+          </svg>
+          Save Plot
+        </button>
+      </div>
+
+      <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-slider">
         <label for="threshold-slider">
@@ -92,6 +115,8 @@
                  aria-label="min opportunities exact value" />
         </div>
       </div>
+
+      <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-check">
         <label class="checkbox-label">
