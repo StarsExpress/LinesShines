@@ -5,47 +5,22 @@ folder that didn't exist, and data/ was flat with descriptive filenames
 that preprocessing/db_ingestion had to reproduce exactly by hand.
 
 NOTE: data/*.csv and data/*.xlsx are git-ignored on purpose (raw PFF exports
-never get committed — see .gitignore), so a CI checkout has the
-front_7_pass_rush/ and ol_pass_block/ directories (kept alive via
-.gitkeep) but none of the actual season files. These tests therefore
-assert on *structure and naming convention*, not on any specific season
-being present — real per-season coverage only happens where files exist
-(e.g. local dev machines with real data checked out).
+never get committed — see .gitignore), and front_7_pass_rush/ and
+ol_pass_block/ hold nothing else, so a CI checkout doesn't have those
+directories at all (git doesn't track empty dirs). Tests here only assert
+what's true regardless of whether real season data is checked out.
 """
 
 from __future__ import annotations
-import re
 from pathlib import Path
 import config
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SEASON_FILENAME_RE = re.compile(r"^\d{4}\.(csv|xlsx)$")
 
 
 def test_data_folder_path_matches_repo_layout():
     assert config.DATA_FOLDER_PATH == str(REPO_ROOT / "data")
-    assert Path(config.DATA_FOLDER_PATH).is_dir()
-
-
-def _assert_category_dir_well_formed(category_dir: Path):
-    assert category_dir.is_dir()
-    for path in category_dir.iterdir():
-        if path.name not in (".gitkeep", ".DS_Store"):
-            assert SEASON_FILENAME_RE.match(path.name), (
-                f"{path} doesn't match the `{{season}}.csv`/`{{season}}.xlsx` "
-                "naming convention"
-            )
-
-
-def test_front_7_pass_rush_category_layout():
-    _assert_category_dir_well_formed(
-        Path(config.DATA_FOLDER_PATH) / "front_7_pass_rush"
-    )
-
-
-def test_ol_pass_block_category_layout():
-    _assert_category_dir_well_formed(Path(config.DATA_FOLDER_PATH) / "ol_pass_block")
 
 
 def test_no_legacy_flat_data_files():
