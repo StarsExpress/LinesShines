@@ -18,46 +18,58 @@ def preprocess_offensive_line(season: int) -> None:
         positional_df = pass_block_df[pass_block_df["Position"] == position]
 
         positional_df["Havoc"] = positional_df["Sacks"] + positional_df["Hits"]
-        positional_df["Havoc %"] = positional_df["Havoc"] / positional_df["Non Spike PB Snaps"]
+        positional_df["Havoc %"] = (
+            positional_df["Havoc"] / positional_df["Non Spike PB Snaps"]
+        )
         positional_df["Havoc %"].fillna(inplace=True, value=0)
         positional_df["Havoc %"] *= 100
         positional_df["Havoc %"] = positional_df["Havoc %"].round(ROUNDING_DIGITS)
 
-        positional_df["Pressure %"] = positional_df["Pressures"] / positional_df["Non Spike PB Snaps"]
+        positional_df["Pressure %"] = (
+            positional_df["Pressures"] / positional_df["Non Spike PB Snaps"]
+        )
 
         positional_df["Pressure %"].fillna(inplace=True, value=0)
         positional_df["Pressure %"] *= 100
         positional_df["Pressure %"] = positional_df["Pressure %"].round(ROUNDING_DIGITS)
 
-        positional_df["TPS Havoc"] = positional_df["TPS Sacks"] + positional_df["TPS Hits"]
+        positional_df["TPS Havoc"] = (
+            positional_df["TPS Sacks"] + positional_df["TPS Hits"]
+        )
 
-        positional_df["TPS Havoc %"] = positional_df["TPS Havoc"] / positional_df["TPS Non Spike PB Snaps"]
+        positional_df["TPS Havoc %"] = (
+            positional_df["TPS Havoc"] / positional_df["TPS Non Spike PB Snaps"]
+        )
 
         positional_df["TPS Havoc %"].fillna(inplace=True, value=0)
         positional_df["TPS Havoc %"] *= 100
-        positional_df["TPS Havoc %"] = positional_df["TPS Havoc %"].round(ROUNDING_DIGITS)
+        positional_df["TPS Havoc %"] = positional_df["TPS Havoc %"].round(
+            ROUNDING_DIGITS
+        )
 
-        positional_df["TPS Pressure %"] = positional_df["TPS Pressures"] / positional_df["TPS Non Spike PB Snaps"]
+        positional_df["TPS Pressure %"] = (
+            positional_df["TPS Pressures"] / positional_df["TPS Non Spike PB Snaps"]
+        )
 
         positional_df["TPS Pressure %"].fillna(inplace=True, value=0)
         positional_df["TPS Pressure %"] *= 100
-        positional_df["TPS Pressure %"] = positional_df["TPS Pressure %"].round(ROUNDING_DIGITS)
+        positional_df["TPS Pressure %"] = positional_df["TPS Pressure %"].round(
+            ROUNDING_DIGITS
+        )
 
         positional_df.rename(
             columns={
                 "Havoc %": "Allowed Havoc %",
                 "Pressure %": "Allowed Pressure %",
                 "TPS Havoc %": "TPS Allowed Havoc %",
-                "TPS Pressure %": "TPS Allowed Pressure %"
+                "TPS Pressure %": "TPS Allowed Pressure %",
             },
-            inplace=True
+            inplace=True,
         )
 
         positional_sheets.update({position: positional_df})
 
-    destination_path = os.path.join(
-        DATA_FOLDER_PATH, "ol_pass_block", f"{season}.xlsx"
-    )
+    destination_path = os.path.join(DATA_FOLDER_PATH, "ol_pass_block", f"{season}.xlsx")
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():
             sheet.to_excel(writer, sheet_name=position, index=False)

@@ -4,6 +4,7 @@ Points DATABASE_URL at an ephemeral sqlite file *before* anything imports
 `main`, since main.py resolves its engine at import time — setting the env
 var inside a fixture would be too late for the first `from main import ...`.
 """
+
 from __future__ import annotations
 import os
 import tempfile

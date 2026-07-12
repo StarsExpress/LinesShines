@@ -31,7 +31,6 @@ from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
-
 DEFAULT_SEASONS = [2022, 2023, 2024, 2025]
 
 FRONT_7_POSITIONS = ("DI", "ED", "LB")
@@ -187,7 +186,9 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
                             row.get("TPS Allowed Pressure %")
                         ),
                         allowed_havoc_pct=_safe_float(row.get("Allowed Havoc %")),
-                        tps_allowed_havoc_pct=_safe_float(row.get("TPS Allowed Havoc %")),
+                        tps_allowed_havoc_pct=_safe_float(
+                            row.get("TPS Allowed Havoc %")
+                        ),
                     )
                 )
 
@@ -236,7 +237,9 @@ def main() -> None:
         pass_rush_rows = ingest_pass_rush(sess, data_dir, args.seasons)
         pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
 
-    print(f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows.")
+    print(
+        f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
+    )
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive dashboard for NFL OL & DL PFF metrics." />
+<meta name="description" content="Interactive platform for NFL OL & DL PFF metrics." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +33,7 @@
     <img class="hero-logo" src="images/lines_shines_logo.png" alt="LinesShines logo" />
     <div class="hero-text">
       <h1 class="hero-title">LinesShines · 鋒光</h1>
-      <p class="eyebrow">🏈NFL OL & DL Interactive Metrics</p>
+      <p class="eyebrow">🏈NFL OL & DL Interactive Platform</p>
       <p class="hero-byline">
         "No Line No Shine."<br><br>
         Infrastructure is the one that nearly always starts everything,
@@ -131,6 +131,14 @@
           Team logos
         </label>
       </div>
+
+      <!-- Mobile-only: sits between the toggles and Save Plot/Apply in the
+           drawer. Hidden on desktop; see .drawer-divider in style.css. Its
+           position here in the DOM is irrelevant to the mobile visual order
+           — that's driven by `order` in the @media (max-width: 860px) block
+           — but it's placed here for source locality next to the buttons it
+           separates. -->
+      <div class="drawer-divider" aria-hidden="true"></div>
 
       <div class="control control-apply">
         <button id="apply-filters" type="button" class="apply-btn" aria-label="Apply filters">Apply</button>

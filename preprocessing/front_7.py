@@ -26,25 +26,39 @@ def preprocess_front_7(season: int) -> None:
         positional_df["Havoc Rate"] *= 100
         positional_df["Havoc Rate"] = positional_df["Havoc Rate"].round(ROUNDING_DIGITS)
 
-        positional_df["Pressure Rate"] = positional_df["Pressures"] / positional_df["PR Opp"]
+        positional_df["Pressure Rate"] = (
+            positional_df["Pressures"] / positional_df["PR Opp"]
+        )
 
         positional_df["Pressure Rate"].fillna(inplace=True, value=0)
         positional_df["Pressure Rate"] *= 100
-        positional_df["Pressure Rate"] = positional_df["Pressure Rate"].round(ROUNDING_DIGITS)
+        positional_df["Pressure Rate"] = positional_df["Pressure Rate"].round(
+            ROUNDING_DIGITS
+        )
 
-        positional_df["TPS Havoc"] = positional_df["TPS Sacks"] + positional_df["TPS Hits"]
+        positional_df["TPS Havoc"] = (
+            positional_df["TPS Sacks"] + positional_df["TPS Hits"]
+        )
 
-        positional_df["TPS Havoc Rate"] = positional_df["TPS Havoc"] / positional_df["TPS PR Opp"]
+        positional_df["TPS Havoc Rate"] = (
+            positional_df["TPS Havoc"] / positional_df["TPS PR Opp"]
+        )
 
         positional_df["TPS Havoc Rate"].fillna(inplace=True, value=0)
         positional_df["TPS Havoc Rate"] *= 100
-        positional_df["TPS Havoc Rate"] = positional_df["TPS Havoc Rate"].round(ROUNDING_DIGITS)
+        positional_df["TPS Havoc Rate"] = positional_df["TPS Havoc Rate"].round(
+            ROUNDING_DIGITS
+        )
 
-        positional_df["TPS Pressure Rate"] = positional_df["TPS Pressures"] / positional_df["TPS PR Opp"]
+        positional_df["TPS Pressure Rate"] = (
+            positional_df["TPS Pressures"] / positional_df["TPS PR Opp"]
+        )
 
         positional_df["TPS Pressure Rate"].fillna(inplace=True, value=0)
         positional_df["TPS Pressure Rate"] *= 100
-        positional_df["TPS Pressure Rate"] = positional_df["TPS Pressure Rate"].round(ROUNDING_DIGITS)
+        positional_df["TPS Pressure Rate"] = positional_df["TPS Pressure Rate"].round(
+            ROUNDING_DIGITS
+        )
 
         positional_sheets.update({position: positional_df})
 

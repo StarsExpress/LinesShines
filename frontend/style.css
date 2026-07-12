@@ -297,6 +297,15 @@ body {
   background: var(--turf-700);
   border-color: var(--turf-600);
 }
+
+/* Mobile-only separator between the toggle controls and the Save Plot /
+   Apply button pair — see @media (max-width: 860px) for the visible rule
+   and the `order` overrides that pull it (and Save Plot) down next to
+   Apply without moving them in the DOM, which would also shift Save
+   Plot's desktop position in the filters bar. */
+.drawer-divider {
+  display: none;
+}
 .png-btn .icon-download {
   width: 14px;
   height: 14px;
@@ -669,5 +678,34 @@ body {
     width: 100%;
     justify-content: center;
     padding: 12px 20px;
+  }
+
+  /* Save Plot and Apply are pulled to the bottom of the drawer, below every
+     other control, via `order` rather than a DOM move — every other control
+     stays at the default `order: 0` and keeps sorting by its existing DOM
+     position, so this only affects mobile without touching the desktop
+     filters bar (Save Plot stays put there, next to the axis selects). */
+  .filters-drawer .drawer-divider {
+    display: block;
+    order: 1;
+    height: 1px;
+    background: var(--turf-600);
+    margin: 12px 0;
+    opacity: 0.5;
+  }
+  .filters-drawer .control-png {
+    order: 2;
+  }
+  .filters-drawer .control-apply {
+    order: 3;
+  }
+
+  /* Apply is the drawer's sticky, primary commit action — stays pinned to
+     the bottom of the scrollable drawer (.filters-drawer has
+     overflow-y: auto) while Save Plot and every filter above it scroll
+     underneath it. */
+  .filters-drawer .apply-btn {
+    position: sticky;
+    bottom: 0;
   }
 }

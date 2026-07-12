@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from config import DEFAULT_THRESHOLDS
+from config import ALLOWED_HAVOC_RATE_NOTE, DEFAULT_THRESHOLDS, HAVOC_RATE_NOTE
 from database.db_models import (
     Base,
     PassBlockStat,
@@ -30,7 +30,7 @@ from database.db_models import (
 
 # Railway sets this per-deploy; falls back to "dev" for local runs. Used to
 # cache-bust static assets referenced from index.html so iOS Safari (and
-# other aggressive mobile caches) pick up new JS/CSS/Plotly after a deploy
+# other aggressive mobile caches) pick up new JS/CSS/Plotly after a deployment
 # instead of serving a stale bundle against a changed API.
 COMMIT_SHA = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "dev")[:7]
 
@@ -72,29 +72,36 @@ PASS_RUSH_METRICS = {
         "higher_is_better": True,
         "pff_note": "Pass rush win rate",
     },
+
     "TPS Win Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Win rate on true pass sets",
     },
+
     "Pressure Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Pressures / pass rush opportunities",
     },
+
     "TPS Pressure Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Pressure rate on true pass sets",
     },
+
     "Havoc Rate": {
         "unit": "%",
         "higher_is_better": True,
+        "note": HAVOC_RATE_NOTE,
         "pff_note": "(Sacks + Hits) / pass rush opportunities",
     },
+
     "TPS Havoc Rate": {
         "unit": "%",
         "higher_is_better": True,
+        "note": HAVOC_RATE_NOTE,
         "pff_note": "Havoc rate on true pass sets",
     },
 }
@@ -105,19 +112,24 @@ PASS_BLOCK_METRICS = {
         "higher_is_better": False,
         "pff_note": "Pressures allowed / non-spike pass block snaps",
     },
+
     "TPS Allowed Pressure %": {
         "unit": "%",
         "higher_is_better": False,
         "pff_note": "Allowed pressure rate on true pass sets",
     },
+
     "Allowed Havoc %": {
         "unit": "%",
         "higher_is_better": False,
+        "note": ALLOWED_HAVOC_RATE_NOTE,
         "pff_note": "(Sacks + Hits) allowed / non-spike snaps",
     },
+
     "TPS Allowed Havoc %": {
         "unit": "%",
         "higher_is_better": False,
+        "note": ALLOWED_HAVOC_RATE_NOTE,
         "pff_note": "Allowed havoc rate on true pass sets",
     },
 }
@@ -150,12 +162,18 @@ def health() -> dict:
 def metadata() -> dict:
     with SessionLocal() as sess:
         pass_rush_seasons = sorted(
-            {season for (season,) in sess.execute(select(PassRushStat.season).distinct())},
+            {
+                season
+                for (season,) in sess.execute(select(PassRushStat.season).distinct())
+            },
             reverse=True,
         )
 
         pass_block_seasons = sorted(
-            {season for (season,) in sess.execute(select(PassBlockStat.season).distinct())},
+            {
+                season
+                for (season,) in sess.execute(select(PassBlockStat.season).distinct())
+            },
             reverse=True,
         )
 
@@ -169,6 +187,7 @@ def metadata() -> dict:
             "seasons": pass_rush_seasons,
             "default_threshold": DEFAULT_THRESHOLDS["pass_rush"],
         },
+
         "pass_block": {
             "positions": PASS_BLOCK_POSITIONS,
             "metrics": PASS_BLOCK_METRICS,
@@ -176,8 +195,12 @@ def metadata() -> dict:
             "seasons": pass_block_seasons,
             "default_threshold": DEFAULT_THRESHOLDS["pass_block"],
         },
+
         "teams": {
-            team.code: {"full_name": team.full_name, "primary_color": team.primary_color}
+            team.code: {
+                "full_name": team.full_name,
+                "primary_color": team.primary_color,
+            }
             for team in teams
         },
     }
@@ -275,6 +298,7 @@ if _frontend_dir.exists():
     )
 
 else:
+
     @app.get("/")
     def _no_frontend() -> JSONResponse:
         return JSONResponse(

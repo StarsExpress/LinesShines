@@ -44,20 +44,23 @@ class PassRushStat(Base):
     abbr_name = Column(String, nullable=False)
 
     games = Column(Integer)
-    pr_opp = Column(Integer)              # PR Opp.
-    tps_pr_opp = Column(Integer)          # TPS PR Opp.
-    win_rate = Column(Float)              # Win Rate.
-    tps_win_rate = Column(Float)          # TPS Win Rate.
-    pressure_rate = Column(Float)         # Pressure Rate.
-    tps_pressure_rate = Column(Float)     # TPS Pressure Rate.
-    havoc_rate = Column(Float)            # Havoc Rate.
-    tps_havoc_rate = Column(Float)        # TPS Havoc Rate.
+    pr_opp = Column(Integer)  # PR Opp.
+    tps_pr_opp = Column(Integer)  # TPS PR Opp.
+    win_rate = Column(Float)  # Win Rate.
+    tps_win_rate = Column(Float)  # TPS Win Rate.
+    pressure_rate = Column(Float)  # Pressure Rate.
+    tps_pressure_rate = Column(Float)  # TPS Pressure Rate.
+    havoc_rate = Column(Float)  # Havoc Rate.
+    tps_havoc_rate = Column(Float)  # TPS Havoc Rate.
 
     team = relationship("Team", back_populates="pass_rush_stats")
 
     __table_args__ = (
         UniqueConstraint(
-            "season", "position", "player", "team_code",
+            "season",
+            "position",
+            "player",
+            "team_code",
             name="uq_pr_season_position_player_team",
         ),
         Index("idx_pr_filter", "season", "position"),
@@ -75,18 +78,21 @@ class PassBlockStat(Base):
     abbr_name = Column(String, nullable=False)
 
     games = Column(Integer)
-    non_spike_pb_snaps = Column(Integer)         # Non Spike PB Snaps.
-    tps_non_spike_pb_snaps = Column(Integer)     # TPS Non Spike PB Snaps.
-    allowed_pressure_pct = Column(Float)         # Allowed Pressure %.
-    tps_allowed_pressure_pct = Column(Float)     # TPS Allowed Pressure %.
-    allowed_havoc_pct = Column(Float)            # Allowed Havoc %.
-    tps_allowed_havoc_pct = Column(Float)        # TPS Allowed Havoc %.
+    non_spike_pb_snaps = Column(Integer)  # Non Spike PB Snaps.
+    tps_non_spike_pb_snaps = Column(Integer)  # TPS Non Spike PB Snaps.
+    allowed_pressure_pct = Column(Float)  # Allowed Pressure %.
+    tps_allowed_pressure_pct = Column(Float)  # TPS Allowed Pressure %.
+    allowed_havoc_pct = Column(Float)  # Allowed Havoc %.
+    tps_allowed_havoc_pct = Column(Float)  # TPS Allowed Havoc %.
 
     team = relationship("Team", back_populates="pass_block_stats")
 
     __table_args__ = (
         UniqueConstraint(
-            "season", "position", "player", "team_code",
+            "season",
+            "position",
+            "player",
+            "team_code",
             name="uq_pb_season_position_player_team",
         ),
         Index("idx_pb_filter", "season", "position"),
@@ -96,6 +102,7 @@ class PassBlockStat(Base):
 # Serialization helpers used by main.py to keep API payload shape
 # identical to what frontend already expects (space-and-mixed-case keys
 # preserved so no client-side renaming is needed). ---
+
 
 def pass_rush_row_to_dict(row: PassRushStat) -> dict:
     return {

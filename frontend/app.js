@@ -377,6 +377,12 @@ function render() {
   const xMeta = cat.metrics[xKey] || {};
   const yMeta = cat.metrics[yKey] || {};
 
+  const activeNotes = [];
+  if (xMeta.note) activeNotes.push(xMeta.note);
+  if (yMeta.note && yMeta.note !== xMeta.note) {
+    activeNotes.push(yMeta.note); // avoid dup when both axes use the same metric family
+  }
+
   const xVals = currentFiltered.map((r) => r[xKey]);
   const yVals = currentFiltered.map((r) => r[yKey]);
   const colors = currentFiltered.map((r) => teamColor(r.team));
@@ -422,7 +428,7 @@ function render() {
     },
   ];
 
-  const annotations = [
+  const medianAnnotations = [
     {
       x: xMedian, y: 0, yref: "paper", yanchor: "top", yshift: -6,
       text: `Median: ${xMedian}`, showarrow: false,
@@ -434,6 +440,28 @@ function render() {
       font: { color: "#a9b6a9", size: 10, family: "IBM Plex Mono, monospace" },
     },
   ];
+
+  // Metric definition callouts (e.g. what "Havoc Rate" means) — only shown
+  // when a Havoc-family metric is on an axis, see activeNotes above.
+  const isMobile = window.innerWidth < 860;
+  const noteAnnotations = activeNotes.map((note, i) => ({
+    xref: "paper", yref: "paper",
+    x: 1, y: 1 - i * 0.05, // stack multiple notes vertically if both axes have notes
+    xanchor: "right", yanchor: "top",
+    text: `<i>ⓘ ${note}</i>`,
+    showarrow: false,
+    font: {
+      family: "IBM Plex Mono, monospace",
+      size: isMobile ? 9 : 11,
+      color: "#a9b6a9",
+    },
+    bgcolor: "rgba(15,33,25,0.85)", // turf-950 with alpha
+    bordercolor: "rgba(211,167,61,0.4)", // faint gold border
+    borderwidth: 1,
+    borderpad: 6,
+  }));
+
+  const annotations = [...medianAnnotations, ...noteAnnotations];
 
   const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
 
@@ -483,20 +511,15 @@ function render() {
     Plotly.restyle(els.chart, { text: [text] }, [0]);
   }
 
-  // No `images` key here on purpose — Plotly.react fully replaces the
+  // No `images` key here on purpose — Plotly.react fully replaces
   // layout, so leaving it out clears any logos from a previous render when
-  // the toggle is off. Sizing needs the post-draw axis range, so logos are
+  // toggle is off. Sizing needs post-draw axis range, so logos are
   // added in a follow-up relayout once this render settles.
-  // Interim solution: Plotly's own scrollZoom (wheel/pinch only — dragmode
-  // is false since clicking is the sole interaction now, so a click-drag on
-  // a marker isn't hijacked into a zoom-rectangle selection). The
-  // CSS-transform "photo" zoom was rolled back — it broke content on
-  // desktop scroll — and will be revisited later with a different approach.
   Plotly.react(els.chart, [trace], layout, {
     displayModeBar: false,
     responsive: true,
-    scrollZoom: true,
-    doubleClick: "reset",
+    scrollZoom: false,
+    doubleClick: false,
   })
     .then(() => {
       applyLogoImages();
@@ -686,12 +709,23 @@ function attachEvents() {
     logoRelayoutGuard = true;
     Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" })
       .then(() =>
+        // `width`/`height` set Plotly's *logical* layout size — every fixed-px
+        // font (marker labels, axis titles, median/note annotations) is sized
+        // relative to that, not to the final image resolution. `scale` is a
+        // separate post-render pixel-density multiplier that leaves those
+        // proportions alone. The on-screen chart renders at ~1100x720, so a
+        // straight width:2400/height:1500/scale:1 export (a ~2.2x larger
+        // logical canvas) made every label look shrunken relative to the chart
+        // even though the file itself was high-res. Keeping the logical size
+        // close to the real on-screen size and reaching the same 2400x1500
+        // output via scale:2 instead makes exported text match what's on
+        // screen while keeping the image just as crisp.
         Plotly.downloadImage(els.chart, {
           format: "png",
           filename,
-          width: 2400,
-          height: 1500,
-          scale: 1,
+          width: 1200,
+          height: 750,
+          scale: 2,
         })
       )
       .then(() =>
@@ -713,7 +747,20 @@ function attachEvents() {
 
   // Closes the pinned scouting card when clicking anywhere outside both
   // the chart and the card itself.
+  //
+  // `e.isTrusted` guards both this and the filters-drawer listener below
+  // against Plotly.downloadImage()'s internal implementation: it builds a
+  // throwaway <a>, appends it to <body>, and calls .click() on it to
+  // trigger the browser's save dialog. That programmatic click bubbles to
+  // document as a real "click" event with a target outside every one of
+  // our containers, which — without this guard — closed the scouting card
+  // and, worse, closed the mobile filters drawer immediately after Save
+  // Plot, even though Save Plot is supposed to leave the drawer open for
+  // repeated exports. Synthetic (script-dispatched) events always report
+  // isTrusted: false, so filtering on it distinguishes Plotly's anchor
+  // click from an actual user tap outside the drawer/card.
   document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
     if (pinnedIndex == null) return;
     if (!els.chart.contains(e.target) && !els.scoutCard.contains(e.target)) {
       pinnedIndex = null;
@@ -727,6 +774,7 @@ function attachEvents() {
   });
 
   document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
     if (!els.filtersDrawer.classList.contains("open")) return;
     if (els.filtersDrawer.contains(e.target) || els.filtersToggle.contains(e.target)) return;
     closeFiltersDrawer();
