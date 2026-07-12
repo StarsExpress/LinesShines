@@ -4,11 +4,9 @@ data/ol_pass_block/{season}.xlsx).
 """
 
 from __future__ import annotations
-
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from database import db_ingestion
 from database.db_models import Base, PassBlockStat, PassRushStat
 
@@ -30,6 +28,7 @@ def _write_front_7_xlsx(path, team="BUF", player="T. Test") -> None:
             "TPS Havoc Rate": [10.0],
         }
     )
+
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="ED", index=False)
 
@@ -49,6 +48,7 @@ def _write_ol_xlsx(path, team="MIA", player="O. Line") -> None:
             "TPS Allowed Havoc %": [3.0],
         }
     )
+
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="T", index=False)
 

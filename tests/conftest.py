@@ -61,6 +61,7 @@ def seeded_db():
                 tps_havoc_rate=10.0,
             )
         )
+
         sess.add(
             PassBlockStat(
                 season=2025,
@@ -77,6 +78,7 @@ def seeded_db():
                 tps_allowed_havoc_pct=3.0,
             )
         )
+
         sess.commit()
 
     yield

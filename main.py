@@ -128,8 +128,8 @@ PASS_BLOCK_METRICS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables if missing. Real schema migrations belong in Alembic
-    # once the schema starts evolving; for a static dataset this is enough.
+    # Create tables if missing.
+    # Real schema migrations belong in Alembic once schema starts evolving.
     Base.metadata.create_all(engine)
     yield
 
@@ -273,8 +273,8 @@ if _frontend_dir.exists():
         StaticFiles(directory=str(_frontend_dir), html=True),
         name="frontend",
     )
-else:
 
+else:
     @app.get("/")
     def _no_frontend() -> JSONResponse:
         return JSONResponse(

@@ -23,21 +23,26 @@
 ---
 
 ### 🏅 Heroes In Trenches
+#### ① Backend
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/postgresql-4169e1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 
+- Python + PostgreSQL — ingest processed data into database.
+- Python + FastAPI — API endpoints for database query, plotly designs, PNG download, and output to frontend.
+
+#### ② Frontend
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![CSS](https://img.shields.io/badge/CSS-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 ![HTML](https://img.shields.io/badge/HTML-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 
+- JavaScript + CSS + HTML — visualize plotly graphs and interactive components.
+
+#### ③ CI/CD
 ![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
 ![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
 ![Railway](https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)
 
----
-
-### ⚓️ How Curiosity About Linemen Started
-Perhaps being a Fantasy Football player causes me to not focus entirely on QB & skill positions.
-
-Rather, I began to feel curious about linemen, especially in pass rush & pass protection.
+- Pytest — unit & API tests.
+- GitHub — CI/CD pipeline triggers.
+- Railway — web deployment.
