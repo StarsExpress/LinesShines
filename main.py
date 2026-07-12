@@ -72,32 +72,27 @@ PASS_RUSH_METRICS = {
         "higher_is_better": True,
         "pff_note": "Pass rush win rate",
     },
-
     "TPS Win Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Win rate on true pass sets",
     },
-
     "Pressure Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Pressures / pass rush opportunities",
     },
-
     "TPS Pressure Rate": {
         "unit": "%",
         "higher_is_better": True,
         "pff_note": "Pressure rate on true pass sets",
     },
-
     "Havoc Rate": {
         "unit": "%",
         "higher_is_better": True,
         "note": HAVOC_RATE_NOTE,
         "pff_note": "(Sacks + Hits) / pass rush opportunities",
     },
-
     "TPS Havoc Rate": {
         "unit": "%",
         "higher_is_better": True,
@@ -112,20 +107,17 @@ PASS_BLOCK_METRICS = {
         "higher_is_better": False,
         "pff_note": "Pressures allowed / non-spike pass block snaps",
     },
-
     "TPS Allowed Pressure %": {
         "unit": "%",
         "higher_is_better": False,
         "pff_note": "Allowed pressure rate on true pass sets",
     },
-
     "Allowed Havoc %": {
         "unit": "%",
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
         "pff_note": "(Sacks + Hits) allowed / non-spike snaps",
     },
-
     "TPS Allowed Havoc %": {
         "unit": "%",
         "higher_is_better": False,
@@ -187,7 +179,6 @@ def metadata() -> dict:
             "seasons": pass_rush_seasons,
             "default_threshold": DEFAULT_THRESHOLDS["pass_rush"],
         },
-
         "pass_block": {
             "positions": PASS_BLOCK_POSITIONS,
             "metrics": PASS_BLOCK_METRICS,
@@ -195,7 +186,6 @@ def metadata() -> dict:
             "seasons": pass_block_seasons,
             "default_threshold": DEFAULT_THRESHOLDS["pass_block"],
         },
-
         "teams": {
             team.code: {
                 "full_name": team.full_name,
