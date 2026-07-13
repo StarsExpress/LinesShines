@@ -9,6 +9,7 @@ def preprocess_front_7(season: int) -> None:
         DATA_FOLDER_PATH, "front_7_pass_rush", f"{season}.csv"
     )
     pass_rush_df = pd.read_csv(pass_rush_csv_path)
+
     pass_rush_df.fillna(inplace=True, value=0)
     pass_rush_df.columns = rename_pass_rush_columns(pass_rush_df.columns)
     pass_rush_df["Abbr Name"] = pass_rush_df["Player"].apply(shorten_first_name)
@@ -22,6 +23,7 @@ def preprocess_front_7(season: int) -> None:
 
         positional_df["Havoc"] = positional_df["Sacks"] + positional_df["Hits"]
         positional_df["Havoc Rate"] = positional_df["Havoc"] / positional_df["PR Opp"]
+
         positional_df["Havoc Rate"].fillna(inplace=True, value=0)
         positional_df["Havoc Rate"] *= 100
         positional_df["Havoc Rate"] = positional_df["Havoc Rate"].round(ROUNDING_DIGITS)

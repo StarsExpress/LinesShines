@@ -9,6 +9,7 @@ def preprocess_offensive_line(season: int) -> None:
         DATA_FOLDER_PATH, "ol_pass_block", f"{season}.csv"
     )
     pass_block_df = pd.read_csv(pass_block_csv_path)
+
     pass_block_df.fillna(inplace=True, value=0)
     pass_block_df.columns = rename_pass_block_columns(pass_block_df.columns)
     pass_block_df["Abbr Name"] = pass_block_df["Player"].apply(shorten_first_name)
@@ -21,6 +22,7 @@ def preprocess_offensive_line(season: int) -> None:
         positional_df["Havoc %"] = (
             positional_df["Havoc"] / positional_df["Non Spike PB Snaps"]
         )
+
         positional_df["Havoc %"].fillna(inplace=True, value=0)
         positional_df["Havoc %"] *= 100
         positional_df["Havoc %"] = positional_df["Havoc %"].round(ROUNDING_DIGITS)
