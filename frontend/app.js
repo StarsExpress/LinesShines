@@ -636,15 +636,13 @@ function render() {
 
   const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
 
-  // e.g. "2025 NFL Edge TPS Win Rate & Win Rate" / "Note: 77 players with
-  // at least 230 pass rush opportunities. Source: PFF." — total_selected
-  // counts everyone clearing the threshold, not just highlighted teams;
+  // total_selected counts everyone clearing threshold, not just highlighted teams;
   // Teams dims players rather than removing them (see DIM_OPACITY above),
-  // so the count shouldn't shrink just because some teams are unchecked.
+  // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
   const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
   const subtitleText =
-    `Note: ${currentFiltered.length} players with at least ${minThreshold} ${thresholdFieldLabel(cat)}. Source: PFF.`;
+    `${currentFiltered.length} players with at least ${minThreshold} ${thresholdFieldLabel(cat)}.`;
 
   const layout = {
     paper_bgcolor: "transparent",
