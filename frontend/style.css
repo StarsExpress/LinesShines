@@ -180,6 +180,13 @@ body {
 }
 
 .control select {
+  /* Fixed height + border-box, rather than trusting padding alone to
+     produce equal heights — a native <select>'s internal chrome doesn't
+     always size identically to a plain element with the same padding
+     (see .teams-select-btn, which sits in the same row and needs to
+     line up with these pixel-for-pixel). */
+  box-sizing: border-box;
+  height: 38px;
   background: var(--turf-950);
   color: var(--chalk);
   border: 1px solid var(--turf-600);
@@ -231,9 +238,189 @@ body {
 }
 #threshold-number { -moz-appearance: textfield; }
 
-.control-check { min-width: auto; }
 .control-apply { min-width: auto; }
 .control-png { min-width: auto; }
+/* .control already lays its children out in a column with a 6px gap —
+   that's exactly the "one on top of the other" stack these two checkboxes
+   need, so no flex-direction override here, just the same min-width reset
+   every other non-select control gets. */
+.control-toggles { min-width: auto; }
+
+/* Empty flex items with no explicit sizing don't force a wrap on their
+   own — a flex-basis: 100% item does, without occupying any visible
+   space (width/height: 0). This is what makes control-bar row grouping
+   deterministic across viewport widths instead of depending on exactly
+   how much space happens to be left on a given line. */
+.row-break {
+  flex-basis: 100%;
+  width: 0;
+  height: 0;
+}
+
+/* Season only ever holds a 4-digit year — the shared 150px .control select
+   min-width was sized for longer option text (metric names, position
+   labels) and left Season looking as wide as Category for no reason. */
+.control-season { min-width: auto; }
+.control-season select { width: 72px; min-width: 72px; padding-right: 4px; }
+
+/* --- Teams multi-select ---
+   Built as a custom button + checkbox-list dropdown rather than a native
+   <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
+   discoverable and doesn't work at all on touch. Positioned/sized to sit
+   next to Season/Category like a normal .control select. */
+.control-teams { position: relative; }
+
+.teams-select-btn {
+  /* Buttons default to appearance:"push-button" (vs. a <select>'s
+     "menulist"), which WebKit renders with native chrome — a light
+     gray/white system background — that fights `background` overrides.
+     Selects mostly get away without this reset; buttons don't. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: var(--turf-950);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: normal;
+  min-width: 150px;
+  cursor: pointer;
+  text-align: left;
+}
+.teams-select-btn:hover,
+.teams-select-btn:focus-visible {
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.teams-select-btn .chevron {
+  flex: none;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+.teams-select-btn[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+.teams-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.teams-dropdown[hidden] { display: none; }
+
+.teams-dropdown-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--turf-600);
+}
+.teams-dropdown-actions button {
+  flex: 1;
+  background: var(--turf-700);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.teams-dropdown-actions button:hover,
+.teams-dropdown-actions button:focus-visible {
+  border-color: var(--flag-gold);
+}
+
+/* Mimics NFL.com's team-picker layout, compressed to fit the dropdown's
+   width: AFC in the left column, NFC in the right, each stacked
+   East/North/South/West top to bottom (rather than NFL.com's spacious
+   4-columns-per-conference grid, which doesn't fit here). */
+.teams-checklist {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.teams-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.teams-column-header {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--turf-600);
+}
+.teams-division + .teams-division { margin-top: 8px; }
+.teams-division-header {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  opacity: 0.75;
+  margin-bottom: 2px;
+}
+.team-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--chalk-dim);
+  cursor: pointer;
+}
+.team-option:hover { background: rgba(241, 236, 221, 0.06); }
+.team-option input {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  accent-color: var(--flag-gold);
+}
+.team-option-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+/* Fallback for a team with no logo file — same color-dot treatment the
+   scouting card uses when its own logo <img> 404s (see showScoutCard's
+   scoutLogo.onerror in app.js). */
+.team-swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
 
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
@@ -663,6 +850,18 @@ body {
   .filters-drawer .control select,
   .filters-drawer #threshold-number {
     width: 100%;
+  }
+  .filters-drawer .control-season select { width: 100%; }
+
+  /* The teams dropdown is absolutely positioned on desktop; inside the
+     fixed bottom-sheet drawer (which scrolls) that risks clipping/overlap,
+     so it's laid out inline instead — same "stack in the column flow"
+     treatment every other drawer control gets. */
+  .filters-drawer .teams-dropdown {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    box-shadow: none;
   }
   /* .control-slider's `flex: 1 1 220px` sizes it as a 220px-wide item in
      the desktop row layout above. In this column-direction drawer, that

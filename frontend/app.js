@@ -25,6 +25,13 @@ const els = {
   thresholdFieldLabel: document.getElementById("threshold-field-label"),
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
+  teamsControl: document.querySelector(".control-teams"),
+  teamsBtn: document.getElementById("teams-toggle-btn"),
+  teamsSummary: document.getElementById("teams-select-summary"),
+  teamsDropdown: document.getElementById("teams-dropdown"),
+  teamsChecklist: document.getElementById("teams-checklist"),
+  teamsSelectAll: document.getElementById("teams-select-all"),
+  teamsSelectNone: document.getElementById("teams-select-none"),
   chart: document.getElementById("chart"),
   chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),
@@ -101,13 +108,11 @@ function logoSrc(team) {
 }
 
 // Logos are sized as a fixed pixel target rather than a fraction of plot
-// width so a dense mobile chart (77 overlapping dots on a 342px-wide panel)
-// doesn't inherit the same visual scale as a 1100px desktop chart. Mobile
-// gets a smaller absolute size to cut overlap; desktop's 26px roughly
-// matches the visual scale of the matplotlib reference in
-// scatter_plots/pass_rush_plot.py.
+// width so a dense mobile chart doesn't inherit same visual scale as a 1100px desktop chart.
+// Mobile gets a smaller absolute size to cut overlap.
+// Player labels default to on, logos take up less room and collision is smaller.
 function targetLogoPx() {
-  return window.innerWidth < 860 ? 18 : 26;
+  return window.innerWidth < 860 ? 16 : 26;
 }
 
 async function loadMetadata() {
@@ -116,6 +121,7 @@ async function loadMetadata() {
   metadata = await res.json();
 
   populateCategoryDependentControls();
+  populateTeamsChecklist();
   attachEvents();
   await loadCurrentSlice();
   appliedFilters = currentFilterState();
@@ -147,7 +153,119 @@ function currentFilterState() {
     xMetric: els.xMetric.value,
     yMetric: els.yMetric.value,
     threshold: els.thresholdNumber.value,
+    // Joined into a comparable string (not a bare array) so the `!==`
+    // check in filtersArePending() works the same way it does for every
+    // other primitive-valued control — two different array references
+    // would never compare equal even with identical contents.
+    teams: selectedTeamCodes().sort().join(","),
   };
+}
+
+function allTeamCodes() {
+  return Array.from(els.teamsChecklist.querySelectorAll("input[type=checkbox]")).map((cb) => cb.value);
+}
+
+function selectedTeamCodes() {
+  return Array.from(els.teamsChecklist.querySelectorAll("input[type=checkbox]:checked")).map((cb) => cb.value);
+}
+
+// Teams are global (not category/season-scoped like positions/metrics are),
+// so this only runs once at startup rather than from
+// populateCategoryDependentControls() — repopulating on every category
+// switch would silently reset an in-progress team selection back to "all".
+// NFL conference/division structure — not exposed by /api/metadata (it's
+// static league structure, not PFF-derived data), so it lives here purely
+// to lay the Teams checklist out like NFL.com: AFC in the left column, NFC
+// in the right, each divided into East/North/South/West groups. Codes match
+// the LinesShines/PFF spellings in teams_reference.py (BLT, CLV, HST, LA,
+// LV, ...), not the NFL's own abbreviations.
+const CONFERENCES = {
+  AFC: {
+    East: ["BUF", "MIA", "NE", "NYJ"],
+    North: ["BLT", "CIN", "CLV", "PIT"],
+    South: ["HST", "IND", "JAX", "TEN"],
+    West: ["DEN", "KC", "LAC", "LV"],
+  },
+  NFC: {
+    East: ["DAL", "NYG", "PHI", "WAS"],
+    North: ["CHI", "DET", "GB", "MIN"],
+    South: ["ATL", "CAR", "NO", "TB"],
+    West: ["ARZ", "LA", "SEA", "SF"],
+  },
+};
+
+function teamOptionRow(code) {
+  const label = document.createElement("label");
+  label.className = "team-option";
+
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.value = code;
+  cb.checked = true;
+
+  const logo = document.createElement("img");
+  logo.className = "team-option-logo";
+  logo.src = logoSrc(code);
+  logo.alt = "";
+  logo.loading = "lazy";
+  logo.onerror = () => logo.replaceWith(teamSwatch(code));
+
+  const text = document.createElement("span");
+  text.textContent = code;
+
+  label.append(cb, logo, text);
+  return label;
+}
+
+function populateTeamsChecklist() {
+  els.teamsChecklist.innerHTML = "";
+
+  Object.entries(CONFERENCES).forEach(([conference, divisions]) => {
+    const column = document.createElement("div");
+    column.className = "teams-column";
+
+    const columnHeader = document.createElement("div");
+    columnHeader.className = "teams-column-header";
+    columnHeader.textContent = conference;
+    column.appendChild(columnHeader);
+
+    Object.entries(divisions).forEach(([division, codes]) => {
+      const group = document.createElement("div");
+      group.className = "teams-division";
+
+      const divisionHeader = document.createElement("div");
+      divisionHeader.className = "teams-division-header";
+      divisionHeader.textContent = division;
+      group.appendChild(divisionHeader);
+
+      // Codes are already listed ascending within each division above.
+      codes.forEach((code) => group.appendChild(teamOptionRow(code)));
+      column.appendChild(group);
+    });
+
+    els.teamsChecklist.appendChild(column);
+  });
+
+  updateTeamsSummary();
+}
+
+function updateTeamsSummary() {
+  const selected = selectedTeamCodes();
+  const total = allTeamCodes().length;
+  if (selected.length === total) els.teamsSummary.textContent = "All Teams";
+  else if (selected.length === 0) els.teamsSummary.textContent = "No Teams";
+  else if (selected.length === 1) els.teamsSummary.textContent = teamName(selected[0]);
+  else els.teamsSummary.textContent = `${selected.length} Teams`;
+}
+
+function openTeamsDropdown() {
+  els.teamsDropdown.hidden = false;
+  els.teamsBtn.setAttribute("aria-expanded", "true");
+}
+
+function closeTeamsDropdown() {
+  els.teamsDropdown.hidden = true;
+  els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
 function filtersArePending() {
@@ -172,7 +290,7 @@ function populateCategoryDependentControls() {
   Object.entries(cat.positions).forEach(([code, label]) => {
     const opt = document.createElement("option");
     opt.value = code;
-    opt.textContent = `${code} — ${label}`;
+    opt.textContent = `${label}`;
     els.position.appendChild(opt);
   });
 
@@ -208,8 +326,7 @@ function populateCategoryDependentControls() {
     els.yMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
   }
 
-  els.thresholdFieldLabel.textContent =
-    cat.threshold_field === "PR Opp" ? "pass rush opportunities" : "non-spike pass block snaps";
+  els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
 }
 
 async function loadCurrentSlice() {
@@ -269,6 +386,12 @@ function median(values) {
   return Math.round(((sorted[n / 2 - 1] + sorted[n / 2]) / 2) * 10) / 10;
 }
 
+// Shared by the threshold control's own label and the chart subtitle, so
+// the two can't drift out of sync with each other.
+function thresholdFieldLabel(cat) {
+  return cat.threshold_field === "PR Opp" ? "pass rush opportunities" : "non-spike pass block snaps";
+}
+
 function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
@@ -285,11 +408,23 @@ function teamName(code) {
   return (t && t.full_name) || code;
 }
 
+// Fallback swatch for the teams-dropdown checklist when a team's logo file
+// 404s — mirrors showScoutCard()'s scoutLogo.onerror treatment.
+function teamSwatch(code) {
+  const span = document.createElement("span");
+  span.className = "team-swatch";
+  span.style.background = teamColor(code);
+  return span;
+}
+
 // sizex/sizey for layout.images are in DATA units, not pixels, so logo size
 // needs recomputing whenever the visible axis range or plot size changes
 // (zoom, pan, resize) — otherwise logos balloon, shrink, or drift off their
 // intended on-screen scale.
-function computeLogoImages(chartDiv, records, xKey, yKey) {
+// `isDimmed` (aligned index-for-index with `records`) fades logos for
+// players whose team isn't in the current Teams selection, rather than
+// dropping them from the plot entirely — see DIM_OPACITY.
+function computeLogoImages(chartDiv, records, xKey, yKey, isDimmed) {
   const fullLayout = chartDiv._fullLayout;
   const xAxis = fullLayout && fullLayout.xaxis;
   const yAxis = fullLayout && fullLayout.yaxis;
@@ -303,13 +438,14 @@ function computeLogoImages(chartDiv, records, xKey, yKey) {
   const sizex = targetPx * (xRangeSpan / xAxis._length);
   const sizey = targetPx * (yRangeSpan / yAxis._length);
 
-  return records.map((r) => ({
+  return records.map((r, i) => ({
     source: logoSrc(r.team),
     xref: "x", yref: "y",
     x: r[xKey], y: r[yKey],
     sizex, sizey,
     xanchor: "center", yanchor: "middle",
     layer: "above",
+    opacity: isDimmed && isDimmed[i] ? DIM_OPACITY.logo : 1,
   }));
 }
 
@@ -317,7 +453,11 @@ function computeLogoImages(chartDiv, records, xKey, yKey) {
 // labels in descending threshold_field order (so star players get first
 // claim), keep a label only if its approximate pixel bounding box doesn't
 // overlap one already kept, blank the rest.
-function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
+// `isDimmed` (aligned index-for-index with `records`) pushes every
+// highlighted (non-dimmed) player's label ahead of every dimmed player's,
+// regardless of threshold_field — a Teams selection should never lose its
+// own labels to a bigger name outside the selection.
+function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimmed) {
   const fullLayout = chartDiv._fullLayout;
   const xAxis = fullLayout && fullLayout.xaxis;
   const yAxis = fullLayout && fullLayout.yaxis;
@@ -333,8 +473,11 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
   // another — trades a bit of edge-touching/kerning overlap for showing more
   // names in dense clusters.
   const OVERLAP_TOLERANCE = 0.35;
+  // Comfortably larger than any real threshold_field value, so it dominates
+  // the sort without needing a second sort key.
+  const HIGHLIGHT_BOOST = 1e9;
 
-  const boxes = records.map((r) => {
+  const boxes = records.map((r, i) => {
     const label = r.abbr_name || r.player || "";
     const cx = xAxis.l2p(r[xKey]);
     const top = yAxis.l2p(r[yKey]) + LABEL_GAP;
@@ -344,7 +487,7 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
     return {
       left: cx - halfWidth + shrinkX, right: cx + halfWidth - shrinkX,
       top: top + shrinkY, bottom: top + LABEL_HEIGHT - shrinkY,
-      priority: r[thresholdField] ?? 0,
+      priority: (isDimmed && isDimmed[i] ? 0 : HIGHLIGHT_BOOST) + (r[thresholdField] ?? 0),
     };
   });
 
@@ -366,14 +509,22 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField) {
   return kept;
 }
 
+// Teams is a highlight, not a filter — a player whose team isn't selected
+// stays on the plot (still visible, still clickable, still counted in the
+// median) but fades to these opacities instead of disappearing.
+const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
+const LABEL_ALPHA = 0.55; // normal (non-dimmed) player-name opacity
+
 function render() {
   const cat = appliedCategoryMeta();
 
   const minThreshold = Number(appliedFilters.threshold);
+  const selectedTeams = new Set(appliedFilters.teams ? appliedFilters.teams.split(",") : []);
 
-  currentFiltered = currentRecords.filter(
-    (r) => r[cat.threshold_field] >= minThreshold
-  );
+  currentFiltered = currentRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
+  // Empty selectedTeams (Teams → None) has .has() return false for every
+  // team, which dims everyone uniformly — no special-casing needed.
+  const isDimmed = currentFiltered.map((r) => !selectedTeams.has(r.team));
 
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
@@ -412,14 +563,20 @@ function render() {
     text: currentFiltered.map((r) => r.abbr_name || r.player),
     // logos sit on the dot itself, so push labels below to avoid clashing
     textposition: showLogos && showLabels ? "bottom center" : "top center",
-    textfont: { color: "rgba(241,236,221,0.55)", size: 10, family: "IBM Plex Mono, monospace" },
+    textfont: {
+      color: isDimmed.map((dim) => `rgba(241,236,221,${dim ? DIM_OPACITY.label : LABEL_ALPHA})`),
+      size: 10,
+      family: "IBM Plex Mono, monospace",
+    },
     marker: {
       color: colors,
       size: 13,
       // invisible dots still receive hover/click — only the fill disappears —
       // so the scouting card keeps working with logos drawn on top via
-      // layout.images (Plotly has no native "image as marker" option).
-      opacity: showLogos ? 0 : 1,
+      // layout.images (Plotly has no native "image as marker" option). When
+      // logos are off, dimmed (unselected-team) markers still fade in place
+      // rather than being dropped from the trace.
+      opacity: showLogos ? 0 : isDimmed.map((dim) => (dim ? DIM_OPACITY.marker : 1)),
       line: { color: "rgba(15,33,25,0.65)", width: 1 },
     },
     // The scouting card is the hover UI — Plotly's own tooltip would just
@@ -479,11 +636,35 @@ function render() {
 
   const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
 
+  // e.g. "2025 NFL Edge TPS Win Rate & Win Rate" / "Note: 77 players with
+  // at least 230 pass rush opportunities. Source: PFF." — total_selected
+  // counts everyone clearing the threshold, not just highlighted teams;
+  // Teams dims players rather than removing them (see DIM_OPACITY above),
+  // so the count shouldn't shrink just because some teams are unchecked.
+  const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
+  const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
+  const subtitleText =
+    `Note: ${currentFiltered.length} players with at least ${minThreshold} ${thresholdFieldLabel(cat)}. Source: PFF.`;
+
   const layout = {
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
-    margin: { l: 60, r: 24, t: 20, b: 56 },
+    // Extra headroom above the plot area (beyond what the title/subtitle
+    // text itself needs) so the metric-definition note box — pinned to the
+    // plot's own y:1 top edge, not the title block — doesn't sit flush
+    // against the subtitle.
+    margin: { l: 60, r: 24, t: isMobile ? 96 : 88, b: 56 },
+    title: {
+      text: titleText,
+      font: { family: "Anton, Arial Narrow, sans-serif", size: isMobile ? 16 : 22, color: "#f1ecdd" },
+      x: 0.5,
+      xanchor: "center",
+      subtitle: {
+        text: subtitleText,
+        font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 12, color: "#a9b6a9" },
+      },
+    },
     dragmode: false,
     xaxis: {
       // Plotly 3.x requires title as {text: ...} — a bare string is
@@ -510,7 +691,7 @@ function render() {
 
   function applyLogoImages() {
     if (!showLogos) return;
-    const images = computeLogoImages(els.chart, currentFiltered, xKey, yKey);
+    const images = computeLogoImages(els.chart, currentFiltered, xKey, yKey, isDimmed);
     if (!images.length) return;
     logoRelayoutGuard = true;
     Plotly.relayout(els.chart, { images }).then(() => {
@@ -522,7 +703,7 @@ function render() {
   // sit right above a small marker and collide far less.
   function applyLabelDeclutter() {
     if (!showLabels || !showLogos) return;
-    const kept = computeKeptLabels(els.chart, currentFiltered, xKey, yKey, cat.threshold_field);
+    const kept = computeKeptLabels(els.chart, currentFiltered, xKey, yKey, cat.threshold_field, isDimmed);
     const text = currentFiltered.map((r, i) => (kept[i] ? (r.abbr_name || r.player) : ""));
     Plotly.restyle(els.chart, { text: [text] }, [0]);
   }
@@ -661,6 +842,41 @@ function attachEvents() {
     el.addEventListener("change", updatePendingState)
   );
 
+  // Teams: pending-only like every other filter above — picking teams just
+  // updates the summary label and lights up Apply; the chart doesn't
+  // refilter until applyFilters() runs.
+  els.teamsBtn.addEventListener("click", () => {
+    if (els.teamsDropdown.hidden) openTeamsDropdown();
+    else closeTeamsDropdown();
+  });
+
+  els.teamsSelectAll.addEventListener("click", () => {
+    els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = true));
+    updateTeamsSummary();
+    updatePendingState();
+  });
+
+  els.teamsSelectNone.addEventListener("click", () => {
+    els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+    updateTeamsSummary();
+    updatePendingState();
+  });
+
+  els.teamsChecklist.addEventListener("change", () => {
+    updateTeamsSummary();
+    updatePendingState();
+  });
+
+  // Same e.isTrusted guard as the scouting card / filters drawer listeners
+  // below — protects against Plotly.downloadImage()'s synthetic anchor
+  // click, which bubbles to document as an untrusted "click" outside every
+  // container and would otherwise slam this dropdown shut mid-export.
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (els.teamsDropdown.hidden) return;
+    if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
+  });
+
   // Dragging the slider or typing a number only updates these two controls'
   // own displayed values — the chart holds its current state until the user
   // clicks Apply (or presses Enter in the number field). Re-rendering on
@@ -767,7 +983,7 @@ function attachEvents() {
   // `e.isTrusted` guards both this and the filters-drawer listener below
   // against Plotly.downloadImage()'s internal implementation: it builds a
   // throwaway <a>, appends it to <body>, and calls .click() on it to
-  // trigger the browser's save dialog. That programmatic click bubbles to
+  // trigger browser for saving dialog. That programmatic click bubbles to
   // document as a real "click" event with a target outside every one of
   // our containers, which — without this guard — closed the scouting card
   // and, worse, closed the mobile filters drawer immediately after Save

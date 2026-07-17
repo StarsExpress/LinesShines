@@ -54,9 +54,30 @@
 
   <div id="filters-drawer" class="filters-drawer">
     <section class="control-bar" aria-label="Filters">
-      <div class="control">
+      <div class="control control-season">
         <label for="season-select">Season</label>
         <select id="season-select"></select>
+      </div>
+
+      <div class="control control-teams">
+        <label id="teams-label" for="teams-toggle-btn">Teams</label>
+        <div class="teams-select">
+          <button type="button" id="teams-toggle-btn" class="teams-select-btn"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-labelledby="teams-label teams-select-summary">
+            <span id="teams-select-summary">All Teams</span>
+            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="teams-dropdown" id="teams-dropdown" hidden>
+            <div class="teams-dropdown-actions">
+              <button type="button" id="teams-select-all">All</button>
+              <button type="button" id="teams-select-none">None</button>
+            </div>
+            <div class="teams-checklist" id="teams-checklist"></div>
+          </div>
+        </div>
       </div>
 
       <div class="control">
@@ -72,17 +93,6 @@
         <select id="position-select"></select>
       </div>
 
-      <!-- Row-break elements force deterministic line wraps in the control
-           bar (see .row-break in style.css) instead of leaving row grouping
-           to depend on exact viewport width, which is what previously left
-           X/Y axis stranded alone on a row while Team logos/Apply/Save PNG
-           crowded another. Grouping + right-alignment (Save Plot on the
-           axis row, Apply on the toggles row) is driven entirely by CSS
-           `order`, with separate desktop vs. mobile order values — see the
-           `.control-axis`/`.control-png`/`.control-apply` order rules and
-           the @media (max-width: 860px) overrides. -->
-      <div class="row-break" aria-hidden="true"></div>
-
       <div class="control control-axis">
         <label for="x-metric-select">X axis</label>
         <select id="x-metric-select"></select>
@@ -93,16 +103,12 @@
         <select id="y-metric-select"></select>
       </div>
 
-      <div class="control control-png">
-        <button id="save-png-btn" type="button" class="png-btn" aria-label="Save plot as PNG" title="Save plot as PNG" disabled>
-          <svg class="icon-download" viewBox="0 0 16 16" aria-hidden="true">
-            <path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"/>
-            <path fill="currentColor" d="M2.75 12.5a.75.75 0 0 1 .75.75v.25c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-.25a.75.75 0 0 1 1.5 0v.25A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 13.25v-.25a.75.75 0 0 1 .75-.75Z"/>
-          </svg>
-          Save Plot
-        </button>
-      </div>
-
+      <!-- Row-break elements force deterministic line wraps in the control
+           bar (see .row-break in style.css) instead of leaving row grouping
+           to depend on exact viewport width. All six dropdowns (Season
+           through Y axis) share one row above this break; Threshold,
+           Player Names/Team Logos, Apply, and Save Plot share the row
+           below it. -->
       <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-slider">
@@ -116,23 +122,21 @@
         </div>
       </div>
 
-      <div class="row-break" aria-hidden="true"></div>
-
-      <div class="control control-check">
+      <!-- Stacked (not side-by-side) so this whole group is only as wide as
+           one checkbox row, freeing enough horizontal room for Save Plot to
+           sit on the same row as Apply instead of up on the axis row. -->
+      <div class="control control-toggles">
         <label class="checkbox-label">
-          <input type="checkbox" id="labels-toggle" />
-          Show player labels
+          <input type="checkbox" id="labels-toggle" checked />
+          Player Names
         </label>
-      </div>
-
-      <div class="control control-check">
         <label class="checkbox-label">
           <input type="checkbox" id="logos-toggle" checked />
-          Team logos
+          Team Logos
         </label>
       </div>
 
-      <!-- Mobile-only: sits between the toggles and Save Plot/Apply in the
+      <!-- Mobile-only: sits between the toggles and Apply/Save Plot in the
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its
            position here in the DOM is irrelevant to the mobile visual order
            — that's driven by `order` in the @media (max-width: 860px) block
@@ -142,6 +146,16 @@
 
       <div class="control control-apply">
         <button id="apply-filters" type="button" class="apply-btn" aria-label="Apply filters">Apply</button>
+      </div>
+
+      <div class="control control-png">
+        <button id="save-png-btn" type="button" class="png-btn" aria-label="Save plot as PNG" title="Save plot as PNG" disabled>
+          <svg class="icon-download" viewBox="0 0 16 16" aria-hidden="true">
+            <path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"/>
+            <path fill="currentColor" d="M2.75 12.5a.75.75 0 0 1 .75.75v.25c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-.25a.75.75 0 0 1 1.5 0v.25A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 13.25v-.25a.75.75 0 0 1 .75-.75Z"/>
+          </svg>
+          Save Plot
+        </button>
       </div>
     </section>
   </div>
