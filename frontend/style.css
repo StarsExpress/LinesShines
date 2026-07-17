@@ -1,4 +1,10 @@
 :root {
+  /* Without this, browsers that can't fully suppress native form-control
+     chrome via appearance:none (Safari especially) fall back to their
+     light-mode default colors for the parts they don't suppress — the
+     Teams button rendered as a native white/black pill even though every
+     color on it is explicitly overridden below. */
+  color-scheme: dark;
   --turf-950: #0f2119;
   --turf-800: #16301f;
   --turf-700: #1e3d28;
@@ -451,7 +457,7 @@ body {
 .apply-btn.pending {
   box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright), 0 0 10px rgba(232, 193, 94, 0.55);
 }
-/* Secondary action next to Apply — turf bg + chalk text, gold reserved for
+/* Secondary action next to Apply — black bg + chalk text, gold reserved for
    Apply since that's the primary action. Exports whatever's currently
    rendered on the chart, so it's disabled whenever the chart itself is
    empty (see the `< 2` check in render()). */
@@ -459,22 +465,22 @@ body {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: var(--turf-700);
+  gap: 6px;
+  background: #000;
   color: var(--chalk);
   border: 1px solid var(--turf-600);
   border-radius: 6px;
-  padding: 5px 9px;
+  padding: 9px 20px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
 }
 .png-btn:hover,
 .png-btn:focus-visible {
-  background: var(--turf-600);
+  background: #1a1a1a;
   border-color: var(--flag-gold);
 }
 .png-btn:disabled {
@@ -482,7 +488,7 @@ body {
   cursor: not-allowed;
 }
 .png-btn:disabled:hover {
-  background: var(--turf-700);
+  background: #000;
   border-color: var(--turf-600);
 }
 
@@ -495,8 +501,8 @@ body {
   display: none;
 }
 .png-btn .icon-download {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   opacity: 0.8;
 }
 
@@ -597,7 +603,10 @@ body {
   position: absolute;
   top: 24px;
   right: 24px;
-  width: 260px;
+  /* Widened from 260px to fit the rank/percentile column added alongside
+     the value column without wrapping metric labels like "TPS Pressure
+     Rate". */
+  width: 380px;
   z-index: 5;
 }
 
@@ -677,12 +686,24 @@ body {
 .scout-card-body { display: none; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
 .scout-card-body:not([hidden]) { display: flex; }
 
+/* Doubles as the drag handle on desktop (see beginScoutDrag() in app.js) —
+   cursor + touch-action here, mobile reset alongside the rest of the
+   stacked-layout overrides in the @media (max-width: 860px) block below. */
 .scout-card-top {
   display: flex;
   align-items: center;
   gap: 12px;
   padding-bottom: 14px;
   border-bottom: 1px dashed var(--turf-600);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.scout-card.is-dragging .scout-card-top {
+  cursor: grabbing;
+}
+.scout-card.is-dragging .scout-card-panel {
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
 
 .scout-logo-wrap {
@@ -715,11 +736,17 @@ body {
   margin-top: 4px;
 }
 
+/* Three grid children per <dl> row: label, value, rank/percentile — see the
+   addRow() comment in app.js on why every row emits all three even when the
+   rank cell is empty (Games / threshold field), rather than letting grid
+   auto-placement drift out of alignment on short rows. */
 .scout-stats {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 9px 8px;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 12px;
+  row-gap: 9px;
   margin: 0;
+  align-items: baseline;
 }
 .scout-stats dt {
   font-size: 12.5px;
@@ -727,13 +754,28 @@ body {
 }
 .scout-stats dd {
   margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.scout-stats dd.scout-stat-value {
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--chalk);
-  text-align: right;
   font-weight: 600;
 }
-.scout-stats dd.is-highlighted { color: var(--flag-gold-bright); }
+.scout-stats dd.scout-stat-value.is-highlighted {
+  color: var(--flag-gold-bright);
+}
+/* Left un-highlighted even on gold rows so it stays legible as a quieter
+   third column next to the bright value. */
+.scout-stats dd.scout-stat-rank {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--chalk-dim);
+  min-width: 64px;
+}
 
 .footnote {
   margin-top: 26px;
@@ -776,6 +818,13 @@ body {
     top: auto;
     right: auto;
     width: auto;
+  }
+  /* Dragging is desktop-only (app.js's isDesktopScoutLayout() guard) — undo
+     the handle's cursor/touch-action here so mobile can still scroll the
+     page by touching the card header. */
+  .scout-card-top {
+    cursor: auto;
+    touch-action: auto;
   }
   .scout-card-tab {
     position: absolute;

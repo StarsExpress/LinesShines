@@ -47,6 +47,7 @@ const els = {
   scoutMeta: document.getElementById("scout-meta"),
   scoutStats: document.getElementById("scout-stats"),
   scoutClose: document.getElementById("scout-close"),
+  scoutDragHandle: document.getElementById("scout-drag-handle"),
 };
 
 let metadata = null;                 // /api/metadata payload
@@ -396,6 +397,39 @@ function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
   return `${value}${unit}`;
+}
+
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+// Rank (1 = best) and percentile (100 = best) for `value` on metric `key`
+// among `pool`, respecting the metric's higher/lower-is-better direction
+// (see PASS_RUSH_METRICS / PASS_BLOCK_METRICS in main.py). Ties share a
+// rank — competition ranking, so equal values don't get an arbitrary
+// tiebreak order — and the pool is exactly `currentFiltered`, i.e. the
+// same season/position/category/threshold population the chart is
+// currently plotting, not the unfiltered slice.
+function rankAndPercentile(pool, key, higherIsBetter, value) {
+  if (value == null) return null;
+  const values = pool.map((r) => r[key]).filter((v) => v != null);
+  const n = values.length;
+  if (n < 2) return null;
+  const better = (v) => (higherIsBetter ? v > value : v < value);
+  const rank = values.filter(better).length + 1;
+  const percentile = Math.round(((n - rank) / (n - 1)) * 100);
+  return { rank, n, percentile };
 }
 
 function teamColor(code) {
@@ -774,20 +808,36 @@ function showScoutCard(record) {
   const yKey = appliedFilters.yMetric;
 
   els.scoutStats.innerHTML = "";
-  const addRow = (label, value, highlighted) => {
+  // Three grid children per row (dt, value dd, rank dd) so the grid's
+  // row-major auto-placement stays aligned — a row that only emitted two
+  // children when it has no rank would shift every following row's columns.
+  // Games / the threshold field get an empty rank cell for exactly this
+  // reason, not because rank text was omitted by accident.
+  const addRow = (label, value, highlighted, rankText) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
+    dd.className = "scout-stat-value";
     dd.textContent = value;
     if (highlighted) dd.classList.add("is-highlighted");
+    const rankDd = document.createElement("dd");
+    rankDd.className = "scout-stat-rank";
+    rankDd.textContent = rankText || "—";
     els.scoutStats.appendChild(dt);
     els.scoutStats.appendChild(dd);
+    els.scoutStats.appendChild(rankDd);
   };
 
+  // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
+  // stats, not rate metrics — rank/percentile against them wouldn't mean
+  // "how well this player performed," so only the metrics loop below gets a
+  // rank.
   addRow("Games", record.games);
   addRow(cat.threshold_field, record[cat.threshold_field]);
   Object.entries(cat.metrics).forEach(([key, meta]) => {
-    addRow(key, formatValue(record[key], meta), key === xKey || key === yKey);
+    const rank = rankAndPercentile(currentFiltered, key, meta.higher_is_better, record[key]);
+    const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
+    addRow(key, formatValue(record[key], meta), key === xKey || key === yKey, rankText);
   });
 }
 
@@ -795,6 +845,75 @@ function resetScoutCard() {
   els.scoutCard.classList.remove("is-active");
   els.scoutEmpty.hidden = false;
   els.scoutBody.hidden = true;
+  // Drop any position a drag left behind so the card starts back at its
+  // default top-right corner next time it's opened, rather than wherever
+  // the user last dragged it.
+  clearScoutCardDragPosition();
+}
+
+// Below 860px the scouting card is a static block stacked under the chart
+// (see the @media (max-width: 860px) rules in style.css), not a floating
+// overlay — dragging only makes sense above that breakpoint, same cutoff
+// targetLogoPx() already uses for the desktop/mobile split.
+function isDesktopScoutLayout() {
+  return window.innerWidth >= 860;
+}
+
+// Inline left/top (set by dragging) sit at higher specificity than the
+// mobile media query's `top: auto; right: auto;` reset, so they'd otherwise
+// survive a resize down to mobile and break the stacked layout. Clearing
+// them lets the stylesheet's position rules take back over.
+function clearScoutCardDragPosition() {
+  els.scoutCard.style.left = "";
+  els.scoutCard.style.top = "";
+  els.scoutCard.style.right = "";
+}
+
+// Drag state for the one pointer currently moving the card, or null. Only
+// one drag can be in progress at a time — the pointerId lets move/end
+// handlers ignore any other pointer that fires while a drag is active
+// (e.g. a second touch point).
+let scoutDragState = null;
+
+function beginScoutDrag(e) {
+  if (!isDesktopScoutLayout()) return;
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const cardRect = els.scoutCard.getBoundingClientRect();
+  scoutDragState = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    startLeft: cardRect.left - panelRect.left,
+    startTop: cardRect.top - panelRect.top,
+    // Clamp targets, computed once at drag start rather than every move —
+    // the panel doesn't resize mid-drag.
+    maxLeft: Math.max(panelRect.width - cardRect.width, 0),
+    maxTop: Math.max(panelRect.height - cardRect.height, 0),
+  };
+  // Switch from the default top/right anchor to an explicit left/top so
+  // the card can move freely; keeps it exactly where it already was.
+  els.scoutCard.style.left = `${scoutDragState.startLeft}px`;
+  els.scoutCard.style.top = `${scoutDragState.startTop}px`;
+  els.scoutCard.style.right = "auto";
+  els.scoutCard.classList.add("is-dragging");
+  els.scoutDragHandle.setPointerCapture(e.pointerId);
+}
+
+function onScoutDragMove(e) {
+  if (!scoutDragState || e.pointerId !== scoutDragState.pointerId) return;
+  const dx = e.clientX - scoutDragState.startX;
+  const dy = e.clientY - scoutDragState.startY;
+  const left = Math.min(Math.max(scoutDragState.startLeft + dx, 0), scoutDragState.maxLeft);
+  const top = Math.min(Math.max(scoutDragState.startTop + dy, 0), scoutDragState.maxTop);
+  els.scoutCard.style.left = `${left}px`;
+  els.scoutCard.style.top = `${top}px`;
+}
+
+function endScoutDrag(e) {
+  if (!scoutDragState || e.pointerId !== scoutDragState.pointerId) return;
+  els.scoutDragHandle.releasePointerCapture(e.pointerId);
+  els.scoutCard.classList.remove("is-dragging");
+  scoutDragState = null;
 }
 
 function closeFiltersDrawer() {
@@ -973,6 +1092,21 @@ function attachEvents() {
   els.scoutClose.addEventListener("click", () => {
     pinnedIndex = null;
     resetScoutCard();
+  });
+
+  // Pointer capture on the handle itself means move/up keep firing on it
+  // even once the pointer strays outside the card during a fast drag — no
+  // document-level listeners needed.
+  els.scoutDragHandle.addEventListener("pointerdown", beginScoutDrag);
+  els.scoutDragHandle.addEventListener("pointermove", onScoutDragMove);
+  els.scoutDragHandle.addEventListener("pointerup", endScoutDrag);
+  els.scoutDragHandle.addEventListener("pointercancel", endScoutDrag);
+
+  // A drag position is only valid in the desktop overlay layout — resizing
+  // past the breakpoint mid-session (or a device rotation) needs the same
+  // cleanup resetScoutCard() does on close, see clearScoutCardDragPosition().
+  window.addEventListener("resize", () => {
+    if (!isDesktopScoutLayout()) clearScoutCardDragPosition();
   });
 
   // Closes the pinned scouting card when clicking anywhere outside both
