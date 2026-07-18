@@ -818,6 +818,10 @@ body {
     top: auto;
     right: auto;
     width: auto;
+    /* Slightly wider than the layout's text column, same trick as
+       .chart-panel's edge-bleed above but partial rather than full-bleed,
+       so the card gets breathing room without losing its rounded corners. */
+    margin: 0 -10px;
   }
   /* Dragging is desktop-only (app.js's isDesktopScoutLayout() guard) — undo
      the handle's cursor/touch-action here so mobile can still scroll the
