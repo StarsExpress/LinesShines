@@ -43,4 +43,4 @@
 
 - Pytest — unit & API tests.
 - GitHub — CI/CD pipeline triggers.
-- Railway — platform deployment.
+- Railway — exploration platform deployment.
