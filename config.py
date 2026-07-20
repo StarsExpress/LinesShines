@@ -49,6 +49,10 @@ TEAMS = [
 
 
 FRONT_7_NAMES = {"DI": "Defensive Interior", "ED": "Edge", "LB": "Linebacker"}
+OL_NAMES = {"T": "Offensive Tackles", "G": "Guards", "C": "Centers"}
+
+ROUNDING_DIGITS = 1
 
 HAVOC_NOTE = "Havoc = Sacks + QB Hits."
 HAVOC_RATE_NOTE = "Havoc Rate = (Sacks + QB Hits) / Pass Rush Opportunities."
+ALLOWED_HAVOC_RATE_NOTE = "Allowed Havoc Rate = (Sacks + QB Hits) / Non Spike Pass Block Snaps."

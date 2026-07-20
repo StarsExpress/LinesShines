@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Local SQLite DB — Railway uses managed Postgres, not this file.
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# Safety net: never let raw PFF exports get committed by accident.
+*.csv
+*.xlsx
+
+.DS_Store
+.env
+.idea/
+.vscode/
+
+node_modules/
