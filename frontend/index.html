@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive NFL OL & DL PFF metrics exploration platform." />
+<meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,6 +80,41 @@
         </div>
       </div>
 
+      <!-- Desktop/tablet only — hidden entirely on mobile (see .control-players
+           in the @media (max-width: 860px) block of style.css). Players is a
+           second, dynamic highlight dimension alongside Teams: its searchable
+           pool depends on the live threshold value (see app.js's
+           qualifyingPlayerPool()), so it doesn't degrade cleanly to a touch
+           control the way the static 32-team checklist does.
+
+           Collapsed behind a summary button + click-to-open panel, same
+           mechanism as Teams above — otherwise a handful of chips would
+           make this box balloon past its neighbors' width/height (see the
+           control-bar sizing gotcha in CLAUDE.md) every time a player is
+           added. -->
+      <div class="control control-players" id="players-control">
+        <label id="players-label" for="players-toggle-btn">Players</label>
+        <div class="players-select">
+          <button type="button" id="players-toggle-btn" class="teams-select-btn"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-labelledby="players-label players-select-summary">
+            <span id="players-select-summary">No Players</span>
+            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="players-panel" id="players-panel" hidden>
+            <div class="players-field" id="players-field">
+              <div class="players-chips" id="players-chips"></div>
+              <input type="text" id="players-input" class="players-input"
+                     placeholder="Type to add player..." autocomplete="off"
+                     aria-labelledby="players-label" />
+            </div>
+            <div class="players-dropdown" id="players-dropdown" hidden></div>
+          </div>
+        </div>
+      </div>
+
       <div class="control">
         <label for="category-select">Category</label>
         <select id="category-select">
@@ -105,10 +140,10 @@
 
       <!-- Row-break elements force deterministic line wraps in the control
            bar (see .row-break in style.css) instead of leaving row grouping
-           to depend on exact viewport width. All six dropdowns (Season
-           through Y axis) share one row above this break; Threshold,
-           Player Names/Team Logos, Apply, and Save Plot share the row
-           below it. -->
+           to depend on exact viewport width. Season through Y axis (plus
+           Players, desktop/tablet only) share one row above this break;
+           Threshold, Player Names/Team Logos, Apply, and Save Plot share the
+           row below it. -->
       <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-slider">

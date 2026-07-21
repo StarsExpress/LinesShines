@@ -4,6 +4,10 @@
 
 # 🏈LinesShines · 鋒光
 
+[![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+[![main Black Linter](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+[![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
+
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
 ![Season](https://img.shields.io/badge/Season-2025-crimson)
 ![Week](https://img.shields.io/badge/Week-18-gold)
@@ -14,7 +18,7 @@
 
 ---
 
-### [🔷 Blue 80 Blue 80 🏟](https://lines-shines.up.railway.app)
+### [🔷 Blue 80 Blue 80 🏟](https://www.lines-shines.com)
 
 ### [📗 Background Stories ➡️️](https://starsexpress.github.io/Faraway-s-Way/linesshines/)
 

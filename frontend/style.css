@@ -130,6 +130,18 @@ body {
   margin: 0 auto;
   padding: 28px 24px 60px;
 }
+/* Laptop/tablet get a wider canvas than the 1180px baseline (sized back
+   when the control bar only held 6 dropdowns) — there's screen real estate
+   to spare, and the chart panel below scales with this since #chart is
+   width:100% of it. Mobile is unaffected: max-width is just an upper bound,
+   and the @media (max-width: 860px) block below fully overrides the
+   control bar into a drawer regardless. */
+@media (min-width: 861px) {
+  .layout { max-width: 1440px; }
+}
+@media (min-width: 1440px) {
+  .layout { max-width: 1680px; }
+}
 
 /* --- mobile filters drawer trigger ---
    Hidden on desktop by default; the `@media (max-width: 860px)` block at
@@ -428,6 +440,165 @@ body {
   border-radius: 2px;
 }
 
+/* --- Players autocomplete + chip list ---
+   Sits next to Teams in the control bar; desktop/tablet only (hidden in the
+   @media (max-width: 860px) block below — the pool this searches depends on
+   live threshold state that doesn't translate cleanly to a touch control,
+   see app.js's qualifyingPlayerPool()). Collapsed behind a summary button +
+   click-to-open .players-panel, the same button+panel mechanism as Teams
+   (.teams-select-btn is reused directly on the Players button, not
+   duplicated) — the chip list only has to fit inside the panel, not the
+   150px collapsed button, so it can grow to several chips deep without
+   ballooning the row past its neighbors. */
+/* No flex-grow (unlike .control-slider) — this used to grow to fill
+   whatever space was left in the row, which was wide enough to push Y axis
+   onto a second row even though there was nominally "one row" worth of
+   controls. Teams/Category/Position all settle at exactly 150px via their
+   select/button's min-width, with no explicit width needed, because their
+   content never exceeds it — but a bare <input> has its own UA intrinsic
+   width (~160px+) that isn't capped by flex-basis when this box's own
+   width is auto, which used to make Players noticeably wider than its
+   neighbors before the chip list moved into its own panel. Fixed at the
+   same 150px explicitly so the collapsed button can't inflate. */
+.control-players { position: relative; width: 150px; }
+
+.players-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.players-panel[hidden] { display: none; }
+
+.players-field {
+  box-sizing: border-box;
+  min-height: 38px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.players-field:focus-within {
+  border-color: var(--flag-gold);
+}
+
+.players-chips {
+  display: contents; /* chips lay out directly in .players-field's flex row, alongside the input */
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--turf-700);
+  border: 1px solid var(--turf-600);
+  border-radius: 999px;
+  padding: 3px 4px 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--chalk);
+  white-space: nowrap;
+}
+.player-chip-remove {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.player-chip-remove:hover,
+.player-chip-remove:focus-visible {
+  color: var(--flag-gold-bright);
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+
+.players-input {
+  flex: 1 1 90px;
+  min-width: 90px;
+  background: transparent;
+  border: none;
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 4px 2px;
+}
+.players-input:focus { outline: none; }
+.players-input::placeholder { color: var(--chalk-dim); }
+
+/* Nested inside .players-panel now (not its own floating box) — just the
+   scrollable suggestion list under the chip field, separated by a divider
+   whenever it actually has matches to show. */
+.players-dropdown {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--turf-600);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.players-dropdown[hidden] { display: none; }
+
+.player-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--chalk);
+  text-align: left;
+  cursor: pointer;
+}
+.player-option:hover,
+.player-option:focus-visible {
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+.player-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-option-team {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--chalk-dim);
+}
+.player-option-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
    styled as the form's one primary action rather than tucked next to the
@@ -544,6 +715,10 @@ body {
 }
 
 #chart { width: 100%; height: 720px; }
+@media (min-width: 861px) {
+  .chart-panel { min-height: 800px; }
+  #chart { height: 800px; }
+}
 /* The actual hit-testing layer is Plotly's .nsewdrag overlay rect, which
    sits above every marker and would otherwise keep its own injected
    crosshair cursor (a leftover affordance for drag-to-zoom, which is off
@@ -867,6 +1042,11 @@ body {
      and flex-wrapped like on desktop, five selects + a slider would eat
      most of a phone screen before the chart even starts. */
   .controls-toggle { display: block; margin-bottom: 14px; }
+
+  /* Players is a deliberate desktop/tablet-only feature (see the comment on
+     .control-players above) — no mobile fallback, no read-only messaging,
+     it's simply absent from the mobile drawer. */
+  .control-players { display: none; }
 
   .filters-drawer {
     position: fixed;

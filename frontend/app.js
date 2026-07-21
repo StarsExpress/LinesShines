@@ -32,6 +32,14 @@ const els = {
   teamsChecklist: document.getElementById("teams-checklist"),
   teamsSelectAll: document.getElementById("teams-select-all"),
   teamsSelectNone: document.getElementById("teams-select-none"),
+  playersControl: document.getElementById("players-control"),
+  playersBtn: document.getElementById("players-toggle-btn"),
+  playersSummary: document.getElementById("players-select-summary"),
+  playersPanel: document.getElementById("players-panel"),
+  playersField: document.getElementById("players-field"),
+  playersChips: document.getElementById("players-chips"),
+  playersInput: document.getElementById("players-input"),
+  playersDropdown: document.getElementById("players-dropdown"),
   chart: document.getElementById("chart"),
   chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),
@@ -54,6 +62,31 @@ let metadata = null;                 // /api/metadata payload
 const sliceCache = new Map();        // key = `${category}:${season}:${position}` → records[]
 let currentRecords = [];             // records for the current slice (all threshold values)
 let currentFiltered = [];            // records >= threshold (what the chart shows)
+
+// Which category's schema currentRecords actually matches. Tracked
+// separately from els.category.value because a pending (not-yet-Applied)
+// category switch changes els.category.value immediately while
+// currentRecords still holds the previous category's rows until Apply
+// re-runs loadCurrentSlice() — code that reads currentRecords (the Players
+// pool, see qualifyingPlayerPool()) needs the category that actually
+// matches the data in hand, not the one the dropdown currently shows.
+let currentSliceCategory = null;
+
+// Records for whatever category/season/position the controls are *currently
+// set to* (pending, not necessarily Applied yet) — feeds only the Players
+// search pool (qualifyingPlayerPool()), kept live by updatePlayerPool() on
+// every category/season/position change so switching Position immediately
+// changes which players the search box will suggest, rather than waiting
+// for Apply the way the chart itself does. Deliberately separate from
+// currentRecords/currentSliceCategory above, which stay Apply-gated.
+let playerPoolRecords = [];
+let playerPoolCategory = null;
+
+// Players filter: full player name ("player", not the abbreviated display
+// name) → record, in selection order. Live/pending like the Teams
+// checklist — edited freely via chips, only takes effect on the chart once
+// Apply snapshots it into appliedFilters.players (see currentFilterState()).
+const selectedPlayers = new Map();
 
 // Snapshot of {category, season, position, xMetric, yMetric, threshold} the
 // chart was last actually rendered with. Every one of those controls can be
@@ -125,6 +158,8 @@ async function loadMetadata() {
   populateTeamsChecklist();
   attachEvents();
   await loadCurrentSlice();
+  playerPoolRecords = currentRecords;
+  playerPoolCategory = currentSliceCategory;
   appliedFilters = currentFilterState();
 
   els.logoPreload.hidden = false;
@@ -159,6 +194,7 @@ function currentFilterState() {
     // other primitive-valued control — two different array references
     // would never compare equal even with identical contents.
     teams: selectedTeamCodes().sort().join(","),
+    players: Array.from(selectedPlayers.keys()).sort().join(","),
   };
 }
 
@@ -269,6 +305,313 @@ function closeTeamsDropdown() {
   els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
+// --- Players autocomplete -----------------------------------------------
+//
+// PFF's "Player" column is "{first} {last}" or "{first} {last} {suffix}",
+// where either name can itself be multi-word ("Andrew Van Ginkel", "D.J.
+// Wonnum"). Splitting on token count is ambiguous — a suffix whitelist is
+// the only reliable signal, since a compound last name and a suffix both
+// just look like "more tokens after the first".
+const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]);
+
+function parsePlayerName(fullName) {
+  const parts = (fullName || "").split(" ").filter(Boolean);
+  let suffix = null;
+  if (parts.length >= 3 && NAME_SUFFIXES.has(parts[parts.length - 1])) {
+    suffix = parts.pop();
+  }
+  const first = parts[0] || "";
+  const last = parts.length > 1 ? parts.slice(1).join(" ") : "";
+  return { first, last, suffix };
+}
+
+// Ratcliff/Obershelp ratio — same algorithm as Python's stdlib
+// difflib.SequenceMatcher(None, a, b).ratio(), reimplemented here since
+// there's no equivalent in the browser and pulling in a fuzzy-match
+// dependency (Fuse.js etc.) for a fallback layer that only matters for
+// typos is overkill. Only reached for short (name-token-length) strings, so
+// the O(n*m) cost here is negligible.
+function longestMatchSize(a, b, alo, ahi, blo, bhi) {
+  let besti = alo, bestj = blo, bestsize = 0;
+  let j2len = {};
+  for (let i = alo; i < ahi; i++) {
+    const newJ2len = {};
+    for (let j = blo; j < bhi; j++) {
+      if (a[i] === b[j]) {
+        const k = (j2len[j - 1] || 0) + 1;
+        newJ2len[j] = k;
+        if (k > bestsize) {
+          besti = i - k + 1;
+          bestj = j - k + 1;
+          bestsize = k;
+        }
+      }
+    }
+    j2len = newJ2len;
+  }
+  return [besti, bestj, bestsize];
+}
+
+function matchingCharCount(a, b) {
+  const queue = [[0, a.length, 0, b.length]];
+  let total = 0;
+  while (queue.length) {
+    const [alo, ahi, blo, bhi] = queue.pop();
+    const [i, j, k] = longestMatchSize(a, b, alo, ahi, blo, bhi);
+    if (k) {
+      total += k;
+      if (alo < i && blo < j) queue.push([alo, i, blo, j]);
+      if (i + k < ahi && j + k < bhi) queue.push([i + k, ahi, j + k, bhi]);
+    }
+  }
+  return total;
+}
+
+function sequenceRatio(a, b) {
+  if (!a.length && !b.length) return 1;
+  return (2 * matchingCharCount(a, b)) / (a.length + b.length);
+}
+
+// Layered match strategy (deliberately not Levenshtein — the wrong tool for
+// prefix-driven autocomplete): a prefix match beats a substring match beats
+// a token-prefix match beats a fuzzy/typo fallback. Returns a [layer, tiebreak]
+// tuple (lower sorts first) or null for no match at all. Token split includes
+// "-" (not just whitespace) so a query landing after the hyphen in a compound
+// last name like "Norman-Lott" still hits Layer 2 as a token-prefix.
+function matchScore(query, candidate) {
+  if (!query || !candidate) return null;
+  const q = query.toLowerCase();
+  const c = candidate.toLowerCase();
+
+  if (c.startsWith(q)) return [0, c.length];
+
+  const idx = c.indexOf(q);
+  if (idx !== -1) return [1, idx];
+
+  const tokens = c.split(/[\s-]+/);
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].startsWith(q)) return [2, i];
+  }
+
+  const ratio = sequenceRatio(q, c);
+  if (ratio > 0.75) return [3, -ratio];
+
+  return null;
+}
+
+function compareScores(a, b) {
+  return a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1];
+}
+
+// Scores one player against every whitespace-split token of the query — a
+// candidate passes if ANY token matches ANY of first/last/suffix (OR, not
+// AND), so "will ander" and "ander jr" both hit "Will Anderson Jr." even
+// though neither token alone is the full name. Ranking signals, in priority
+// order (see searchPlayers' sort): totalHits (how many query tokens matched
+// at all) > nameHits (how many matched first/last specifically — a suffix
+// hit doesn't count here, which is what makes "jr" alone rank below a token
+// that hit an actual name) > bestScore (the best individual matchScore
+// across every matched token).
+function scorePlayerAgainstQuery(queryTokens, playerRecord) {
+  const { first, last, suffix } = parsePlayerName(playerRecord.player);
+
+  let totalHits = 0;
+  let nameHits = 0;
+  let bestScore = null;
+
+  for (const token of queryTokens) {
+    const firstScore = matchScore(token, first);
+    const lastScore = matchScore(token, last);
+    const suffixScore = suffix ? matchScore(token, suffix) : null;
+
+    const nameScores = [firstScore, lastScore].filter((s) => s !== null);
+    const allScores = [firstScore, lastScore, suffixScore].filter((s) => s !== null);
+
+    if (allScores.length > 0) {
+      totalHits++;
+      if (nameScores.length > 0) nameHits++;
+
+      const tokenBest = allScores.slice().sort(compareScores)[0];
+      if (bestScore === null || compareScores(tokenBest, bestScore) < 0) {
+        bestScore = tokenBest;
+      }
+    }
+  }
+
+  if (totalHits === 0) return null;
+  return { totalHits, nameHits, bestScore };
+}
+
+// playerPoolRecords/playerPoolCategory (rather than currentRecords/
+// currentSliceCategory) so this always reflects the pending category —
+// updatePlayerPool() keeps both live on every category/season/position
+// change, independent of whether that change has been Applied yet.
+function qualifyingPlayerPool() {
+  if (!playerPoolCategory) return [];
+  const cat = metadata[playerPoolCategory];
+  const minThreshold = Number(els.thresholdNumber.value);
+  return playerPoolRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
+}
+
+// Top `topK` matches for `query` among `pool`, excluding players already
+// selected (no point suggesting a chip that already exists). Search runs
+// against the full "player" field (e.g. "Will Anderson Jr."), never
+// "abbr_name" ("W. Anderson Jr.") — abbr_name exists purely for chart-label
+// rendering and would make a query like "will" fail to match.
+function searchPlayers(query, pool, topK = 8) {
+  const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return [];
+
+  const scored = pool
+    .filter((record) => !selectedPlayers.has(record.player))
+    .map((record) => ({ record, result: scorePlayerAgainstQuery(queryTokens, record) }))
+    .filter((x) => x.result !== null);
+
+  scored.sort((a, b) => {
+    if (a.result.totalHits !== b.result.totalHits) return b.result.totalHits - a.result.totalHits;
+    if (a.result.nameHits !== b.result.nameHits) return b.result.nameHits - a.result.nameHits;
+    const cmp = compareScores(a.result.bestScore, b.result.bestScore);
+    if (cmp !== 0) return cmp;
+    return a.record.player.localeCompare(b.record.player);
+  });
+
+  return scored.slice(0, topK).map((x) => x.record);
+}
+
+function renderPlayerChips() {
+  els.playersChips.innerHTML = "";
+  selectedPlayers.forEach((record, key) => {
+    const label = record.abbr_name || record.player;
+    const chip = document.createElement("span");
+    chip.className = "player-chip";
+
+    const text = document.createElement("span");
+    text.textContent = label;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "player-chip-remove";
+    removeBtn.setAttribute("aria-label", `Remove ${label}`);
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => {
+      selectedPlayers.delete(key);
+      renderPlayerChips();
+      updatePendingState();
+    });
+
+    chip.append(text, removeBtn);
+    els.playersChips.appendChild(chip);
+  });
+  updatePlayersSummary();
+}
+
+// Mirrors updateTeamsSummary() — the collapsed button's label, shown while
+// .players-panel is closed so the chip list itself never has to fit inside
+// the 150px button (see the control-players sizing comment above .control-players).
+function updatePlayersSummary() {
+  const count = selectedPlayers.size;
+  if (count === 0) els.playersSummary.textContent = "No Players";
+  else if (count === 1) {
+    const [[, record]] = selectedPlayers;
+    els.playersSummary.textContent = record.abbr_name || record.player;
+  } else els.playersSummary.textContent = `${count} Players`;
+}
+
+function openPlayersPanel() {
+  els.playersPanel.hidden = false;
+  els.playersBtn.setAttribute("aria-expanded", "true");
+  els.playersInput.focus();
+}
+
+function closePlayersPanel() {
+  els.playersPanel.hidden = true;
+  els.playersBtn.setAttribute("aria-expanded", "false");
+  hidePlayersDropdown();
+}
+
+function hidePlayersDropdown() {
+  els.playersDropdown.hidden = true;
+  els.playersDropdown.innerHTML = "";
+}
+
+function renderPlayersDropdown(matches) {
+  els.playersDropdown.innerHTML = "";
+  if (!matches.length) {
+    hidePlayersDropdown();
+    return;
+  }
+
+  matches.forEach((record) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "player-option";
+
+    // Full name here (unlike the abbreviated chip label) — the dropdown is
+    // a disambiguation UI where "Anderson" alone could mean several
+    // players, so the full name plus team logo carries more identifying
+    // context than the compact "W. Anderson Jr." the chip uses once picked.
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+    const code = document.createElement("span");
+    code.textContent = record.team;
+
+    team.append(logo, code);
+    opt.append(name, team);
+    opt.addEventListener("click", () => {
+      selectedPlayers.set(record.player, record);
+      renderPlayerChips();
+      els.playersInput.value = "";
+      hidePlayersDropdown();
+      updatePendingState();
+      els.playersInput.focus();
+    });
+
+    els.playersDropdown.appendChild(opt);
+  });
+
+  els.playersDropdown.hidden = false;
+}
+
+function runPlayersSearch() {
+  const query = els.playersInput.value.trim();
+  if (!query) {
+    hidePlayersDropdown();
+    return;
+  }
+  renderPlayersDropdown(searchPlayers(query, qualifyingPlayerPool()));
+}
+
+// Called whenever the qualifying pool can have shrunk — live threshold
+// edits, and live category/season/position changes via updatePlayerPool()
+// (e.g. switching Position from ED to DI drops any ED-only chip immediately,
+// since it's no longer in the new position's pool) — so a selected player
+// who no longer clears the bar (or no longer exists in the new slice)
+// silently loses their chip instead of lingering as a selection that can't
+// actually take effect.
+function prunePlayerSelections() {
+  const poolKeys = new Set(qualifyingPlayerPool().map((r) => r.player));
+  let changed = false;
+  selectedPlayers.forEach((_, key) => {
+    if (!poolKeys.has(key)) {
+      selectedPlayers.delete(key);
+      changed = true;
+    }
+  });
+  if (changed) renderPlayerChips();
+}
+
 function filtersArePending() {
   if (!appliedFilters) return false;
   const current = currentFilterState();
@@ -330,12 +673,12 @@ function populateCategoryDependentControls() {
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
 }
 
-async function loadCurrentSlice() {
-  const category = els.category.value;
-  const season = Number(els.season.value);
-  const position = els.position.value;
+// Shared by loadCurrentSlice() (Apply-gated, drives the chart) and
+// updatePlayerPool() (live, drives only the Players search pool) — both
+// just need the records for a given category/season/position, memoized in
+// sliceCache so switching back to an already-seen combination is free.
+async function fetchSlice(category, season, position) {
   const key = `${category}:${season}:${position}`;
-
   if (!sliceCache.has(key)) {
     const url = `/api/${category}?season=${season}&position=${encodeURIComponent(position)}`;
     const res = await fetch(url);
@@ -343,8 +686,35 @@ async function loadCurrentSlice() {
     const data = await res.json();
     sliceCache.set(key, data.records || []);
   }
-  currentRecords = sliceCache.get(key);
+  return sliceCache.get(key);
+}
+
+async function loadCurrentSlice() {
+  const category = els.category.value;
+  const season = Number(els.season.value);
+  const position = els.position.value;
+  currentRecords = await fetchSlice(category, season, position);
+  currentSliceCategory = category;
   updateThresholdRange();
+}
+
+// Mirrors loadCurrentSlice(), but for whatever category/season/position the
+// controls are pending on right now, and never touches currentRecords/
+// currentSliceCategory/updateThresholdRange — those stay reserved for the
+// last Applied slice the chart is actually showing. Fired on every
+// category/season/position change (see attachEvents()) so the Players
+// dropdown always searches the position currently selected, e.g. switching
+// from ED to DI immediately drops ED-only players like Derick Hall from the
+// suggestions and starts surfacing DI players like Dexter Lawrence instead,
+// without waiting for Apply.
+async function updatePlayerPool() {
+  const category = els.category.value;
+  const season = Number(els.season.value);
+  const position = els.position.value;
+  playerPoolRecords = await fetchSlice(category, season, position);
+  playerPoolCategory = category;
+  prunePlayerSelections();
+  runPlayersSearch();
 }
 
 function updateThresholdRange() {
@@ -549,16 +919,54 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimm
 const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
 const LABEL_ALPHA = 0.55; // normal (non-dimmed) player-name opacity
 
+// Teams and Players both only dim, never exclude (see the isDimmed comment
+// in render()), so unlike the old Teams-only subtitle this can't just count
+// currentFiltered — a reader needs to know *why* a non-highlighted-team
+// player might still be sitting on the chart. Falls back to the plain
+// "N players ≥ threshold" line when nothing is actually being highlighted
+// (all teams selected, no players added) so the common case stays terse.
+function highlightSubtitle(cat, records, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold) {
+  const fieldLabel = thresholdFieldLabel(cat);
+  const totalTeams = allTeamCodes().length;
+  const allTeamsSelected = selectedTeams.size === totalTeams;
+
+  const parts = [];
+  if (allTeamsSelected) {
+    // Every team already selected — Players is the only real filter, no
+    // point naming "32 Teams".
+  } else if (selectedTeams.size === 0) {
+    parts.push("no teams");
+  } else if (selectedTeams.size <= 2) {
+    parts.push(Array.from(selectedTeams).map(teamName).join(" + "));
+  } else {
+    parts.push(`${selectedTeams.size} teams`);
+  }
+
+  const playerRecords = records.filter((r) => selectedPlayerKeys.has(r.player));
+  if (playerRecords.length) {
+    const names = playerRecords.map((r) => r.abbr_name || r.player);
+    parts.push(names.length <= 2 ? names.join(" + ") : `${names.length} players`);
+  }
+
+  const highlightedCount = records.length - isDimmed.filter(Boolean).length;
+  const clause = parts.length ? parts.join(" + ") : "nothing";
+  return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
+}
+
 function render() {
   const cat = appliedCategoryMeta();
 
   const minThreshold = Number(appliedFilters.threshold);
   const selectedTeams = new Set(appliedFilters.teams ? appliedFilters.teams.split(",") : []);
+  const selectedPlayerKeys = new Set(appliedFilters.players ? appliedFilters.players.split(",") : []);
 
   currentFiltered = currentRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
-  // Empty selectedTeams (Teams → None) has .has() return false for every
-  // team, which dims everyone uniformly — no special-casing needed.
-  const isDimmed = currentFiltered.map((r) => !selectedTeams.has(r.team));
+  // Players joins Teams via OR — a player is highlighted if their team is
+  // selected OR they were explicitly added, so an explicitly-picked player
+  // off a dimmed team still stands out. Empty selectedTeams (Teams → None)
+  // with no players picked has both .has() calls return false for every
+  // record, which dims everyone uniformly — no special-casing needed.
+  const isDimmed = currentFiltered.map((r) => !(selectedTeams.has(r.team) || selectedPlayerKeys.has(r.player)));
 
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
@@ -675,8 +1083,7 @@ function render() {
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
   const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
-  const subtitleText =
-    `${currentFiltered.length} players with at least ${minThreshold} ${thresholdFieldLabel(cat)}.`;
+  const subtitleText = highlightSubtitle(cat, currentFiltered, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold);
 
   const layout = {
     paper_bgcolor: "transparent",
@@ -937,6 +1344,11 @@ async function applyFilters() {
     await loadCurrentSlice(); // may also reset/clamp the threshold controls
   }
 
+  // A season/position/category switch (or a threshold edit that slipped in
+  // without a live prune) can leave stale chips pointing at players outside
+  // the new qualifying pool — drop them before snapshotting into
+  // appliedFilters so the chart never highlights a player who isn't there.
+  prunePlayerSelections();
   appliedFilters = currentFilterState();
   closeFiltersDrawer();
   render();
@@ -944,18 +1356,29 @@ async function applyFilters() {
 }
 
 function attachEvents() {
-  // Category/season/position/axes are all pending-only now: picking a new
-  // value just updates the control itself (plus, for category, the option
-  // lists that depend on it) and lights up Apply. Nothing fetches or
-  // re-renders until applyFilters() runs, so the user can change several of
-  // these together and commit them in one shot.
+  // Category/season/position/axes are all pending-only for the chart: picking
+  // a new value just updates the control itself (plus, for category, the
+  // option lists that depend on it) and lights up Apply — nothing fetches or
+  // re-renders the chart until applyFilters() runs, so the user can change
+  // several of these together and commit them in one shot. Category/season/
+  // position additionally trigger updatePlayerPool() live (unlike the chart),
+  // since the Players search pool is cheap to keep in sync with whatever
+  // position is currently selected rather than making it wait for Apply too.
   els.category.addEventListener("change", () => {
     resetThresholdOnNextRange = true;
     populateCategoryDependentControls();
     updatePendingState();
+    updatePlayerPool();
   });
 
-  [els.season, els.position, els.xMetric, els.yMetric].forEach((el) =>
+  [els.season, els.position].forEach((el) =>
+    el.addEventListener("change", () => {
+      updatePendingState();
+      updatePlayerPool();
+    })
+  );
+
+  [els.xMetric, els.yMetric].forEach((el) =>
     el.addEventListener("change", updatePendingState)
   );
 
@@ -994,6 +1417,57 @@ function attachEvents() {
     if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
   });
 
+  // Players: collapsed behind a button + panel, same mechanism as Teams —
+  // the chip list stays hidden until opened so it never has to fit inside
+  // the collapsed button's width (see the .control-players comment in
+  // style.css). Pending-only like Teams otherwise: adding/removing a chip
+  // just updates the selection and lights up Apply; the chart doesn't
+  // re-highlight until applyFilters() runs. The search itself, though,
+  // reacts live (see qualifyingPlayerPool()/prunePlayerSelections()) since
+  // it's cheap client-side filtering against already-cached data, not a
+  // refetch.
+  els.playersBtn.addEventListener("click", () => {
+    if (els.playersPanel.hidden) openPlayersPanel();
+    else closePlayersPanel();
+  });
+
+  els.playersInput.addEventListener("input", runPlayersSearch);
+
+  els.playersInput.addEventListener("focus", () => {
+    if (els.playersInput.value.trim()) runPlayersSearch();
+  });
+
+  els.playersInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      // Autocomplete convention: Escape backs out one level at a time —
+      // first close just the suggestion list, and only close the whole
+      // panel if the suggestions were already closed.
+      if (!els.playersDropdown.hidden) hidePlayersDropdown();
+      else closePlayersPanel();
+    } else if (e.key === "Enter") {
+      // Autocomplete convention: Enter commits the top suggestion, same as
+      // a click on it.
+      e.preventDefault();
+      const first = els.playersDropdown.querySelector(".player-option");
+      if (first) first.click();
+    }
+  });
+
+  // Same e.isTrusted guard as the Teams/filters-drawer listeners — see the
+  // comment above the Teams one for why. Uses composedPath() rather than
+  // playersControl.contains(e.target): picking a suggestion calls
+  // hidePlayersDropdown(), which clears the suggestion list's innerHTML
+  // (removing the very button just clicked) before this bubbled listener
+  // runs — contains() on a now-detached node always returns false, which
+  // was slamming the whole panel shut on every single pick. composedPath()
+  // is captured at dispatch time, before that mutation, so it still
+  // includes playersControl.
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (els.playersPanel.hidden) return;
+    if (!e.composedPath().includes(els.playersControl)) closePlayersPanel();
+  });
+
   // Dragging the slider or typing a number only updates these two controls'
   // own displayed values — the chart holds its current state until the user
   // clicks Apply (or presses Enter in the number field). Re-rendering on
@@ -1005,6 +1479,11 @@ function attachEvents() {
     // category switch stomp it back to that category's default at Apply
     // time (see the resetThresholdOnNextRange comment above its declaration).
     resetThresholdOnNextRange = false;
+    // The Players pool is threshold-gated live (not just at Apply) — see
+    // qualifyingPlayerPool() — so a chip that no longer clears the new
+    // value should disappear the moment the slider moves, not linger until
+    // Apply.
+    prunePlayerSelections();
     updatePendingState();
   });
 
@@ -1022,6 +1501,7 @@ function attachEvents() {
     // visually — filtering below still uses the exact typed number.
     els.threshold.value = min + Math.round((raw - min) / step) * step;
     resetThresholdOnNextRange = false;
+    prunePlayerSelections();
     updatePendingState();
   });
 
