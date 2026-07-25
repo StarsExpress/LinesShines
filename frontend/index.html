@@ -93,7 +93,10 @@
            control-bar sizing gotcha in CLAUDE.md) every time a player is
            added. -->
       <div class="control control-players" id="players-control">
-        <label id="players-label" for="players-toggle-btn">Players</label>
+        <div class="players-label-row">
+          <label id="players-label" for="players-toggle-btn">Players</label>
+          <button type="button" id="players-reset-btn" class="players-reset-btn">Reset</button>
+        </div>
         <div class="players-select">
           <button type="button" id="players-toggle-btn" class="teams-select-btn"
                   aria-haspopup="true" aria-expanded="false"
@@ -207,29 +210,37 @@
       </p>
     </div>
 
-    <aside class="scout-card" id="scout-card" aria-live="polite">
-      <button type="button" class="scout-close" id="scout-close" aria-label="Close scouting card">&times;</button>
+    <!-- Live scouting cards are cloned from #scout-card-template (one per
+         pinned player, see openScoutCard() in app.js) and appended here as
+         siblings — each keeps its own position/z-index so several can be
+         open and dragged independently without stepping on each other. -->
+    <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
 
-      <div class="scout-card-panel">
-        <div class="scout-card-empty" id="scout-card-empty">
-          <p>Click any player to see full stats.</p>
-        </div>
+    <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
+         the stacked layout instead, toggled via [hidden] in app.js. -->
+    <p class="scout-empty-hint" id="scout-empty-hint" hidden>Click any player to see full stats.</p>
 
-        <div class="scout-card-body" id="scout-card-body" hidden>
-          <div class="scout-card-top" id="scout-drag-handle" title="Drag to move">
-            <div class="scout-logo-wrap">
-              <img id="scout-logo" alt="" />
-              <div id="scout-badge" class="scout-badge" hidden></div>
+    <template id="scout-card-template">
+      <aside class="scout-card">
+        <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-logo-wrap">
+                <img class="scout-logo" alt="" />
+                <div class="scout-badge" hidden></div>
+              </div>
+              <div class="scout-id">
+                <div class="scout-name"></div>
+                <div class="scout-meta"></div>
+              </div>
             </div>
-            <div class="scout-id">
-              <div class="scout-name" id="scout-name"></div>
-              <div class="scout-meta" id="scout-meta"></div>
-            </div>
+            <dl class="scout-stats"></dl>
           </div>
-          <dl class="scout-stats" id="scout-stats"></dl>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </template>
   </section>
 
   <p class="footnote">

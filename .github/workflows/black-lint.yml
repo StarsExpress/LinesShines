@@ -1,4 +1,4 @@
-name: black-linter
+name: Black Lint
 
 on:
   push:

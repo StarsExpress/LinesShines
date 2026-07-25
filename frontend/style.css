@@ -15,6 +15,8 @@
   --flag-gold-bright: #e8c15e;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --instant-replay-blue: #4a90d9;
+  --instant-replay-blue-bright: #6fa8e6;
   --font-display: "Anton", "Arial Narrow", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", monospace;
@@ -462,6 +464,38 @@ body {
    same 150px explicitly so the collapsed button can't inflate. */
 .control-players { position: relative; width: 150px; }
 
+/* Replaces the plain <label> that every other .control uses — Players is
+   the one filter where "clear everything" can't live inside the dropdown
+   like Teams' All/None row (there's no fixed checklist to reset, just
+   whatever chips have accumulated), so it sits next to the label instead. */
+.players-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Blue rather than the gold/chalk every other label-adjacent control uses —
+   deliberately off-palette so a destructive "clear everything" action reads
+   as visually distinct at a glance, not just another muted label. */
+.players-reset-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--instant-replay-blue);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+}
+.players-reset-btn:hover,
+.players-reset-btn:focus-visible {
+  color: var(--instant-replay-blue-bright);
+  outline: none;
+}
+
 .players-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -768,12 +802,24 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* --- scouting card, the signature element ---
-   Desktop: a floating overlay pinned to the chart panel's top-right
-   corner. Collapsed by default (just the gold PROSPECT tab peeking out,
-   ~24px tall) so it never squeezes the chart width, even with 60+ dots.
-   The tab lives outside `.scout-card-panel`'s overflow:hidden box so it
-   never gets clipped while the panel collapses/expands. */
+/* --- scouting cards, the signature element ---
+   Desktop: any number of independent floating overlays, one per pinned
+   player (see openScoutCard() in app.js, which clones #scout-card-template
+   into #scout-cards for each). display:contents means #scout-cards itself
+   never becomes a positioning context — each cloned .scout-card still
+   resolves its position:absolute against .board, same as the single static
+   card used to, so the cascade-offset/drag math below needs no per-card
+   special-casing. On mobile this switches to a plain flex column so
+   multiple cards stack as separate blocks under the chart instead. */
+.scout-cards { display: contents; }
+@media (max-width: 860px) {
+  .scout-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+}
+
 .scout-card {
   position: absolute;
   top: 24px;
@@ -782,6 +828,10 @@ body {
      the value column without wrapping metric labels like "TPS Pressure
      Rate". */
   width: 380px;
+  /* Baseline stacking order for a freshly-opened card before it's ever been
+     interacted with — openScoutCard()/bringScoutCardToFront() in app.js
+     assign an incrementing inline z-index above this the moment a card is
+     clicked or dragged, so the most recently touched card always wins. */
   z-index: 5;
 }
 
@@ -851,15 +901,15 @@ body {
   pointer-events: auto;
 }
 
-/* placeholder text never shows on the desktop overlay — collapsed state
-   is just the 24px tab, see class rule above */
-.scout-card-empty { display: none; }
+/* A cloned card is only ever in the DOM while its player is pinned, so
+   unlike the old single static card, the body never needs its own
+   hidden/empty toggle — it's always the live content. */
+.scout-card-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
 
-/* same [hidden]-losing-to-author-CSS trap as .empty-state above: display:flex
-   on this class beats the UA [hidden]{display:none} rule by origin, not
-   specificity, so the hidden attribute alone won't hide it without this. */
-.scout-card-body { display: none; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
-.scout-card-body:not([hidden]) { display: flex; }
+/* The "click any player" hint (#scout-empty-hint) shown when zero cards are
+   pinned — invisible on desktop (nothing to say once you know the feature),
+   surfaced only in the mobile stacked layout below. */
+.scout-empty-hint { display: none; }
 
 /* Doubles as the drag handle on desktop (see beginScoutDrag() in app.js) —
    cursor + touch-action here, mobile reset alongside the rest of the
@@ -981,13 +1031,14 @@ body {
   .hero-github { top: 14px; right: 16px; }
   .hero-github svg { width: 18px; height: 18px; }
 
-  /* Below 860px there's no room to float the card over the chart without
-     covering data, so it drops back to a plain block stacked underneath —
-     the pre-overlay behavior, undoing all the desktop overlay rules above.
+  /* Below 860px there's no room to float cards over the chart without
+     covering data, so each one drops back to a plain block stacked
+     underneath (see .scout-cards' flex-column switch above) — the
+     pre-overlay behavior, undoing all the desktop overlay rules above.
      `.scout-card-panel` takes over as the visible card box (padding,
-     background, min-height); `.scout-card` is just a relative anchor for
-     the tab, and `.scout-card-body` gives up its desktop padding since
-     the panel now owns it. */
+     background, min-height); `.scout-card` is just a relative anchor, and
+     `.scout-card-body` gives up its desktop padding since the panel now
+     owns it. */
   .scout-card {
     position: relative;
     top: auto;
@@ -1005,12 +1056,6 @@ body {
     cursor: auto;
     touch-action: auto;
   }
-  .scout-card-tab {
-    position: absolute;
-    top: -11px;
-    left: 18px;
-    border-radius: 3px;
-  }
   .scout-card-panel {
     max-height: none;
     overflow: visible;
@@ -1024,19 +1069,26 @@ body {
     padding: 20px 18px 18px;
     min-height: 320px;
   }
-  .scout-card-empty {
+  .scout-card-body { padding: 0; }
+
+  /* Standalone placeholder (not nested in a card) shown when nothing is
+     pinned yet — styled like a card box itself so it doesn't look out of
+     place stacked among real ones once cards start appearing. */
+  .scout-empty-hint {
     display: none;
     align-items: center;
     justify-content: center;
-    height: 100%;
     min-height: 200px;
+    margin: 0 -10px;
+    padding: 20px 18px;
     text-align: center;
     color: var(--chalk-dim);
     font-size: 13.5px;
-    padding: 0 8px;
+    background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+    border: 1px solid var(--turf-600);
+    border-radius: 10px;
   }
-  .scout-card-empty:not([hidden]) { display: flex; }
-  .scout-card-body { padding: 0; }
+  .scout-empty-hint:not([hidden]) { display: flex; }
 
   /* Filter controls collapse into a bottom-sheet drawer here — left open
      and flex-wrapped like on desktop, five selects + a slider would eat

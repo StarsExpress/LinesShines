@@ -33,6 +33,7 @@ const els = {
   teamsSelectAll: document.getElementById("teams-select-all"),
   teamsSelectNone: document.getElementById("teams-select-none"),
   playersControl: document.getElementById("players-control"),
+  playersResetBtn: document.getElementById("players-reset-btn"),
   playersBtn: document.getElementById("players-toggle-btn"),
   playersSummary: document.getElementById("players-select-summary"),
   playersPanel: document.getElementById("players-panel"),
@@ -46,16 +47,9 @@ const els = {
   logoPreload: document.getElementById("logo-preload"),
   filtersToggle: document.getElementById("toggle-filters"),
   filtersDrawer: document.getElementById("filters-drawer"),
-  scoutCard: document.getElementById("scout-card"),
-  scoutEmpty: document.getElementById("scout-card-empty"),
-  scoutBody: document.getElementById("scout-card-body"),
-  scoutLogo: document.getElementById("scout-logo"),
-  scoutBadge: document.getElementById("scout-badge"),
-  scoutName: document.getElementById("scout-name"),
-  scoutMeta: document.getElementById("scout-meta"),
-  scoutStats: document.getElementById("scout-stats"),
-  scoutClose: document.getElementById("scout-close"),
-  scoutDragHandle: document.getElementById("scout-drag-handle"),
+  scoutCards: document.getElementById("scout-cards"),
+  scoutEmptyHint: document.getElementById("scout-empty-hint"),
+  scoutCardTemplate: document.getElementById("scout-card-template"),
 };
 
 let metadata = null;                 // /api/metadata payload
@@ -90,13 +84,25 @@ const selectedPlayers = new Map();
 
 // Snapshot of {category, season, position, xMetric, yMetric, threshold} the
 // chart was last actually rendered with. Every one of those controls can be
-// changed freely without touching the chart — render() and showScoutCard()
+// changed freely without touching the chart — render() and openScoutCard()
 // read from this snapshot, never live off the controls directly — so the
 // Apply button is what commits a batch of changes together, and an
 // unrelated render() trigger (the label/logo toggles) can't accidentally
 // leak in a half-picked axis or threshold that hasn't been applied yet.
 let appliedFilters = null;
-let pinnedIndex = null;
+
+// Live scouting cards, one per pinned player, keyed by the same full
+// "player" string selectedPlayers/prunePlayerSelections use elsewhere —
+// player.player uniquely identifies a row within a slice. Each entry is
+// { record, el } where el is the cloned .scout-card DOM node currently
+// sitting in #scout-cards. Any number can be open/dragged/overlapping at
+// once; see openScoutCard()/closeScoutCard() below.
+const scoutCards = new Map();
+// Shared incrementing counter so whichever card was most recently opened,
+// clicked, or dragged gets bumped above every other open card — otherwise
+// overlapping cards would stack in open-order forever with no way to bring
+// an older one back to the front.
+let scoutZCounter = 10;
 let logoRelayoutGuard = false;       // suppresses our own relayout from re-triggering itself
 
 // True right after page load and right after a category switch — both cases
@@ -572,10 +578,14 @@ function renderPlayersDropdown(matches) {
     opt.addEventListener("click", () => {
       selectedPlayers.set(record.player, record);
       renderPlayerChips();
-      els.playersInput.value = "";
-      hidePlayersDropdown();
       updatePendingState();
       els.playersInput.focus();
+      // Keep the query text and dropdown alive instead of clearing/closing —
+      // searchPlayers() already excludes just-picked players, so re-running
+      // it surfaces the next-best matches for the same query (e.g. picking
+      // "Chris Jones" out of a "Jones" search leaves DaQuan/Travis Jones in
+      // the list) without the user having to retype the query per pick.
+      runPlayersSearch();
     });
 
     els.playersDropdown.appendChild(opt);
@@ -813,7 +823,7 @@ function teamName(code) {
 }
 
 // Fallback swatch for the teams-dropdown checklist when a team's logo file
-// 404s — mirrors showScoutCard()'s scoutLogo.onerror treatment.
+// 404s — mirrors openScoutCard()'s logoImg.onerror treatment.
 function teamSwatch(code) {
   const span = document.createElement("span");
   span.className = "team-swatch";
@@ -859,8 +869,8 @@ function computeLogoImages(chartDiv, records, xKey, yKey, isDimmed) {
 // overlap one already kept, blank the rest.
 // `isDimmed` (aligned index-for-index with `records`) pushes every
 // highlighted (non-dimmed) player's label ahead of every dimmed player's,
-// regardless of threshold_field — a Teams selection should never lose its
-// own labels to a bigger name outside the selection.
+// regardless of threshold_field, so a Teams/Players selection never loses
+// its own labels to a bigger name outside the selection.
 function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimmed) {
   const fullLayout = chartDiv._fullLayout;
   const xAxis = fullLayout && fullLayout.xaxis;
@@ -1101,7 +1111,7 @@ function render() {
       xanchor: "center",
       subtitle: {
         text: subtitleText,
-        font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 12, color: "#a9b6a9" },
+        font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 12, color: "#f1ecdd" },
       },
     },
     dragmode: false,
@@ -1180,41 +1190,86 @@ function render() {
 
   els.chart.on("plotly_click", (e) => {
     const idx = e.points[0].pointIndex;
-    if (pinnedIndex === idx) {
-      pinnedIndex = null;
-      resetScoutCard();
+    const record = currentFiltered[idx];
+    if (scoutCards.has(record.player)) {
+      closeScoutCard(record.player);
     } else {
-      pinnedIndex = idx;
-      showScoutCard(currentFiltered[idx]);
+      openScoutCard(record);
     }
   });
 }
 
-function showScoutCard(record) {
+// Below 860px scouting cards are static blocks stacked under the chart (see
+// the @media (max-width: 860px) rules in style.css), not floating overlays
+// — dragging/cascading only makes sense above that breakpoint, same cutoff
+// targetLogoPx() already uses for the desktop/mobile split.
+function isDesktopScoutLayout() {
+  return window.innerWidth >= 860;
+}
+
+function updateScoutEmptyHint() {
+  els.scoutEmptyHint.hidden = scoutCards.size > 0;
+}
+
+// Every open card gets a higher inline z-index than anything opened,
+// clicked, or dragged before it, so the one the user is currently paying
+// attention to always renders on top of any it overlaps.
+function bringScoutCardToFront(cardEl) {
+  scoutZCounter += 1;
+  cardEl.style.zIndex = String(scoutZCounter);
+}
+
+// The first card opened keeps the CSS default top-right anchor (top:24,
+// right:24) — same spot the single card always used to appear. Every card
+// after that gets an explicit inline left/top, nudged down-left a bit
+// further per already-open card, so opening several in a row fans them out
+// instead of stacking them exactly on top of each other. They're still
+// fully draggable afterward, and dragging one on top of another is exactly
+// the overlap the user asked to allow.
+const SCOUT_CASCADE_STEP = 28;
+const SCOUT_CASCADE_WRAP = 8; // wrap the offset so a long run of opens can't drift off-panel
+function cascadeScoutCardPosition(cardEl) {
+  if (scoutCards.size === 0 || !isDesktopScoutLayout()) return;
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
+  const offset = (scoutCards.size % SCOUT_CASCADE_WRAP) * SCOUT_CASCADE_STEP;
+  const maxLeft = Math.max(panelRect.width - cardRect.width, 0);
+  const maxTop = Math.max(panelRect.height - cardRect.height, 0);
+  cardEl.style.left = `${Math.min(Math.max(panelRect.width - cardRect.width - 24 - offset, 0), maxLeft)}px`;
+  cardEl.style.top = `${Math.min(24 + offset, maxTop)}px`;
+  cardEl.style.right = "auto";
+}
+
+function openScoutCard(record) {
   const cat = appliedCategoryMeta();
-  els.scoutCard.classList.add("is-active");
-  els.scoutEmpty.hidden = true;
-  els.scoutBody.hidden = false;
+  const cardEl = els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const logoImg = cardEl.querySelector(".scout-logo");
+  const badge = cardEl.querySelector(".scout-badge");
+  const nameEl = cardEl.querySelector(".scout-name");
+  const metaEl = cardEl.querySelector(".scout-meta");
+  const statsEl = cardEl.querySelector(".scout-stats");
 
   const color = teamColor(record.team);
-  els.scoutLogo.src = logoSrc(record.team);
-  els.scoutLogo.alt = `${record.team} logo`;
-  els.scoutLogo.hidden = false;
-  els.scoutBadge.hidden = true;
-  els.scoutLogo.onerror = () => {
-    els.scoutLogo.hidden = true;
-    els.scoutBadge.hidden = false;
-    els.scoutBadge.textContent = record.team;
-    els.scoutBadge.style.background = color;
+  logoImg.src = logoSrc(record.team);
+  logoImg.alt = `${record.team} logo`;
+  logoImg.hidden = false;
+  badge.hidden = true;
+  logoImg.onerror = () => {
+    logoImg.hidden = true;
+    badge.hidden = false;
+    badge.textContent = record.team;
+    badge.style.background = color;
   };
 
-  els.scoutName.textContent = record.player;
-  els.scoutMeta.textContent = `${teamName(record.team)} · ${record.position}`;
+  nameEl.textContent = record.player;
+  metaEl.textContent = `${teamName(record.team)} · ${record.position}`;
 
   const xKey = appliedFilters.xMetric;
   const yKey = appliedFilters.yMetric;
 
-  els.scoutStats.innerHTML = "";
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
   // children when it has no rank would shift every following row's columns.
@@ -1230,9 +1285,9 @@ function showScoutCard(record) {
     const rankDd = document.createElement("dd");
     rankDd.className = "scout-stat-rank";
     rankDd.textContent = rankText || "—";
-    els.scoutStats.appendChild(dt);
-    els.scoutStats.appendChild(dd);
-    els.scoutStats.appendChild(rankDd);
+    statsEl.appendChild(dt);
+    statsEl.appendChild(dd);
+    statsEl.appendChild(rankDd);
   };
 
   // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
@@ -1246,47 +1301,65 @@ function showScoutCard(record) {
     const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
     addRow(key, formatValue(record[key], meta), key === xKey || key === yKey, rankText);
   });
+
+  els.scoutCards.appendChild(cardEl);
+  cascadeScoutCardPosition(cardEl); // reads scoutCards.size, so must run before scoutCards.set() below
+  cardEl.classList.add("is-active");
+  bringScoutCardToFront(cardEl);
+
+  closeBtn.addEventListener("click", () => closeScoutCard(record.player));
+  dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
+  dragHandle.addEventListener("pointermove", onScoutDragMove);
+  dragHandle.addEventListener("pointerup", endScoutDrag);
+  dragHandle.addEventListener("pointercancel", endScoutDrag);
+  // Raises a card even on a plain click, not just a drag, so tapping an
+  // overlapped card's stats (not just its drag handle) also brings it front.
+  cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+
+  scoutCards.set(record.player, { record, el: cardEl });
+  updateScoutEmptyHint();
 }
 
-function resetScoutCard() {
-  els.scoutCard.classList.remove("is-active");
-  els.scoutEmpty.hidden = false;
-  els.scoutBody.hidden = true;
-  // Drop any position a drag left behind so the card starts back at its
-  // default top-right corner next time it's opened, rather than wherever
-  // the user last dragged it.
-  clearScoutCardDragPosition();
+function closeScoutCard(key) {
+  const entry = scoutCards.get(key);
+  if (!entry) return;
+  entry.el.remove();
+  scoutCards.delete(key);
+  updateScoutEmptyHint();
 }
 
-// Below 860px the scouting card is a static block stacked under the chart
-// (see the @media (max-width: 860px) rules in style.css), not a floating
-// overlay — dragging only makes sense above that breakpoint, same cutoff
-// targetLogoPx() already uses for the desktop/mobile split.
-function isDesktopScoutLayout() {
-  return window.innerWidth >= 860;
+function closeAllScoutCards() {
+  scoutCards.forEach((entry) => entry.el.remove());
+  scoutCards.clear();
+  updateScoutEmptyHint();
 }
 
-// Inline left/top (set by dragging) sit at higher specificity than the
-// mobile media query's `top: auto; right: auto;` reset, so they'd otherwise
-// survive a resize down to mobile and break the stacked layout. Clearing
-// them lets the stylesheet's position rules take back over.
-function clearScoutCardDragPosition() {
-  els.scoutCard.style.left = "";
-  els.scoutCard.style.top = "";
-  els.scoutCard.style.right = "";
+// Inline left/top (set by dragging or cascadeScoutCardPosition) sit at
+// higher specificity than the mobile media query's `top: auto; right: auto;`
+// reset, so they'd otherwise survive a resize down to mobile and break the
+// stacked layout. Clearing them lets the stylesheet's position rules take
+// back over for every currently-open card.
+function clearScoutCardDragPositions() {
+  scoutCards.forEach((entry) => {
+    entry.el.style.left = "";
+    entry.el.style.top = "";
+    entry.el.style.right = "";
+  });
 }
 
-// Drag state for the one pointer currently moving the card, or null. Only
-// one drag can be in progress at a time — the pointerId lets move/end
-// handlers ignore any other pointer that fires while a drag is active
-// (e.g. a second touch point).
+// Drag state for the one pointer currently moving a card, or null. Only one
+// drag can be in progress at a time — the pointerId lets move/end handlers
+// ignore any other pointer that fires while a drag is active (e.g. a second
+// touch point) — but which card it's moving is per-drag, so several cards
+// can each be dragged in turn without interfering with each other.
 let scoutDragState = null;
 
-function beginScoutDrag(e) {
+function beginScoutDrag(e, cardEl) {
   if (!isDesktopScoutLayout()) return;
   const panelRect = els.chartPanel.getBoundingClientRect();
-  const cardRect = els.scoutCard.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
   scoutDragState = {
+    cardEl,
     pointerId: e.pointerId,
     startX: e.clientX,
     startY: e.clientY,
@@ -1299,11 +1372,12 @@ function beginScoutDrag(e) {
   };
   // Switch from the default top/right anchor to an explicit left/top so
   // the card can move freely; keeps it exactly where it already was.
-  els.scoutCard.style.left = `${scoutDragState.startLeft}px`;
-  els.scoutCard.style.top = `${scoutDragState.startTop}px`;
-  els.scoutCard.style.right = "auto";
-  els.scoutCard.classList.add("is-dragging");
-  els.scoutDragHandle.setPointerCapture(e.pointerId);
+  cardEl.style.left = `${scoutDragState.startLeft}px`;
+  cardEl.style.top = `${scoutDragState.startTop}px`;
+  cardEl.style.right = "auto";
+  cardEl.classList.add("is-dragging");
+  bringScoutCardToFront(cardEl);
+  e.currentTarget.setPointerCapture(e.pointerId);
 }
 
 function onScoutDragMove(e) {
@@ -1312,14 +1386,14 @@ function onScoutDragMove(e) {
   const dy = e.clientY - scoutDragState.startY;
   const left = Math.min(Math.max(scoutDragState.startLeft + dx, 0), scoutDragState.maxLeft);
   const top = Math.min(Math.max(scoutDragState.startTop + dy, 0), scoutDragState.maxTop);
-  els.scoutCard.style.left = `${left}px`;
-  els.scoutCard.style.top = `${top}px`;
+  scoutDragState.cardEl.style.left = `${left}px`;
+  scoutDragState.cardEl.style.top = `${top}px`;
 }
 
 function endScoutDrag(e) {
   if (!scoutDragState || e.pointerId !== scoutDragState.pointerId) return;
-  els.scoutDragHandle.releasePointerCapture(e.pointerId);
-  els.scoutCard.classList.remove("is-dragging");
+  e.currentTarget.releasePointerCapture(e.pointerId);
+  scoutDragState.cardEl.classList.remove("is-dragging");
   scoutDragState = null;
 }
 
@@ -1339,8 +1413,7 @@ async function applyFilters() {
     els.position.value !== appliedFilters.position;
 
   if (sliceChanged) {
-    pinnedIndex = null;
-    resetScoutCard();
+    closeAllScoutCards();
     await loadCurrentSlice(); // may also reset/clamp the threshold controls
   }
 
@@ -1429,6 +1502,18 @@ function attachEvents() {
   els.playersBtn.addEventListener("click", () => {
     if (els.playersPanel.hidden) openPlayersPanel();
     else closePlayersPanel();
+  });
+
+  // Mirrors Teams' None button, but scoped to Players' own chip set rather
+  // than a shared checklist — clears every selected player in one click
+  // regardless of whether the panel is open, then re-runs the live search
+  // so any just-cleared player can immediately reappear as a suggestion.
+  els.playersResetBtn.addEventListener("click", () => {
+    if (!selectedPlayers.size) return;
+    selectedPlayers.clear();
+    renderPlayerChips();
+    updatePendingState();
+    runPlayersSearch();
   });
 
   els.playersInput.addEventListener("input", runPlayersSearch);
@@ -1569,54 +1654,42 @@ function attachEvents() {
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
 
-  els.scoutClose.addEventListener("click", () => {
-    pinnedIndex = null;
-    resetScoutCard();
-  });
-
-  // Pointer capture on the handle itself means move/up keep firing on it
-  // even once the pointer strays outside the card during a fast drag — no
-  // document-level listeners needed.
-  els.scoutDragHandle.addEventListener("pointerdown", beginScoutDrag);
-  els.scoutDragHandle.addEventListener("pointermove", onScoutDragMove);
-  els.scoutDragHandle.addEventListener("pointerup", endScoutDrag);
-  els.scoutDragHandle.addEventListener("pointercancel", endScoutDrag);
+  // Per-card close/drag listeners are wired up inside openScoutCard() itself
+  // — each cloned card owns its own close button and drag handle — so
+  // there's no single static card to attach listeners to here anymore.
 
   // A drag position is only valid in the desktop overlay layout — resizing
-  // past the breakpoint mid-session (or a device rotation) needs the same
-  // cleanup resetScoutCard() does on close, see clearScoutCardDragPosition().
+  // past the breakpoint mid-session (or a device rotation) needs every
+  // currently-open card's inline position stripped so the mobile stacked
+  // layout can take back over, see clearScoutCardDragPositions().
   window.addEventListener("resize", () => {
-    if (!isDesktopScoutLayout()) clearScoutCardDragPosition();
+    if (!isDesktopScoutLayout()) clearScoutCardDragPositions();
   });
 
-  // Closes the pinned scouting card when clicking anywhere outside both
-  // the chart and the card itself.
-  //
-  // `e.isTrusted` guards both this and the filters-drawer listener below
-  // against Plotly.downloadImage()'s internal implementation: it builds a
-  // throwaway <a>, appends it to <body>, and calls .click() on it to
-  // trigger browser for saving dialog. That programmatic click bubbles to
-  // document as a real "click" event with a target outside every one of
-  // our containers, which — without this guard — closed the scouting card
-  // and, worse, closed the mobile filters drawer immediately after Save
-  // Plot, even though Save Plot is supposed to leave the drawer open for
-  // repeated exports. Synthetic (script-dispatched) events always report
-  // isTrusted: false, so filtering on it distinguishes Plotly's anchor
-  // click from an actual user tap outside the drawer/card.
-  document.addEventListener("click", (e) => {
-    if (!e.isTrusted) return;
-    if (pinnedIndex == null) return;
-    if (!els.chart.contains(e.target) && !els.scoutCard.contains(e.target)) {
-      pinnedIndex = null;
-      resetScoutCard();
-    }
-  });
+  // Deliberately no "click outside closes the card" handler here, unlike the
+  // Teams/Players dropdowns and the filters drawer below. Those are
+  // transient single-purpose overlays where dismissing on an outside click
+  // is the expected pattern; scouting cards are meant to stay pinned — any
+  // number open at once, see openScoutCard() — until the user explicitly
+  // hits a card's own ×. Auto-closing all of them on an incidental click
+  // elsewhere on the chart would undercut the whole point of letting
+  // several stay open side by side.
 
   els.filtersToggle.addEventListener("click", () => {
     const isOpen = els.filtersDrawer.classList.toggle("open");
     els.filtersToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
+  // Same e.isTrusted guard as the Teams/Players dropdown listeners above —
+  // it protects against Plotly.downloadImage()'s internal implementation:
+  // it builds a throwaway <a>, appends it to <body>, and calls .click() on
+  // it to trigger the browser's save dialog. That programmatic click
+  // bubbles to document as a real "click" event with a target outside the
+  // drawer, which — without this guard — closed the mobile filters drawer
+  // immediately after Save Plot, even though Save Plot is supposed to leave
+  // the drawer open for repeated exports. Synthetic (script-dispatched)
+  // events always report isTrusted: false, so filtering on it distinguishes
+  // Plotly's anchor click from an actual user tap outside the drawer.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     if (!els.filtersDrawer.classList.contains("open")) return;
