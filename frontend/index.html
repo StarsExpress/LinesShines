@@ -73,7 +73,7 @@
           <div class="teams-dropdown" id="teams-dropdown" hidden>
             <div class="teams-dropdown-actions">
               <button type="button" id="teams-select-all">All</button>
-              <button type="button" id="teams-select-none">None</button>
+              <button type="button" id="teams-select-none">Clear</button>
             </div>
             <div class="teams-checklist" id="teams-checklist"></div>
           </div>
@@ -90,12 +90,11 @@
            Collapsed behind a summary button + click-to-open panel, same
            mechanism as Teams above — otherwise a handful of chips would
            make this box balloon past its neighbors' width/height (see the
-           control-bar sizing gotcha in CLAUDE.md) every time a player is
-           added. -->
+           control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
       <div class="control control-players" id="players-control">
         <div class="players-label-row">
           <label id="players-label" for="players-toggle-btn">Players</label>
-          <button type="button" id="players-reset-btn" class="players-reset-btn">Reset</button>
+          <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
         </div>
         <div class="players-select">
           <button type="button" id="players-toggle-btn" class="teams-select-btn"
@@ -178,8 +177,7 @@
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its
            position here in the DOM is irrelevant to the mobile visual order
            — that's driven by `order` in the @media (max-width: 860px) block
-           — but it's placed here for source locality next to the buttons it
-           separates. -->
+           — but it's placed here for source locality next to the buttons it separates. -->
       <div class="drawer-divider" aria-hidden="true"></div>
 
       <div class="control control-apply">

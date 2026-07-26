@@ -41,7 +41,7 @@ body {
   overflow-x: hidden;
 }
 
-/* subtle yard-line hash texture on the page background */
+/* Subtle yard-line hash texture on the page background. */
 .field-texture {
   position: fixed;
   inset: 0;
@@ -145,7 +145,7 @@ body {
   .layout { max-width: 1680px; }
 }
 
-/* --- mobile filters drawer trigger ---
+/* --- Mobile filters drawer trigger. ---
    Hidden on desktop by default; the `@media (max-width: 860px)` block at
    the bottom of this file both reveals it and turns .filters-drawer into a
    fixed bottom sheet. On desktop .filters-drawer is just a plain wrapper
@@ -283,7 +283,7 @@ body {
 .control-season { min-width: auto; }
 .control-season select { width: 72px; min-width: 72px; padding-right: 4px; }
 
-/* --- Teams multi-select ---
+/* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
    <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
    discoverable and doesn't work at all on touch. Positioned/sized to sit
@@ -442,7 +442,7 @@ body {
   border-radius: 2px;
 }
 
-/* --- Players autocomplete + chip list ---
+/* --- Players autocomplete + chip list. ---
    Sits next to Teams in the control bar; desktop/tablet only (hidden in the
    @media (max-width: 860px) block below — the pool this searches depends on
    live threshold state that doesn't translate cleanly to a touch control,
@@ -528,7 +528,7 @@ body {
 }
 
 .players-chips {
-  display: contents; /* chips lay out directly in .players-field's flex row, alongside the input */
+  display: contents; /* Chips lay out directly in .players-field's flex row, alongside input. */
 }
 
 .player-chip {
@@ -776,7 +776,7 @@ body {
   background: rgba(15, 33, 25, 0.85);
   border-radius: 10px;
 }
-/* the [hidden] attribute alone isn't enough to beat the rule above once we
+/* [hidden] attribute alone isn't enough to beat the rule above once we
    set display:flex below — without this, an "empty" state panel with
    position:absolute; inset:0 would sit on top of the chart and silently
    swallow every hover/click even while invisible. */
@@ -826,8 +826,13 @@ body {
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". */
+     Rate". min/max-width bound the edge-resize drag in app.js (see
+     SCOUT_CARD_MIN_WIDTH/SCOUT_CARD_MAX_WIDTH there, kept in sync with
+     these) — below min the header/rank column start wrapping, above max it
+     can swallow the whole chart panel. */
   width: 380px;
+  min-width: 260px;
+  max-width: 640px;
   /* Baseline stacking order for a freshly-opened card before it's ever been
      interacted with — openScoutCard()/bringScoutCardToFront() in app.js
      assign an incrementing inline z-index above this the moment a card is
@@ -899,7 +904,20 @@ body {
   max-height: 480px;
   opacity: 1;
   pointer-events: auto;
+  /* Once the user edge-resizes the card (see beginScoutResize() in app.js),
+     app.js sets an explicit inline height and clears max-height —
+     overflow-y:auto here means a card shrunk below its content's natural
+     height scrolls instead of clipping silently. overflow-x stays hidden
+     from the rule above. */
+  overflow-y: auto;
 }
+
+/* No visible grip — like a Mac window, the whole card edge is a resize
+   target (see getResizeEdges()/beginScoutResize() in app.js, both gated by
+   isDesktopScoutLayout() the same as dragging). This only kills the
+   max-height transition so an active resize doesn't fight the CSS-driven
+   open/close animation. */
+.scout-card.is-resizing .scout-card-panel { transition: none; }
 
 /* A cloned card is only ever in the DOM while its player is pinned, so
    unlike the old single static card, the body never needs its own
@@ -1037,8 +1055,7 @@ body {
      pre-overlay behavior, undoing all the desktop overlay rules above.
      `.scout-card-panel` takes over as the visible card box (padding,
      background, min-height); `.scout-card` is just a relative anchor, and
-     `.scout-card-body` gives up its desktop padding since the panel now
-     owns it. */
+     `.scout-card-body` gives up its desktop padding since panel now owns it. */
   .scout-card {
     position: relative;
     top: auto;
@@ -1056,6 +1073,9 @@ body {
     cursor: auto;
     touch-action: auto;
   }
+  /* Resizing is desktop-only too (same isDesktopScoutLayout() guard on
+     beginScoutResize() in app.js) — the stacked mobile layout sizes each
+     card to its content instead. */
   .scout-card-panel {
     max-height: none;
     overflow: visible;

@@ -5,7 +5,7 @@
 # 🏈LinesShines · 鋒光
 
 [![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
-[![main Black Linter](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+[![main Black Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
 [![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
 
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)

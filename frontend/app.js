@@ -311,7 +311,7 @@ function closeTeamsDropdown() {
   els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
-// --- Players autocomplete -----------------------------------------------
+// --- Players autocomplete. -----------------------------------------------
 //
 // PFF's "Player" column is "{first} {last}" or "{first} {last} {suffix}",
 // where either name can itself be multi-word ("Andrew Van Ginkel", "D.J.
@@ -323,9 +323,11 @@ const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]
 function parsePlayerName(fullName) {
   const parts = (fullName || "").split(" ").filter(Boolean);
   let suffix = null;
+
   if (parts.length >= 3 && NAME_SUFFIXES.has(parts[parts.length - 1])) {
     suffix = parts.pop();
   }
+
   const first = parts[0] || "";
   const last = parts.length > 1 ? parts.slice(1).join(" ") : "";
   return { first, last, suffix };
@@ -336,16 +338,19 @@ function parsePlayerName(fullName) {
 // there's no equivalent in the browser and pulling in a fuzzy-match
 // dependency (Fuse.js etc.) for a fallback layer that only matters for
 // typos is overkill. Only reached for short (name-token-length) strings, so
-// the O(n*m) cost here is negligible.
+// O(n*m) cost here is negligible.
 function longestMatchSize(a, b, alo, ahi, blo, bhi) {
   let besti = alo, bestj = blo, bestsize = 0;
   let j2len = {};
+
   for (let i = alo; i < ahi; i++) {
     const newJ2len = {};
+
     for (let j = blo; j < bhi; j++) {
       if (a[i] === b[j]) {
         const k = (j2len[j - 1] || 0) + 1;
         newJ2len[j] = k;
+
         if (k > bestsize) {
           besti = i - k + 1;
           bestj = j - k + 1;
@@ -353,8 +358,10 @@ function longestMatchSize(a, b, alo, ahi, blo, bhi) {
         }
       }
     }
+
     j2len = newJ2len;
   }
+
   return [besti, bestj, bestsize];
 }
 
@@ -476,8 +483,10 @@ function searchPlayers(query, pool, topK = 8) {
   scored.sort((a, b) => {
     if (a.result.totalHits !== b.result.totalHits) return b.result.totalHits - a.result.totalHits;
     if (a.result.nameHits !== b.result.nameHits) return b.result.nameHits - a.result.nameHits;
+
     const cmp = compareScores(a.result.bestScore, b.result.bestScore);
     if (cmp !== 0) return cmp;
+
     return a.record.player.localeCompare(b.record.player);
   });
 
@@ -495,6 +504,7 @@ function renderPlayerChips() {
     text.textContent = label;
 
     const removeBtn = document.createElement("button");
+
     removeBtn.type = "button";
     removeBtn.className = "player-chip-remove";
     removeBtn.setAttribute("aria-label", `Remove ${label}`);
@@ -879,7 +889,7 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimm
     return records.map(() => true);
   }
 
-  const CHAR_WIDTH = 6.5; // approx advance width, IBM Plex Mono @ 10px
+  const CHAR_WIDTH = 6.5; // Approx advance width, IBM Plex Mono @ 10px.
   const LABEL_HEIGHT = 12;
   const LABEL_GAP = 10;   // vertical offset from marker center to "bottom center" text
   // Shrink each box by this fraction on every side before the collision test,
@@ -1246,6 +1256,7 @@ function openScoutCard(record) {
 
   const closeBtn = cardEl.querySelector(".scout-close");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const panelEl = cardEl.querySelector(".scout-card-panel");
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
   const nameEl = cardEl.querySelector(".scout-name");
@@ -1314,7 +1325,30 @@ function openScoutCard(record) {
   dragHandle.addEventListener("pointercancel", endScoutDrag);
   // Raises a card even on a plain click, not just a drag, so tapping an
   // overlapped card's stats (not just its drag handle) also brings it front.
-  cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+  // Also doubles as the resize trigger: no visible grip (see the CSS comment
+  // by .scout-card.is-resizing) — like a Mac window, a pointerdown within a
+  // few px of any edge starts a resize instead of just a bring-to-front.
+  cardEl.addEventListener("pointerdown", (e) => {
+    bringScoutCardToFront(cardEl);
+    if (!isDesktopScoutLayout()) return;
+    const edges = getResizeEdges(cardEl, e.clientX, e.clientY);
+    if (edges) beginScoutResize(e, cardEl, panelEl, edges);
+  });
+  // Hover-only cursor feedback while not actively resizing; once a resize
+  // starts, pointer capture (set in beginScoutResize) keeps routing move
+  // events to this same listener, so performScoutResize takes over instead.
+  cardEl.addEventListener("pointermove", (e) => {
+    if (scoutResizeState && scoutResizeState.cardEl === cardEl) {
+      performScoutResize(e);
+    } else if (!scoutResizeState) {
+      updateScoutResizeCursor(cardEl, e);
+    }
+  });
+  cardEl.addEventListener("pointerup", endScoutResize);
+  cardEl.addEventListener("pointercancel", endScoutResize);
+  cardEl.addEventListener("pointerleave", () => {
+    if (!scoutResizeState) cardEl.style.cursor = "";
+  });
 
   scoutCards.set(record.player, { record, el: cardEl });
   updateScoutEmptyHint();
@@ -1338,12 +1372,19 @@ function closeAllScoutCards() {
 // higher specificity than the mobile media query's `top: auto; right: auto;`
 // reset, so they'd otherwise survive a resize down to mobile and break the
 // stacked layout. Clearing them lets the stylesheet's position rules take
-// back over for every currently-open card.
+// back over for every currently-open card. Inline width/height from
+// beginScoutResize would equally survive (and equally make no sense once
+// mobile takes over sizing via its own min-height rule), so those get
+// cleared here too.
 function clearScoutCardDragPositions() {
   scoutCards.forEach((entry) => {
     entry.el.style.left = "";
     entry.el.style.top = "";
     entry.el.style.right = "";
+    entry.el.style.width = "";
+    const panelEl = entry.el.querySelector(".scout-card-panel");
+    panelEl.style.height = "";
+    panelEl.style.maxHeight = "";
   });
 }
 
@@ -1395,6 +1436,126 @@ function endScoutDrag(e) {
   e.currentTarget.releasePointerCapture(e.pointerId);
   scoutDragState.cardEl.classList.remove("is-dragging");
   scoutDragState = null;
+}
+
+// Bounds for the edge-resize below — width mirrors style.css's .scout-card
+// min/max-width (keep these in sync with that rule; CSS alone can't gate
+// height since .scout-card-panel's height is otherwise auto, so its bounds
+// only live here).
+const SCOUT_CARD_MIN_WIDTH = 260;
+const SCOUT_CARD_MAX_WIDTH = 640;
+const SCOUT_CARD_MIN_HEIGHT = 160;
+const SCOUT_CARD_MAX_HEIGHT = 900;
+
+// How close the pointer needs to be to a card's outer edge, in px, to count
+// as a resize grab rather than a plain click/drag — no visible grip, so this
+// margin *is* the hit target, like a Mac window's edge. Comfortably clears
+// .scout-close (offset 10px from the same corner) so the close button never
+// gets swallowed by the resize zone.
+const SCOUT_RESIZE_MARGIN = 8;
+
+// Which of a card's four edges (if any) a point sits within SCOUT_RESIZE_MARGIN
+// of, e.g. {left:false, right:true, top:false, bottom:true} for a
+// bottom-right corner grab — or null if the point isn't near any edge.
+function getResizeEdges(cardEl, clientX, clientY) {
+  const rect = cardEl.getBoundingClientRect();
+  const edges = {
+    left: clientX - rect.left <= SCOUT_RESIZE_MARGIN,
+    right: rect.right - clientX <= SCOUT_RESIZE_MARGIN,
+    top: clientY - rect.top <= SCOUT_RESIZE_MARGIN,
+    bottom: rect.bottom - clientY <= SCOUT_RESIZE_MARGIN,
+  };
+  return edges.left || edges.right || edges.top || edges.bottom ? edges : null;
+}
+
+function cursorForEdges(edges) {
+  if ((edges.left && edges.top) || (edges.right && edges.bottom)) return "nwse-resize";
+  if ((edges.right && edges.top) || (edges.left && edges.bottom)) return "nesw-resize";
+  if (edges.left || edges.right) return "ew-resize";
+  return "ns-resize";
+}
+
+// Live cursor feedback as the pointer wanders near a card's edges — the only
+// hint a resize zone exists, since there's no visible grip.
+function updateScoutResizeCursor(cardEl, e) {
+  const edges = isDesktopScoutLayout() ? getResizeEdges(cardEl, e.clientX, e.clientY) : null;
+  cardEl.style.cursor = edges ? cursorForEdges(edges) : "";
+}
+
+// Resize state for the one pointer currently dragging a card's edge, or
+// null — same single-pointer-at-a-time shape as scoutDragState above.
+let scoutResizeState = null;
+
+function beginScoutResize(e, cardEl, panelEl, edges) {
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
+  scoutResizeState = {
+    cardEl,
+    panelEl,
+    edges,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    // Same left/top conversion beginScoutDrag does — dragging the left or
+    // top edge needs an explicit anchor to push around, not just a width/
+    // height to grow, since the opposite edge has to stay put.
+    startLeft: cardRect.left - panelRect.left,
+    startTop: cardRect.top - panelRect.top,
+    startWidth: cardRect.width,
+    startHeight: panelEl.getBoundingClientRect().height,
+  };
+  cardEl.style.left = `${scoutResizeState.startLeft}px`;
+  cardEl.style.top = `${scoutResizeState.startTop}px`;
+  cardEl.style.right = "auto";
+  // Drop the open/close max-height cap in favor of an explicit height the
+  // user now controls directly; is-resizing (in style.css) kills the
+  // max-height transition so that swap doesn't animate.
+  panelEl.style.maxHeight = "none";
+  cardEl.classList.add("is-resizing");
+  bringScoutCardToFront(cardEl);
+  cardEl.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function performScoutResize(e) {
+  const s = scoutResizeState;
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const dx = e.clientX - s.startX;
+  const dy = e.clientY - s.startY;
+
+  let width = s.startWidth;
+  let left = s.startLeft;
+  if (s.edges.right) {
+    width = Math.min(Math.max(s.startWidth + dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
+  } else if (s.edges.left) {
+    width = Math.min(Math.max(s.startWidth - dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
+    left = s.startLeft + (s.startWidth - width); // keep the right edge fixed while the left one moves
+  }
+  left = Math.min(Math.max(left, 0), Math.max(panelRect.width - width, 0));
+
+  let height = s.startHeight;
+  let top = s.startTop;
+  if (s.edges.bottom) {
+    height = Math.min(Math.max(s.startHeight + dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
+  } else if (s.edges.top) {
+    height = Math.min(Math.max(s.startHeight - dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
+    top = s.startTop + (s.startHeight - height); // keep the bottom edge fixed while the top one moves
+  }
+  top = Math.min(Math.max(top, 0), Math.max(panelRect.height - height, 0));
+
+  s.cardEl.style.width = `${width}px`;
+  s.cardEl.style.left = `${left}px`;
+  s.cardEl.style.top = `${top}px`;
+  s.panelEl.style.height = `${height}px`;
+}
+
+function endScoutResize(e) {
+  if (!scoutResizeState || scoutResizeState.cardEl !== e.currentTarget || e.pointerId !== scoutResizeState.pointerId)
+    return;
+  e.currentTarget.releasePointerCapture(e.pointerId);
+  scoutResizeState.cardEl.classList.remove("is-resizing");
+  scoutResizeState.cardEl.style.cursor = "";
+  scoutResizeState = null;
 }
 
 function closeFiltersDrawer() {
