@@ -15,6 +15,8 @@
   --flag-gold-bright: #e8c15e;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --instant-replay-blue: #4a90d9;
+  --instant-replay-blue-bright: #6fa8e6;
   --font-display: "Anton", "Arial Narrow", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", monospace;
@@ -39,7 +41,7 @@ body {
   overflow-x: hidden;
 }
 
-/* subtle yard-line hash texture on the page background */
+/* Subtle yard-line hash texture on the page background. */
 .field-texture {
   position: fixed;
   inset: 0;
@@ -130,8 +132,20 @@ body {
   margin: 0 auto;
   padding: 28px 24px 60px;
 }
+/* Laptop/tablet get a wider canvas than the 1180px baseline (sized back
+   when the control bar only held 6 dropdowns) — there's screen real estate
+   to spare, and the chart panel below scales with this since #chart is
+   width:100% of it. Mobile is unaffected: max-width is just an upper bound,
+   and the @media (max-width: 860px) block below fully overrides the
+   control bar into a drawer regardless. */
+@media (min-width: 861px) {
+  .layout { max-width: 1440px; }
+}
+@media (min-width: 1440px) {
+  .layout { max-width: 1680px; }
+}
 
-/* --- mobile filters drawer trigger ---
+/* --- Mobile filters drawer trigger. ---
    Hidden on desktop by default; the `@media (max-width: 860px)` block at
    the bottom of this file both reveals it and turns .filters-drawer into a
    fixed bottom sheet. On desktop .filters-drawer is just a plain wrapper
@@ -269,7 +283,7 @@ body {
 .control-season { min-width: auto; }
 .control-season select { width: 72px; min-width: 72px; padding-right: 4px; }
 
-/* --- Teams multi-select ---
+/* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
    <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
    discoverable and doesn't work at all on touch. Positioned/sized to sit
@@ -428,6 +442,197 @@ body {
   border-radius: 2px;
 }
 
+/* --- Players autocomplete + chip list. ---
+   Sits next to Teams in the control bar; desktop/tablet only (hidden in the
+   @media (max-width: 860px) block below — the pool this searches depends on
+   live threshold state that doesn't translate cleanly to a touch control,
+   see app.js's qualifyingPlayerPool()). Collapsed behind a summary button +
+   click-to-open .players-panel, the same button+panel mechanism as Teams
+   (.teams-select-btn is reused directly on the Players button, not
+   duplicated) — the chip list only has to fit inside the panel, not the
+   150px collapsed button, so it can grow to several chips deep without
+   ballooning the row past its neighbors. */
+/* No flex-grow (unlike .control-slider) — this used to grow to fill
+   whatever space was left in the row, which was wide enough to push Y axis
+   onto a second row even though there was nominally "one row" worth of
+   controls. Teams/Category/Position all settle at exactly 150px via their
+   select/button's min-width, with no explicit width needed, because their
+   content never exceeds it — but a bare <input> has its own UA intrinsic
+   width (~160px+) that isn't capped by flex-basis when this box's own
+   width is auto, which used to make Players noticeably wider than its
+   neighbors before the chip list moved into its own panel. Fixed at the
+   same 150px explicitly so the collapsed button can't inflate. */
+.control-players { position: relative; width: 150px; }
+
+/* Replaces the plain <label> that every other .control uses — Players is
+   the one filter where "clear everything" can't live inside the dropdown
+   like Teams' All/None row (there's no fixed checklist to reset, just
+   whatever chips have accumulated), so it sits next to the label instead. */
+.players-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Blue rather than the gold/chalk every other label-adjacent control uses —
+   deliberately off-palette so a destructive "clear everything" action reads
+   as visually distinct at a glance, not just another muted label. */
+.players-reset-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--instant-replay-blue);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+}
+.players-reset-btn:hover,
+.players-reset-btn:focus-visible {
+  color: var(--instant-replay-blue-bright);
+  outline: none;
+}
+
+.players-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.players-panel[hidden] { display: none; }
+
+.players-field {
+  box-sizing: border-box;
+  min-height: 38px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.players-field:focus-within {
+  border-color: var(--flag-gold);
+}
+
+.players-chips {
+  display: contents; /* Chips lay out directly in .players-field's flex row, alongside input. */
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--turf-700);
+  border: 1px solid var(--turf-600);
+  border-radius: 999px;
+  padding: 3px 4px 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--chalk);
+  white-space: nowrap;
+}
+.player-chip-remove {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.player-chip-remove:hover,
+.player-chip-remove:focus-visible {
+  color: var(--flag-gold-bright);
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+
+.players-input {
+  flex: 1 1 90px;
+  min-width: 90px;
+  background: transparent;
+  border: none;
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 4px 2px;
+}
+.players-input:focus { outline: none; }
+.players-input::placeholder { color: var(--chalk-dim); }
+
+/* Nested inside .players-panel now (not its own floating box) — just the
+   scrollable suggestion list under the chip field, separated by a divider
+   whenever it actually has matches to show. */
+.players-dropdown {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--turf-600);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.players-dropdown[hidden] { display: none; }
+
+.player-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--chalk);
+  text-align: left;
+  cursor: pointer;
+}
+.player-option:hover,
+.player-option:focus-visible {
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+.player-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-option-team {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--chalk-dim);
+}
+.player-option-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
    styled as the form's one primary action rather than tucked next to the
@@ -544,6 +749,10 @@ body {
 }
 
 #chart { width: 100%; height: 720px; }
+@media (min-width: 861px) {
+  .chart-panel { min-height: 800px; }
+  #chart { height: 800px; }
+}
 /* The actual hit-testing layer is Plotly's .nsewdrag overlay rect, which
    sits above every marker and would otherwise keep its own injected
    crosshair cursor (a leftover affordance for drag-to-zoom, which is off
@@ -567,7 +776,7 @@ body {
   background: rgba(15, 33, 25, 0.85);
   border-radius: 10px;
 }
-/* the [hidden] attribute alone isn't enough to beat the rule above once we
+/* [hidden] attribute alone isn't enough to beat the rule above once we
    set display:flex below — without this, an "empty" state panel with
    position:absolute; inset:0 would sit on top of the chart and silently
    swallow every hover/click even while invisible. */
@@ -593,20 +802,41 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* --- scouting card, the signature element ---
-   Desktop: a floating overlay pinned to the chart panel's top-right
-   corner. Collapsed by default (just the gold PROSPECT tab peeking out,
-   ~24px tall) so it never squeezes the chart width, even with 60+ dots.
-   The tab lives outside `.scout-card-panel`'s overflow:hidden box so it
-   never gets clipped while the panel collapses/expands. */
+/* --- scouting cards, the signature element ---
+   Desktop: any number of independent floating overlays, one per pinned
+   player (see openScoutCard() in app.js, which clones #scout-card-template
+   into #scout-cards for each). display:contents means #scout-cards itself
+   never becomes a positioning context — each cloned .scout-card still
+   resolves its position:absolute against .board, same as the single static
+   card used to, so the cascade-offset/drag math below needs no per-card
+   special-casing. On mobile this switches to a plain flex column so
+   multiple cards stack as separate blocks under the chart instead. */
+.scout-cards { display: contents; }
+@media (max-width: 860px) {
+  .scout-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+}
+
 .scout-card {
   position: absolute;
   top: 24px;
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". */
+     Rate". min/max-width bound the edge-resize drag in app.js (see
+     SCOUT_CARD_MIN_WIDTH/SCOUT_CARD_MAX_WIDTH there, kept in sync with
+     these) — below min the header/rank column start wrapping, above max it
+     can swallow the whole chart panel. */
   width: 380px;
+  min-width: 260px;
+  max-width: 640px;
+  /* Baseline stacking order for a freshly-opened card before it's ever been
+     interacted with — openScoutCard()/bringScoutCardToFront() in app.js
+     assign an incrementing inline z-index above this the moment a card is
+     clicked or dragged, so the most recently touched card always wins. */
   z-index: 5;
 }
 
@@ -674,17 +904,30 @@ body {
   max-height: 480px;
   opacity: 1;
   pointer-events: auto;
+  /* Once the user edge-resizes the card (see beginScoutResize() in app.js),
+     app.js sets an explicit inline height and clears max-height —
+     overflow-y:auto here means a card shrunk below its content's natural
+     height scrolls instead of clipping silently. overflow-x stays hidden
+     from the rule above. */
+  overflow-y: auto;
 }
 
-/* placeholder text never shows on the desktop overlay — collapsed state
-   is just the 24px tab, see class rule above */
-.scout-card-empty { display: none; }
+/* No visible grip — like a Mac window, the whole card edge is a resize
+   target (see getResizeEdges()/beginScoutResize() in app.js, both gated by
+   isDesktopScoutLayout() the same as dragging). This only kills the
+   max-height transition so an active resize doesn't fight the CSS-driven
+   open/close animation. */
+.scout-card.is-resizing .scout-card-panel { transition: none; }
 
-/* same [hidden]-losing-to-author-CSS trap as .empty-state above: display:flex
-   on this class beats the UA [hidden]{display:none} rule by origin, not
-   specificity, so the hidden attribute alone won't hide it without this. */
-.scout-card-body { display: none; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
-.scout-card-body:not([hidden]) { display: flex; }
+/* A cloned card is only ever in the DOM while its player is pinned, so
+   unlike the old single static card, the body never needs its own
+   hidden/empty toggle — it's always the live content. */
+.scout-card-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
+
+/* The "click any player" hint (#scout-empty-hint) shown when zero cards are
+   pinned — invisible on desktop (nothing to say once you know the feature),
+   surfaced only in the mobile stacked layout below. */
+.scout-empty-hint { display: none; }
 
 /* Doubles as the drag handle on desktop (see beginScoutDrag() in app.js) —
    cursor + touch-action here, mobile reset alongside the rest of the
@@ -806,13 +1049,13 @@ body {
   .hero-github { top: 14px; right: 16px; }
   .hero-github svg { width: 18px; height: 18px; }
 
-  /* Below 860px there's no room to float the card over the chart without
-     covering data, so it drops back to a plain block stacked underneath —
-     the pre-overlay behavior, undoing all the desktop overlay rules above.
+  /* Below 860px there's no room to float cards over the chart without
+     covering data, so each one drops back to a plain block stacked
+     underneath (see .scout-cards' flex-column switch above) — the
+     pre-overlay behavior, undoing all the desktop overlay rules above.
      `.scout-card-panel` takes over as the visible card box (padding,
-     background, min-height); `.scout-card` is just a relative anchor for
-     the tab, and `.scout-card-body` gives up its desktop padding since
-     the panel now owns it. */
+     background, min-height); `.scout-card` is just a relative anchor, and
+     `.scout-card-body` gives up its desktop padding since panel now owns it. */
   .scout-card {
     position: relative;
     top: auto;
@@ -830,12 +1073,9 @@ body {
     cursor: auto;
     touch-action: auto;
   }
-  .scout-card-tab {
-    position: absolute;
-    top: -11px;
-    left: 18px;
-    border-radius: 3px;
-  }
+  /* Resizing is desktop-only too (same isDesktopScoutLayout() guard on
+     beginScoutResize() in app.js) — the stacked mobile layout sizes each
+     card to its content instead. */
   .scout-card-panel {
     max-height: none;
     overflow: visible;
@@ -849,24 +1089,36 @@ body {
     padding: 20px 18px 18px;
     min-height: 320px;
   }
-  .scout-card-empty {
+  .scout-card-body { padding: 0; }
+
+  /* Standalone placeholder (not nested in a card) shown when nothing is
+     pinned yet — styled like a card box itself so it doesn't look out of
+     place stacked among real ones once cards start appearing. */
+  .scout-empty-hint {
     display: none;
     align-items: center;
     justify-content: center;
-    height: 100%;
     min-height: 200px;
+    margin: 0 -10px;
+    padding: 20px 18px;
     text-align: center;
     color: var(--chalk-dim);
     font-size: 13.5px;
-    padding: 0 8px;
+    background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+    border: 1px solid var(--turf-600);
+    border-radius: 10px;
   }
-  .scout-card-empty:not([hidden]) { display: flex; }
-  .scout-card-body { padding: 0; }
+  .scout-empty-hint:not([hidden]) { display: flex; }
 
   /* Filter controls collapse into a bottom-sheet drawer here — left open
      and flex-wrapped like on desktop, five selects + a slider would eat
      most of a phone screen before the chart even starts. */
   .controls-toggle { display: block; margin-bottom: 14px; }
+
+  /* Players is a deliberate desktop/tablet-only feature (see the comment on
+     .control-players above) — no mobile fallback, no read-only messaging,
+     it's simply absent from the mobile drawer. */
+  .control-players { display: none; }
 
   .filters-drawer {
     position: fixed;

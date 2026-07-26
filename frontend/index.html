@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive NFL OL & DL PFF metrics exploration platform." />
+<meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,9 +73,46 @@
           <div class="teams-dropdown" id="teams-dropdown" hidden>
             <div class="teams-dropdown-actions">
               <button type="button" id="teams-select-all">All</button>
-              <button type="button" id="teams-select-none">None</button>
+              <button type="button" id="teams-select-none">Clear</button>
             </div>
             <div class="teams-checklist" id="teams-checklist"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop/tablet only — hidden entirely on mobile (see .control-players
+           in the @media (max-width: 860px) block of style.css). Players is a
+           second, dynamic highlight dimension alongside Teams: its searchable
+           pool depends on the live threshold value (see app.js's
+           qualifyingPlayerPool()), so it doesn't degrade cleanly to a touch
+           control the way the static 32-team checklist does.
+
+           Collapsed behind a summary button + click-to-open panel, same
+           mechanism as Teams above — otherwise a handful of chips would
+           make this box balloon past its neighbors' width/height (see the
+           control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
+      <div class="control control-players" id="players-control">
+        <div class="players-label-row">
+          <label id="players-label" for="players-toggle-btn">Players</label>
+          <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
+        </div>
+        <div class="players-select">
+          <button type="button" id="players-toggle-btn" class="teams-select-btn"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-labelledby="players-label players-select-summary">
+            <span id="players-select-summary">No Players</span>
+            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="players-panel" id="players-panel" hidden>
+            <div class="players-field" id="players-field">
+              <div class="players-chips" id="players-chips"></div>
+              <input type="text" id="players-input" class="players-input"
+                     placeholder="Type to add player..." autocomplete="off"
+                     aria-labelledby="players-label" />
+            </div>
+            <div class="players-dropdown" id="players-dropdown" hidden></div>
           </div>
         </div>
       </div>
@@ -105,10 +142,10 @@
 
       <!-- Row-break elements force deterministic line wraps in the control
            bar (see .row-break in style.css) instead of leaving row grouping
-           to depend on exact viewport width. All six dropdowns (Season
-           through Y axis) share one row above this break; Threshold,
-           Player Names/Team Logos, Apply, and Save Plot share the row
-           below it. -->
+           to depend on exact viewport width. Season through Y axis (plus
+           Players, desktop/tablet only) share one row above this break;
+           Threshold, Player Names/Team Logos, Apply, and Save Plot share the
+           row below it. -->
       <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-slider">
@@ -140,8 +177,7 @@
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its
            position here in the DOM is irrelevant to the mobile visual order
            — that's driven by `order` in the @media (max-width: 860px) block
-           — but it's placed here for source locality next to the buttons it
-           separates. -->
+           — but it's placed here for source locality next to the buttons it separates. -->
       <div class="drawer-divider" aria-hidden="true"></div>
 
       <div class="control control-apply">
@@ -172,29 +208,37 @@
       </p>
     </div>
 
-    <aside class="scout-card" id="scout-card" aria-live="polite">
-      <button type="button" class="scout-close" id="scout-close" aria-label="Close scouting card">&times;</button>
+    <!-- Live scouting cards are cloned from #scout-card-template (one per
+         pinned player, see openScoutCard() in app.js) and appended here as
+         siblings — each keeps its own position/z-index so several can be
+         open and dragged independently without stepping on each other. -->
+    <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
 
-      <div class="scout-card-panel">
-        <div class="scout-card-empty" id="scout-card-empty">
-          <p>Click any player to see full stats.</p>
-        </div>
+    <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
+         the stacked layout instead, toggled via [hidden] in app.js. -->
+    <p class="scout-empty-hint" id="scout-empty-hint" hidden>Click any player to see full stats.</p>
 
-        <div class="scout-card-body" id="scout-card-body" hidden>
-          <div class="scout-card-top" id="scout-drag-handle" title="Drag to move">
-            <div class="scout-logo-wrap">
-              <img id="scout-logo" alt="" />
-              <div id="scout-badge" class="scout-badge" hidden></div>
+    <template id="scout-card-template">
+      <aside class="scout-card">
+        <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-logo-wrap">
+                <img class="scout-logo" alt="" />
+                <div class="scout-badge" hidden></div>
+              </div>
+              <div class="scout-id">
+                <div class="scout-name"></div>
+                <div class="scout-meta"></div>
+              </div>
             </div>
-            <div class="scout-id">
-              <div class="scout-name" id="scout-name"></div>
-              <div class="scout-meta" id="scout-meta"></div>
-            </div>
+            <dl class="scout-stats"></dl>
           </div>
-          <dl class="scout-stats" id="scout-stats"></dl>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </template>
   </section>
 
   <p class="footnote">

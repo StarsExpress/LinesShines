@@ -1,11 +1,12 @@
-name: black-linter
+name: Black Lint
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - '**/*.py'
   pull_request:
+    branches: [main]
     paths:
       - '**/*.py'
 

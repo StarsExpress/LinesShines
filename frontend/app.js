@@ -32,22 +32,24 @@ const els = {
   teamsChecklist: document.getElementById("teams-checklist"),
   teamsSelectAll: document.getElementById("teams-select-all"),
   teamsSelectNone: document.getElementById("teams-select-none"),
+  playersControl: document.getElementById("players-control"),
+  playersResetBtn: document.getElementById("players-reset-btn"),
+  playersBtn: document.getElementById("players-toggle-btn"),
+  playersSummary: document.getElementById("players-select-summary"),
+  playersPanel: document.getElementById("players-panel"),
+  playersField: document.getElementById("players-field"),
+  playersChips: document.getElementById("players-chips"),
+  playersInput: document.getElementById("players-input"),
+  playersDropdown: document.getElementById("players-dropdown"),
   chart: document.getElementById("chart"),
   chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),
   logoPreload: document.getElementById("logo-preload"),
   filtersToggle: document.getElementById("toggle-filters"),
   filtersDrawer: document.getElementById("filters-drawer"),
-  scoutCard: document.getElementById("scout-card"),
-  scoutEmpty: document.getElementById("scout-card-empty"),
-  scoutBody: document.getElementById("scout-card-body"),
-  scoutLogo: document.getElementById("scout-logo"),
-  scoutBadge: document.getElementById("scout-badge"),
-  scoutName: document.getElementById("scout-name"),
-  scoutMeta: document.getElementById("scout-meta"),
-  scoutStats: document.getElementById("scout-stats"),
-  scoutClose: document.getElementById("scout-close"),
-  scoutDragHandle: document.getElementById("scout-drag-handle"),
+  scoutCards: document.getElementById("scout-cards"),
+  scoutEmptyHint: document.getElementById("scout-empty-hint"),
+  scoutCardTemplate: document.getElementById("scout-card-template"),
 };
 
 let metadata = null;                 // /api/metadata payload
@@ -55,15 +57,52 @@ const sliceCache = new Map();        // key = `${category}:${season}:${position}
 let currentRecords = [];             // records for the current slice (all threshold values)
 let currentFiltered = [];            // records >= threshold (what the chart shows)
 
+// Which category's schema currentRecords actually matches. Tracked
+// separately from els.category.value because a pending (not-yet-Applied)
+// category switch changes els.category.value immediately while
+// currentRecords still holds the previous category's rows until Apply
+// re-runs loadCurrentSlice() — code that reads currentRecords (the Players
+// pool, see qualifyingPlayerPool()) needs the category that actually
+// matches the data in hand, not the one the dropdown currently shows.
+let currentSliceCategory = null;
+
+// Records for whatever category/season/position the controls are *currently
+// set to* (pending, not necessarily Applied yet) — feeds only the Players
+// search pool (qualifyingPlayerPool()), kept live by updatePlayerPool() on
+// every category/season/position change so switching Position immediately
+// changes which players the search box will suggest, rather than waiting
+// for Apply the way the chart itself does. Deliberately separate from
+// currentRecords/currentSliceCategory above, which stay Apply-gated.
+let playerPoolRecords = [];
+let playerPoolCategory = null;
+
+// Players filter: full player name ("player", not the abbreviated display
+// name) → record, in selection order. Live/pending like the Teams
+// checklist — edited freely via chips, only takes effect on the chart once
+// Apply snapshots it into appliedFilters.players (see currentFilterState()).
+const selectedPlayers = new Map();
+
 // Snapshot of {category, season, position, xMetric, yMetric, threshold} the
 // chart was last actually rendered with. Every one of those controls can be
-// changed freely without touching the chart — render() and showScoutCard()
+// changed freely without touching the chart — render() and openScoutCard()
 // read from this snapshot, never live off the controls directly — so the
 // Apply button is what commits a batch of changes together, and an
 // unrelated render() trigger (the label/logo toggles) can't accidentally
 // leak in a half-picked axis or threshold that hasn't been applied yet.
 let appliedFilters = null;
-let pinnedIndex = null;
+
+// Live scouting cards, one per pinned player, keyed by the same full
+// "player" string selectedPlayers/prunePlayerSelections use elsewhere —
+// player.player uniquely identifies a row within a slice. Each entry is
+// { record, el } where el is the cloned .scout-card DOM node currently
+// sitting in #scout-cards. Any number can be open/dragged/overlapping at
+// once; see openScoutCard()/closeScoutCard() below.
+const scoutCards = new Map();
+// Shared incrementing counter so whichever card was most recently opened,
+// clicked, or dragged gets bumped above every other open card — otherwise
+// overlapping cards would stack in open-order forever with no way to bring
+// an older one back to the front.
+let scoutZCounter = 10;
 let logoRelayoutGuard = false;       // suppresses our own relayout from re-triggering itself
 
 // True right after page load and right after a category switch — both cases
@@ -125,6 +164,8 @@ async function loadMetadata() {
   populateTeamsChecklist();
   attachEvents();
   await loadCurrentSlice();
+  playerPoolRecords = currentRecords;
+  playerPoolCategory = currentSliceCategory;
   appliedFilters = currentFilterState();
 
   els.logoPreload.hidden = false;
@@ -159,6 +200,7 @@ function currentFilterState() {
     // other primitive-valued control — two different array references
     // would never compare equal even with identical contents.
     teams: selectedTeamCodes().sort().join(","),
+    players: Array.from(selectedPlayers.keys()).sort().join(","),
   };
 }
 
@@ -269,6 +311,327 @@ function closeTeamsDropdown() {
   els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
+// --- Players autocomplete. -----------------------------------------------
+//
+// PFF's "Player" column is "{first} {last}" or "{first} {last} {suffix}",
+// where either name can itself be multi-word ("Andrew Van Ginkel", "D.J.
+// Wonnum"). Splitting on token count is ambiguous — a suffix whitelist is
+// the only reliable signal, since a compound last name and a suffix both
+// just look like "more tokens after the first".
+const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]);
+
+function parsePlayerName(fullName) {
+  const parts = (fullName || "").split(" ").filter(Boolean);
+  let suffix = null;
+
+  if (parts.length >= 3 && NAME_SUFFIXES.has(parts[parts.length - 1])) {
+    suffix = parts.pop();
+  }
+
+  const first = parts[0] || "";
+  const last = parts.length > 1 ? parts.slice(1).join(" ") : "";
+  return { first, last, suffix };
+}
+
+// Ratcliff/Obershelp ratio — same algorithm as Python's stdlib
+// difflib.SequenceMatcher(None, a, b).ratio(), reimplemented here since
+// there's no equivalent in the browser and pulling in a fuzzy-match
+// dependency (Fuse.js etc.) for a fallback layer that only matters for
+// typos is overkill. Only reached for short (name-token-length) strings, so
+// O(n*m) cost here is negligible.
+function longestMatchSize(a, b, alo, ahi, blo, bhi) {
+  let besti = alo, bestj = blo, bestsize = 0;
+  let j2len = {};
+
+  for (let i = alo; i < ahi; i++) {
+    const newJ2len = {};
+
+    for (let j = blo; j < bhi; j++) {
+      if (a[i] === b[j]) {
+        const k = (j2len[j - 1] || 0) + 1;
+        newJ2len[j] = k;
+
+        if (k > bestsize) {
+          besti = i - k + 1;
+          bestj = j - k + 1;
+          bestsize = k;
+        }
+      }
+    }
+
+    j2len = newJ2len;
+  }
+
+  return [besti, bestj, bestsize];
+}
+
+function matchingCharCount(a, b) {
+  const queue = [[0, a.length, 0, b.length]];
+  let total = 0;
+  while (queue.length) {
+    const [alo, ahi, blo, bhi] = queue.pop();
+    const [i, j, k] = longestMatchSize(a, b, alo, ahi, blo, bhi);
+    if (k) {
+      total += k;
+      if (alo < i && blo < j) queue.push([alo, i, blo, j]);
+      if (i + k < ahi && j + k < bhi) queue.push([i + k, ahi, j + k, bhi]);
+    }
+  }
+  return total;
+}
+
+function sequenceRatio(a, b) {
+  if (!a.length && !b.length) return 1;
+  return (2 * matchingCharCount(a, b)) / (a.length + b.length);
+}
+
+// Layered match strategy (deliberately not Levenshtein — the wrong tool for
+// prefix-driven autocomplete): a prefix match beats a substring match beats
+// a token-prefix match beats a fuzzy/typo fallback. Returns a [layer, tiebreak]
+// tuple (lower sorts first) or null for no match at all. Token split includes
+// "-" (not just whitespace) so a query landing after the hyphen in a compound
+// last name like "Norman-Lott" still hits Layer 2 as a token-prefix.
+function matchScore(query, candidate) {
+  if (!query || !candidate) return null;
+  const q = query.toLowerCase();
+  const c = candidate.toLowerCase();
+
+  if (c.startsWith(q)) return [0, c.length];
+
+  const idx = c.indexOf(q);
+  if (idx !== -1) return [1, idx];
+
+  const tokens = c.split(/[\s-]+/);
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].startsWith(q)) return [2, i];
+  }
+
+  const ratio = sequenceRatio(q, c);
+  if (ratio > 0.75) return [3, -ratio];
+
+  return null;
+}
+
+function compareScores(a, b) {
+  return a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1];
+}
+
+// Scores one player against every whitespace-split token of the query — a
+// candidate passes if ANY token matches ANY of first/last/suffix (OR, not
+// AND), so "will ander" and "ander jr" both hit "Will Anderson Jr." even
+// though neither token alone is the full name. Ranking signals, in priority
+// order (see searchPlayers' sort): totalHits (how many query tokens matched
+// at all) > nameHits (how many matched first/last specifically — a suffix
+// hit doesn't count here, which is what makes "jr" alone rank below a token
+// that hit an actual name) > bestScore (the best individual matchScore
+// across every matched token).
+function scorePlayerAgainstQuery(queryTokens, playerRecord) {
+  const { first, last, suffix } = parsePlayerName(playerRecord.player);
+
+  let totalHits = 0;
+  let nameHits = 0;
+  let bestScore = null;
+
+  for (const token of queryTokens) {
+    const firstScore = matchScore(token, first);
+    const lastScore = matchScore(token, last);
+    const suffixScore = suffix ? matchScore(token, suffix) : null;
+
+    const nameScores = [firstScore, lastScore].filter((s) => s !== null);
+    const allScores = [firstScore, lastScore, suffixScore].filter((s) => s !== null);
+
+    if (allScores.length > 0) {
+      totalHits++;
+      if (nameScores.length > 0) nameHits++;
+
+      const tokenBest = allScores.slice().sort(compareScores)[0];
+      if (bestScore === null || compareScores(tokenBest, bestScore) < 0) {
+        bestScore = tokenBest;
+      }
+    }
+  }
+
+  if (totalHits === 0) return null;
+  return { totalHits, nameHits, bestScore };
+}
+
+// playerPoolRecords/playerPoolCategory (rather than currentRecords/
+// currentSliceCategory) so this always reflects the pending category —
+// updatePlayerPool() keeps both live on every category/season/position
+// change, independent of whether that change has been Applied yet.
+function qualifyingPlayerPool() {
+  if (!playerPoolCategory) return [];
+  const cat = metadata[playerPoolCategory];
+  const minThreshold = Number(els.thresholdNumber.value);
+  return playerPoolRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
+}
+
+// Top `topK` matches for `query` among `pool`, excluding players already
+// selected (no point suggesting a chip that already exists). Search runs
+// against the full "player" field (e.g. "Will Anderson Jr."), never
+// "abbr_name" ("W. Anderson Jr.") — abbr_name exists purely for chart-label
+// rendering and would make a query like "will" fail to match.
+function searchPlayers(query, pool, topK = 8) {
+  const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return [];
+
+  const scored = pool
+    .filter((record) => !selectedPlayers.has(record.player))
+    .map((record) => ({ record, result: scorePlayerAgainstQuery(queryTokens, record) }))
+    .filter((x) => x.result !== null);
+
+  scored.sort((a, b) => {
+    if (a.result.totalHits !== b.result.totalHits) return b.result.totalHits - a.result.totalHits;
+    if (a.result.nameHits !== b.result.nameHits) return b.result.nameHits - a.result.nameHits;
+
+    const cmp = compareScores(a.result.bestScore, b.result.bestScore);
+    if (cmp !== 0) return cmp;
+
+    return a.record.player.localeCompare(b.record.player);
+  });
+
+  return scored.slice(0, topK).map((x) => x.record);
+}
+
+function renderPlayerChips() {
+  els.playersChips.innerHTML = "";
+  selectedPlayers.forEach((record, key) => {
+    const label = record.abbr_name || record.player;
+    const chip = document.createElement("span");
+    chip.className = "player-chip";
+
+    const text = document.createElement("span");
+    text.textContent = label;
+
+    const removeBtn = document.createElement("button");
+
+    removeBtn.type = "button";
+    removeBtn.className = "player-chip-remove";
+    removeBtn.setAttribute("aria-label", `Remove ${label}`);
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => {
+      selectedPlayers.delete(key);
+      renderPlayerChips();
+      updatePendingState();
+    });
+
+    chip.append(text, removeBtn);
+    els.playersChips.appendChild(chip);
+  });
+  updatePlayersSummary();
+}
+
+// Mirrors updateTeamsSummary() — the collapsed button's label, shown while
+// .players-panel is closed so the chip list itself never has to fit inside
+// the 150px button (see the control-players sizing comment above .control-players).
+function updatePlayersSummary() {
+  const count = selectedPlayers.size;
+  if (count === 0) els.playersSummary.textContent = "No Players";
+  else if (count === 1) {
+    const [[, record]] = selectedPlayers;
+    els.playersSummary.textContent = record.abbr_name || record.player;
+  } else els.playersSummary.textContent = `${count} Players`;
+}
+
+function openPlayersPanel() {
+  els.playersPanel.hidden = false;
+  els.playersBtn.setAttribute("aria-expanded", "true");
+  els.playersInput.focus();
+}
+
+function closePlayersPanel() {
+  els.playersPanel.hidden = true;
+  els.playersBtn.setAttribute("aria-expanded", "false");
+  hidePlayersDropdown();
+}
+
+function hidePlayersDropdown() {
+  els.playersDropdown.hidden = true;
+  els.playersDropdown.innerHTML = "";
+}
+
+function renderPlayersDropdown(matches) {
+  els.playersDropdown.innerHTML = "";
+  if (!matches.length) {
+    hidePlayersDropdown();
+    return;
+  }
+
+  matches.forEach((record) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "player-option";
+
+    // Full name here (unlike the abbreviated chip label) — the dropdown is
+    // a disambiguation UI where "Anderson" alone could mean several
+    // players, so the full name plus team logo carries more identifying
+    // context than the compact "W. Anderson Jr." the chip uses once picked.
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+    const code = document.createElement("span");
+    code.textContent = record.team;
+
+    team.append(logo, code);
+    opt.append(name, team);
+    opt.addEventListener("click", () => {
+      selectedPlayers.set(record.player, record);
+      renderPlayerChips();
+      updatePendingState();
+      els.playersInput.focus();
+      // Keep the query text and dropdown alive instead of clearing/closing —
+      // searchPlayers() already excludes just-picked players, so re-running
+      // it surfaces the next-best matches for the same query (e.g. picking
+      // "Chris Jones" out of a "Jones" search leaves DaQuan/Travis Jones in
+      // the list) without the user having to retype the query per pick.
+      runPlayersSearch();
+    });
+
+    els.playersDropdown.appendChild(opt);
+  });
+
+  els.playersDropdown.hidden = false;
+}
+
+function runPlayersSearch() {
+  const query = els.playersInput.value.trim();
+  if (!query) {
+    hidePlayersDropdown();
+    return;
+  }
+  renderPlayersDropdown(searchPlayers(query, qualifyingPlayerPool()));
+}
+
+// Called whenever the qualifying pool can have shrunk — live threshold
+// edits, and live category/season/position changes via updatePlayerPool()
+// (e.g. switching Position from ED to DI drops any ED-only chip immediately,
+// since it's no longer in the new position's pool) — so a selected player
+// who no longer clears the bar (or no longer exists in the new slice)
+// silently loses their chip instead of lingering as a selection that can't
+// actually take effect.
+function prunePlayerSelections() {
+  const poolKeys = new Set(qualifyingPlayerPool().map((r) => r.player));
+  let changed = false;
+  selectedPlayers.forEach((_, key) => {
+    if (!poolKeys.has(key)) {
+      selectedPlayers.delete(key);
+      changed = true;
+    }
+  });
+  if (changed) renderPlayerChips();
+}
+
 function filtersArePending() {
   if (!appliedFilters) return false;
   const current = currentFilterState();
@@ -330,12 +693,12 @@ function populateCategoryDependentControls() {
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
 }
 
-async function loadCurrentSlice() {
-  const category = els.category.value;
-  const season = Number(els.season.value);
-  const position = els.position.value;
+// Shared by loadCurrentSlice() (Apply-gated, drives the chart) and
+// updatePlayerPool() (live, drives only the Players search pool) — both
+// just need the records for a given category/season/position, memoized in
+// sliceCache so switching back to an already-seen combination is free.
+async function fetchSlice(category, season, position) {
   const key = `${category}:${season}:${position}`;
-
   if (!sliceCache.has(key)) {
     const url = `/api/${category}?season=${season}&position=${encodeURIComponent(position)}`;
     const res = await fetch(url);
@@ -343,8 +706,35 @@ async function loadCurrentSlice() {
     const data = await res.json();
     sliceCache.set(key, data.records || []);
   }
-  currentRecords = sliceCache.get(key);
+  return sliceCache.get(key);
+}
+
+async function loadCurrentSlice() {
+  const category = els.category.value;
+  const season = Number(els.season.value);
+  const position = els.position.value;
+  currentRecords = await fetchSlice(category, season, position);
+  currentSliceCategory = category;
   updateThresholdRange();
+}
+
+// Mirrors loadCurrentSlice(), but for whatever category/season/position the
+// controls are pending on right now, and never touches currentRecords/
+// currentSliceCategory/updateThresholdRange — those stay reserved for the
+// last Applied slice the chart is actually showing. Fired on every
+// category/season/position change (see attachEvents()) so the Players
+// dropdown always searches the position currently selected, e.g. switching
+// from ED to DI immediately drops ED-only players like Derick Hall from the
+// suggestions and starts surfacing DI players like Dexter Lawrence instead,
+// without waiting for Apply.
+async function updatePlayerPool() {
+  const category = els.category.value;
+  const season = Number(els.season.value);
+  const position = els.position.value;
+  playerPoolRecords = await fetchSlice(category, season, position);
+  playerPoolCategory = category;
+  prunePlayerSelections();
+  runPlayersSearch();
 }
 
 function updateThresholdRange() {
@@ -443,7 +833,7 @@ function teamName(code) {
 }
 
 // Fallback swatch for the teams-dropdown checklist when a team's logo file
-// 404s — mirrors showScoutCard()'s scoutLogo.onerror treatment.
+// 404s — mirrors openScoutCard()'s logoImg.onerror treatment.
 function teamSwatch(code) {
   const span = document.createElement("span");
   span.className = "team-swatch";
@@ -489,8 +879,8 @@ function computeLogoImages(chartDiv, records, xKey, yKey, isDimmed) {
 // overlap one already kept, blank the rest.
 // `isDimmed` (aligned index-for-index with `records`) pushes every
 // highlighted (non-dimmed) player's label ahead of every dimmed player's,
-// regardless of threshold_field — a Teams selection should never lose its
-// own labels to a bigger name outside the selection.
+// regardless of threshold_field, so a Teams/Players selection never loses
+// its own labels to a bigger name outside the selection.
 function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimmed) {
   const fullLayout = chartDiv._fullLayout;
   const xAxis = fullLayout && fullLayout.xaxis;
@@ -499,7 +889,7 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimm
     return records.map(() => true);
   }
 
-  const CHAR_WIDTH = 6.5; // approx advance width, IBM Plex Mono @ 10px
+  const CHAR_WIDTH = 6.5; // Approx advance width, IBM Plex Mono @ 10px.
   const LABEL_HEIGHT = 12;
   const LABEL_GAP = 10;   // vertical offset from marker center to "bottom center" text
   // Shrink each box by this fraction on every side before the collision test,
@@ -549,16 +939,54 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimm
 const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
 const LABEL_ALPHA = 0.55; // normal (non-dimmed) player-name opacity
 
+// Teams and Players both only dim, never exclude (see the isDimmed comment
+// in render()), so unlike the old Teams-only subtitle this can't just count
+// currentFiltered — a reader needs to know *why* a non-highlighted-team
+// player might still be sitting on the chart. Falls back to the plain
+// "N players ≥ threshold" line when nothing is actually being highlighted
+// (all teams selected, no players added) so the common case stays terse.
+function highlightSubtitle(cat, records, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold) {
+  const fieldLabel = thresholdFieldLabel(cat);
+  const totalTeams = allTeamCodes().length;
+  const allTeamsSelected = selectedTeams.size === totalTeams;
+
+  const parts = [];
+  if (allTeamsSelected) {
+    // Every team already selected — Players is the only real filter, no
+    // point naming "32 Teams".
+  } else if (selectedTeams.size === 0) {
+    parts.push("no teams");
+  } else if (selectedTeams.size <= 2) {
+    parts.push(Array.from(selectedTeams).map(teamName).join(" + "));
+  } else {
+    parts.push(`${selectedTeams.size} teams`);
+  }
+
+  const playerRecords = records.filter((r) => selectedPlayerKeys.has(r.player));
+  if (playerRecords.length) {
+    const names = playerRecords.map((r) => r.abbr_name || r.player);
+    parts.push(names.length <= 2 ? names.join(" + ") : `${names.length} players`);
+  }
+
+  const highlightedCount = records.length - isDimmed.filter(Boolean).length;
+  const clause = parts.length ? parts.join(" + ") : "nothing";
+  return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
+}
+
 function render() {
   const cat = appliedCategoryMeta();
 
   const minThreshold = Number(appliedFilters.threshold);
   const selectedTeams = new Set(appliedFilters.teams ? appliedFilters.teams.split(",") : []);
+  const selectedPlayerKeys = new Set(appliedFilters.players ? appliedFilters.players.split(",") : []);
 
   currentFiltered = currentRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
-  // Empty selectedTeams (Teams → None) has .has() return false for every
-  // team, which dims everyone uniformly — no special-casing needed.
-  const isDimmed = currentFiltered.map((r) => !selectedTeams.has(r.team));
+  // Players joins Teams via OR — a player is highlighted if their team is
+  // selected OR they were explicitly added, so an explicitly-picked player
+  // off a dimmed team still stands out. Empty selectedTeams (Teams → None)
+  // with no players picked has both .has() calls return false for every
+  // record, which dims everyone uniformly — no special-casing needed.
+  const isDimmed = currentFiltered.map((r) => !(selectedTeams.has(r.team) || selectedPlayerKeys.has(r.player)));
 
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
@@ -675,8 +1103,7 @@ function render() {
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
   const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
-  const subtitleText =
-    `${currentFiltered.length} players with at least ${minThreshold} ${thresholdFieldLabel(cat)}.`;
+  const subtitleText = highlightSubtitle(cat, currentFiltered, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold);
 
   const layout = {
     paper_bgcolor: "transparent",
@@ -694,7 +1121,7 @@ function render() {
       xanchor: "center",
       subtitle: {
         text: subtitleText,
-        font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 12, color: "#a9b6a9" },
+        font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 12, color: "#f1ecdd" },
       },
     },
     dragmode: false,
@@ -773,41 +1200,87 @@ function render() {
 
   els.chart.on("plotly_click", (e) => {
     const idx = e.points[0].pointIndex;
-    if (pinnedIndex === idx) {
-      pinnedIndex = null;
-      resetScoutCard();
+    const record = currentFiltered[idx];
+    if (scoutCards.has(record.player)) {
+      closeScoutCard(record.player);
     } else {
-      pinnedIndex = idx;
-      showScoutCard(currentFiltered[idx]);
+      openScoutCard(record);
     }
   });
 }
 
-function showScoutCard(record) {
+// Below 860px scouting cards are static blocks stacked under the chart (see
+// the @media (max-width: 860px) rules in style.css), not floating overlays
+// — dragging/cascading only makes sense above that breakpoint, same cutoff
+// targetLogoPx() already uses for the desktop/mobile split.
+function isDesktopScoutLayout() {
+  return window.innerWidth >= 860;
+}
+
+function updateScoutEmptyHint() {
+  els.scoutEmptyHint.hidden = scoutCards.size > 0;
+}
+
+// Every open card gets a higher inline z-index than anything opened,
+// clicked, or dragged before it, so the one the user is currently paying
+// attention to always renders on top of any it overlaps.
+function bringScoutCardToFront(cardEl) {
+  scoutZCounter += 1;
+  cardEl.style.zIndex = String(scoutZCounter);
+}
+
+// The first card opened keeps the CSS default top-right anchor (top:24,
+// right:24) — same spot the single card always used to appear. Every card
+// after that gets an explicit inline left/top, nudged down-left a bit
+// further per already-open card, so opening several in a row fans them out
+// instead of stacking them exactly on top of each other. They're still
+// fully draggable afterward, and dragging one on top of another is exactly
+// the overlap the user asked to allow.
+const SCOUT_CASCADE_STEP = 28;
+const SCOUT_CASCADE_WRAP = 8; // wrap the offset so a long run of opens can't drift off-panel
+function cascadeScoutCardPosition(cardEl) {
+  if (scoutCards.size === 0 || !isDesktopScoutLayout()) return;
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
+  const offset = (scoutCards.size % SCOUT_CASCADE_WRAP) * SCOUT_CASCADE_STEP;
+  const maxLeft = Math.max(panelRect.width - cardRect.width, 0);
+  const maxTop = Math.max(panelRect.height - cardRect.height, 0);
+  cardEl.style.left = `${Math.min(Math.max(panelRect.width - cardRect.width - 24 - offset, 0), maxLeft)}px`;
+  cardEl.style.top = `${Math.min(24 + offset, maxTop)}px`;
+  cardEl.style.right = "auto";
+}
+
+function openScoutCard(record) {
   const cat = appliedCategoryMeta();
-  els.scoutCard.classList.add("is-active");
-  els.scoutEmpty.hidden = true;
-  els.scoutBody.hidden = false;
+  const cardEl = els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const panelEl = cardEl.querySelector(".scout-card-panel");
+  const logoImg = cardEl.querySelector(".scout-logo");
+  const badge = cardEl.querySelector(".scout-badge");
+  const nameEl = cardEl.querySelector(".scout-name");
+  const metaEl = cardEl.querySelector(".scout-meta");
+  const statsEl = cardEl.querySelector(".scout-stats");
 
   const color = teamColor(record.team);
-  els.scoutLogo.src = logoSrc(record.team);
-  els.scoutLogo.alt = `${record.team} logo`;
-  els.scoutLogo.hidden = false;
-  els.scoutBadge.hidden = true;
-  els.scoutLogo.onerror = () => {
-    els.scoutLogo.hidden = true;
-    els.scoutBadge.hidden = false;
-    els.scoutBadge.textContent = record.team;
-    els.scoutBadge.style.background = color;
+  logoImg.src = logoSrc(record.team);
+  logoImg.alt = `${record.team} logo`;
+  logoImg.hidden = false;
+  badge.hidden = true;
+  logoImg.onerror = () => {
+    logoImg.hidden = true;
+    badge.hidden = false;
+    badge.textContent = record.team;
+    badge.style.background = color;
   };
 
-  els.scoutName.textContent = record.player;
-  els.scoutMeta.textContent = `${teamName(record.team)} · ${record.position}`;
+  nameEl.textContent = record.player;
+  metaEl.textContent = `${teamName(record.team)} · ${record.position}`;
 
   const xKey = appliedFilters.xMetric;
   const yKey = appliedFilters.yMetric;
 
-  els.scoutStats.innerHTML = "";
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
   // children when it has no rank would shift every following row's columns.
@@ -823,9 +1296,9 @@ function showScoutCard(record) {
     const rankDd = document.createElement("dd");
     rankDd.className = "scout-stat-rank";
     rankDd.textContent = rankText || "—";
-    els.scoutStats.appendChild(dt);
-    els.scoutStats.appendChild(dd);
-    els.scoutStats.appendChild(rankDd);
+    statsEl.appendChild(dt);
+    statsEl.appendChild(dd);
+    statsEl.appendChild(rankDd);
   };
 
   // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
@@ -839,47 +1312,95 @@ function showScoutCard(record) {
     const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
     addRow(key, formatValue(record[key], meta), key === xKey || key === yKey, rankText);
   });
+
+  els.scoutCards.appendChild(cardEl);
+  cascadeScoutCardPosition(cardEl); // reads scoutCards.size, so must run before scoutCards.set() below
+  cardEl.classList.add("is-active");
+  bringScoutCardToFront(cardEl);
+
+  closeBtn.addEventListener("click", () => closeScoutCard(record.player));
+  dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
+  dragHandle.addEventListener("pointermove", onScoutDragMove);
+  dragHandle.addEventListener("pointerup", endScoutDrag);
+  dragHandle.addEventListener("pointercancel", endScoutDrag);
+  // Raises a card even on a plain click, not just a drag, so tapping an
+  // overlapped card's stats (not just its drag handle) also brings it front.
+  // Also doubles as the resize trigger: no visible grip (see the CSS comment
+  // by .scout-card.is-resizing) — like a Mac window, a pointerdown within a
+  // few px of any edge starts a resize instead of just a bring-to-front.
+  cardEl.addEventListener("pointerdown", (e) => {
+    bringScoutCardToFront(cardEl);
+    if (!isDesktopScoutLayout()) return;
+    const edges = getResizeEdges(cardEl, e.clientX, e.clientY);
+    if (edges) beginScoutResize(e, cardEl, panelEl, edges);
+  });
+  // Hover-only cursor feedback while not actively resizing; once a resize
+  // starts, pointer capture (set in beginScoutResize) keeps routing move
+  // events to this same listener, so performScoutResize takes over instead.
+  cardEl.addEventListener("pointermove", (e) => {
+    if (scoutResizeState && scoutResizeState.cardEl === cardEl) {
+      performScoutResize(e);
+    } else if (!scoutResizeState) {
+      updateScoutResizeCursor(cardEl, e);
+    }
+  });
+  cardEl.addEventListener("pointerup", endScoutResize);
+  cardEl.addEventListener("pointercancel", endScoutResize);
+  cardEl.addEventListener("pointerleave", () => {
+    if (!scoutResizeState) cardEl.style.cursor = "";
+  });
+
+  scoutCards.set(record.player, { record, el: cardEl });
+  updateScoutEmptyHint();
 }
 
-function resetScoutCard() {
-  els.scoutCard.classList.remove("is-active");
-  els.scoutEmpty.hidden = false;
-  els.scoutBody.hidden = true;
-  // Drop any position a drag left behind so the card starts back at its
-  // default top-right corner next time it's opened, rather than wherever
-  // the user last dragged it.
-  clearScoutCardDragPosition();
+function closeScoutCard(key) {
+  const entry = scoutCards.get(key);
+  if (!entry) return;
+  entry.el.remove();
+  scoutCards.delete(key);
+  updateScoutEmptyHint();
 }
 
-// Below 860px the scouting card is a static block stacked under the chart
-// (see the @media (max-width: 860px) rules in style.css), not a floating
-// overlay — dragging only makes sense above that breakpoint, same cutoff
-// targetLogoPx() already uses for the desktop/mobile split.
-function isDesktopScoutLayout() {
-  return window.innerWidth >= 860;
+function closeAllScoutCards() {
+  scoutCards.forEach((entry) => entry.el.remove());
+  scoutCards.clear();
+  updateScoutEmptyHint();
 }
 
-// Inline left/top (set by dragging) sit at higher specificity than the
-// mobile media query's `top: auto; right: auto;` reset, so they'd otherwise
-// survive a resize down to mobile and break the stacked layout. Clearing
-// them lets the stylesheet's position rules take back over.
-function clearScoutCardDragPosition() {
-  els.scoutCard.style.left = "";
-  els.scoutCard.style.top = "";
-  els.scoutCard.style.right = "";
+// Inline left/top (set by dragging or cascadeScoutCardPosition) sit at
+// higher specificity than the mobile media query's `top: auto; right: auto;`
+// reset, so they'd otherwise survive a resize down to mobile and break the
+// stacked layout. Clearing them lets the stylesheet's position rules take
+// back over for every currently-open card. Inline width/height from
+// beginScoutResize would equally survive (and equally make no sense once
+// mobile takes over sizing via its own min-height rule), so those get
+// cleared here too.
+function clearScoutCardDragPositions() {
+  scoutCards.forEach((entry) => {
+    entry.el.style.left = "";
+    entry.el.style.top = "";
+    entry.el.style.right = "";
+    entry.el.style.width = "";
+    const panelEl = entry.el.querySelector(".scout-card-panel");
+    panelEl.style.height = "";
+    panelEl.style.maxHeight = "";
+  });
 }
 
-// Drag state for the one pointer currently moving the card, or null. Only
-// one drag can be in progress at a time — the pointerId lets move/end
-// handlers ignore any other pointer that fires while a drag is active
-// (e.g. a second touch point).
+// Drag state for the one pointer currently moving a card, or null. Only one
+// drag can be in progress at a time — the pointerId lets move/end handlers
+// ignore any other pointer that fires while a drag is active (e.g. a second
+// touch point) — but which card it's moving is per-drag, so several cards
+// can each be dragged in turn without interfering with each other.
 let scoutDragState = null;
 
-function beginScoutDrag(e) {
+function beginScoutDrag(e, cardEl) {
   if (!isDesktopScoutLayout()) return;
   const panelRect = els.chartPanel.getBoundingClientRect();
-  const cardRect = els.scoutCard.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
   scoutDragState = {
+    cardEl,
     pointerId: e.pointerId,
     startX: e.clientX,
     startY: e.clientY,
@@ -892,11 +1413,12 @@ function beginScoutDrag(e) {
   };
   // Switch from the default top/right anchor to an explicit left/top so
   // the card can move freely; keeps it exactly where it already was.
-  els.scoutCard.style.left = `${scoutDragState.startLeft}px`;
-  els.scoutCard.style.top = `${scoutDragState.startTop}px`;
-  els.scoutCard.style.right = "auto";
-  els.scoutCard.classList.add("is-dragging");
-  els.scoutDragHandle.setPointerCapture(e.pointerId);
+  cardEl.style.left = `${scoutDragState.startLeft}px`;
+  cardEl.style.top = `${scoutDragState.startTop}px`;
+  cardEl.style.right = "auto";
+  cardEl.classList.add("is-dragging");
+  bringScoutCardToFront(cardEl);
+  e.currentTarget.setPointerCapture(e.pointerId);
 }
 
 function onScoutDragMove(e) {
@@ -905,15 +1427,135 @@ function onScoutDragMove(e) {
   const dy = e.clientY - scoutDragState.startY;
   const left = Math.min(Math.max(scoutDragState.startLeft + dx, 0), scoutDragState.maxLeft);
   const top = Math.min(Math.max(scoutDragState.startTop + dy, 0), scoutDragState.maxTop);
-  els.scoutCard.style.left = `${left}px`;
-  els.scoutCard.style.top = `${top}px`;
+  scoutDragState.cardEl.style.left = `${left}px`;
+  scoutDragState.cardEl.style.top = `${top}px`;
 }
 
 function endScoutDrag(e) {
   if (!scoutDragState || e.pointerId !== scoutDragState.pointerId) return;
-  els.scoutDragHandle.releasePointerCapture(e.pointerId);
-  els.scoutCard.classList.remove("is-dragging");
+  e.currentTarget.releasePointerCapture(e.pointerId);
+  scoutDragState.cardEl.classList.remove("is-dragging");
   scoutDragState = null;
+}
+
+// Bounds for the edge-resize below — width mirrors style.css's .scout-card
+// min/max-width (keep these in sync with that rule; CSS alone can't gate
+// height since .scout-card-panel's height is otherwise auto, so its bounds
+// only live here).
+const SCOUT_CARD_MIN_WIDTH = 260;
+const SCOUT_CARD_MAX_WIDTH = 640;
+const SCOUT_CARD_MIN_HEIGHT = 160;
+const SCOUT_CARD_MAX_HEIGHT = 900;
+
+// How close the pointer needs to be to a card's outer edge, in px, to count
+// as a resize grab rather than a plain click/drag — no visible grip, so this
+// margin *is* the hit target, like a Mac window's edge. Comfortably clears
+// .scout-close (offset 10px from the same corner) so the close button never
+// gets swallowed by the resize zone.
+const SCOUT_RESIZE_MARGIN = 8;
+
+// Which of a card's four edges (if any) a point sits within SCOUT_RESIZE_MARGIN
+// of, e.g. {left:false, right:true, top:false, bottom:true} for a
+// bottom-right corner grab — or null if the point isn't near any edge.
+function getResizeEdges(cardEl, clientX, clientY) {
+  const rect = cardEl.getBoundingClientRect();
+  const edges = {
+    left: clientX - rect.left <= SCOUT_RESIZE_MARGIN,
+    right: rect.right - clientX <= SCOUT_RESIZE_MARGIN,
+    top: clientY - rect.top <= SCOUT_RESIZE_MARGIN,
+    bottom: rect.bottom - clientY <= SCOUT_RESIZE_MARGIN,
+  };
+  return edges.left || edges.right || edges.top || edges.bottom ? edges : null;
+}
+
+function cursorForEdges(edges) {
+  if ((edges.left && edges.top) || (edges.right && edges.bottom)) return "nwse-resize";
+  if ((edges.right && edges.top) || (edges.left && edges.bottom)) return "nesw-resize";
+  if (edges.left || edges.right) return "ew-resize";
+  return "ns-resize";
+}
+
+// Live cursor feedback as the pointer wanders near a card's edges — the only
+// hint a resize zone exists, since there's no visible grip.
+function updateScoutResizeCursor(cardEl, e) {
+  const edges = isDesktopScoutLayout() ? getResizeEdges(cardEl, e.clientX, e.clientY) : null;
+  cardEl.style.cursor = edges ? cursorForEdges(edges) : "";
+}
+
+// Resize state for the one pointer currently dragging a card's edge, or
+// null — same single-pointer-at-a-time shape as scoutDragState above.
+let scoutResizeState = null;
+
+function beginScoutResize(e, cardEl, panelEl, edges) {
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const cardRect = cardEl.getBoundingClientRect();
+  scoutResizeState = {
+    cardEl,
+    panelEl,
+    edges,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    // Same left/top conversion beginScoutDrag does — dragging the left or
+    // top edge needs an explicit anchor to push around, not just a width/
+    // height to grow, since the opposite edge has to stay put.
+    startLeft: cardRect.left - panelRect.left,
+    startTop: cardRect.top - panelRect.top,
+    startWidth: cardRect.width,
+    startHeight: panelEl.getBoundingClientRect().height,
+  };
+  cardEl.style.left = `${scoutResizeState.startLeft}px`;
+  cardEl.style.top = `${scoutResizeState.startTop}px`;
+  cardEl.style.right = "auto";
+  // Drop the open/close max-height cap in favor of an explicit height the
+  // user now controls directly; is-resizing (in style.css) kills the
+  // max-height transition so that swap doesn't animate.
+  panelEl.style.maxHeight = "none";
+  cardEl.classList.add("is-resizing");
+  bringScoutCardToFront(cardEl);
+  cardEl.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function performScoutResize(e) {
+  const s = scoutResizeState;
+  const panelRect = els.chartPanel.getBoundingClientRect();
+  const dx = e.clientX - s.startX;
+  const dy = e.clientY - s.startY;
+
+  let width = s.startWidth;
+  let left = s.startLeft;
+  if (s.edges.right) {
+    width = Math.min(Math.max(s.startWidth + dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
+  } else if (s.edges.left) {
+    width = Math.min(Math.max(s.startWidth - dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
+    left = s.startLeft + (s.startWidth - width); // keep the right edge fixed while the left one moves
+  }
+  left = Math.min(Math.max(left, 0), Math.max(panelRect.width - width, 0));
+
+  let height = s.startHeight;
+  let top = s.startTop;
+  if (s.edges.bottom) {
+    height = Math.min(Math.max(s.startHeight + dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
+  } else if (s.edges.top) {
+    height = Math.min(Math.max(s.startHeight - dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
+    top = s.startTop + (s.startHeight - height); // keep the bottom edge fixed while the top one moves
+  }
+  top = Math.min(Math.max(top, 0), Math.max(panelRect.height - height, 0));
+
+  s.cardEl.style.width = `${width}px`;
+  s.cardEl.style.left = `${left}px`;
+  s.cardEl.style.top = `${top}px`;
+  s.panelEl.style.height = `${height}px`;
+}
+
+function endScoutResize(e) {
+  if (!scoutResizeState || scoutResizeState.cardEl !== e.currentTarget || e.pointerId !== scoutResizeState.pointerId)
+    return;
+  e.currentTarget.releasePointerCapture(e.pointerId);
+  scoutResizeState.cardEl.classList.remove("is-resizing");
+  scoutResizeState.cardEl.style.cursor = "";
+  scoutResizeState = null;
 }
 
 function closeFiltersDrawer() {
@@ -932,11 +1574,15 @@ async function applyFilters() {
     els.position.value !== appliedFilters.position;
 
   if (sliceChanged) {
-    pinnedIndex = null;
-    resetScoutCard();
+    closeAllScoutCards();
     await loadCurrentSlice(); // may also reset/clamp the threshold controls
   }
 
+  // A season/position/category switch (or a threshold edit that slipped in
+  // without a live prune) can leave stale chips pointing at players outside
+  // the new qualifying pool — drop them before snapshotting into
+  // appliedFilters so the chart never highlights a player who isn't there.
+  prunePlayerSelections();
   appliedFilters = currentFilterState();
   closeFiltersDrawer();
   render();
@@ -944,18 +1590,29 @@ async function applyFilters() {
 }
 
 function attachEvents() {
-  // Category/season/position/axes are all pending-only now: picking a new
-  // value just updates the control itself (plus, for category, the option
-  // lists that depend on it) and lights up Apply. Nothing fetches or
-  // re-renders until applyFilters() runs, so the user can change several of
-  // these together and commit them in one shot.
+  // Category/season/position/axes are all pending-only for the chart: picking
+  // a new value just updates the control itself (plus, for category, the
+  // option lists that depend on it) and lights up Apply — nothing fetches or
+  // re-renders the chart until applyFilters() runs, so the user can change
+  // several of these together and commit them in one shot. Category/season/
+  // position additionally trigger updatePlayerPool() live (unlike the chart),
+  // since the Players search pool is cheap to keep in sync with whatever
+  // position is currently selected rather than making it wait for Apply too.
   els.category.addEventListener("change", () => {
     resetThresholdOnNextRange = true;
     populateCategoryDependentControls();
     updatePendingState();
+    updatePlayerPool();
   });
 
-  [els.season, els.position, els.xMetric, els.yMetric].forEach((el) =>
+  [els.season, els.position].forEach((el) =>
+    el.addEventListener("change", () => {
+      updatePendingState();
+      updatePlayerPool();
+    })
+  );
+
+  [els.xMetric, els.yMetric].forEach((el) =>
     el.addEventListener("change", updatePendingState)
   );
 
@@ -994,6 +1651,69 @@ function attachEvents() {
     if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
   });
 
+  // Players: collapsed behind a button + panel, same mechanism as Teams —
+  // the chip list stays hidden until opened so it never has to fit inside
+  // the collapsed button's width (see the .control-players comment in
+  // style.css). Pending-only like Teams otherwise: adding/removing a chip
+  // just updates the selection and lights up Apply; the chart doesn't
+  // re-highlight until applyFilters() runs. The search itself, though,
+  // reacts live (see qualifyingPlayerPool()/prunePlayerSelections()) since
+  // it's cheap client-side filtering against already-cached data, not a
+  // refetch.
+  els.playersBtn.addEventListener("click", () => {
+    if (els.playersPanel.hidden) openPlayersPanel();
+    else closePlayersPanel();
+  });
+
+  // Mirrors Teams' None button, but scoped to Players' own chip set rather
+  // than a shared checklist — clears every selected player in one click
+  // regardless of whether the panel is open, then re-runs the live search
+  // so any just-cleared player can immediately reappear as a suggestion.
+  els.playersResetBtn.addEventListener("click", () => {
+    if (!selectedPlayers.size) return;
+    selectedPlayers.clear();
+    renderPlayerChips();
+    updatePendingState();
+    runPlayersSearch();
+  });
+
+  els.playersInput.addEventListener("input", runPlayersSearch);
+
+  els.playersInput.addEventListener("focus", () => {
+    if (els.playersInput.value.trim()) runPlayersSearch();
+  });
+
+  els.playersInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      // Autocomplete convention: Escape backs out one level at a time —
+      // first close just the suggestion list, and only close the whole
+      // panel if the suggestions were already closed.
+      if (!els.playersDropdown.hidden) hidePlayersDropdown();
+      else closePlayersPanel();
+    } else if (e.key === "Enter") {
+      // Autocomplete convention: Enter commits the top suggestion, same as
+      // a click on it.
+      e.preventDefault();
+      const first = els.playersDropdown.querySelector(".player-option");
+      if (first) first.click();
+    }
+  });
+
+  // Same e.isTrusted guard as the Teams/filters-drawer listeners — see the
+  // comment above the Teams one for why. Uses composedPath() rather than
+  // playersControl.contains(e.target): picking a suggestion calls
+  // hidePlayersDropdown(), which clears the suggestion list's innerHTML
+  // (removing the very button just clicked) before this bubbled listener
+  // runs — contains() on a now-detached node always returns false, which
+  // was slamming the whole panel shut on every single pick. composedPath()
+  // is captured at dispatch time, before that mutation, so it still
+  // includes playersControl.
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (els.playersPanel.hidden) return;
+    if (!e.composedPath().includes(els.playersControl)) closePlayersPanel();
+  });
+
   // Dragging the slider or typing a number only updates these two controls'
   // own displayed values — the chart holds its current state until the user
   // clicks Apply (or presses Enter in the number field). Re-rendering on
@@ -1005,6 +1725,11 @@ function attachEvents() {
     // category switch stomp it back to that category's default at Apply
     // time (see the resetThresholdOnNextRange comment above its declaration).
     resetThresholdOnNextRange = false;
+    // The Players pool is threshold-gated live (not just at Apply) — see
+    // qualifyingPlayerPool() — so a chip that no longer clears the new
+    // value should disappear the moment the slider moves, not linger until
+    // Apply.
+    prunePlayerSelections();
     updatePendingState();
   });
 
@@ -1022,6 +1747,7 @@ function attachEvents() {
     // visually — filtering below still uses the exact typed number.
     els.threshold.value = min + Math.round((raw - min) / step) * step;
     resetThresholdOnNextRange = false;
+    prunePlayerSelections();
     updatePendingState();
   });
 
@@ -1089,54 +1815,42 @@ function attachEvents() {
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
 
-  els.scoutClose.addEventListener("click", () => {
-    pinnedIndex = null;
-    resetScoutCard();
-  });
-
-  // Pointer capture on the handle itself means move/up keep firing on it
-  // even once the pointer strays outside the card during a fast drag — no
-  // document-level listeners needed.
-  els.scoutDragHandle.addEventListener("pointerdown", beginScoutDrag);
-  els.scoutDragHandle.addEventListener("pointermove", onScoutDragMove);
-  els.scoutDragHandle.addEventListener("pointerup", endScoutDrag);
-  els.scoutDragHandle.addEventListener("pointercancel", endScoutDrag);
+  // Per-card close/drag listeners are wired up inside openScoutCard() itself
+  // — each cloned card owns its own close button and drag handle — so
+  // there's no single static card to attach listeners to here anymore.
 
   // A drag position is only valid in the desktop overlay layout — resizing
-  // past the breakpoint mid-session (or a device rotation) needs the same
-  // cleanup resetScoutCard() does on close, see clearScoutCardDragPosition().
+  // past the breakpoint mid-session (or a device rotation) needs every
+  // currently-open card's inline position stripped so the mobile stacked
+  // layout can take back over, see clearScoutCardDragPositions().
   window.addEventListener("resize", () => {
-    if (!isDesktopScoutLayout()) clearScoutCardDragPosition();
+    if (!isDesktopScoutLayout()) clearScoutCardDragPositions();
   });
 
-  // Closes the pinned scouting card when clicking anywhere outside both
-  // the chart and the card itself.
-  //
-  // `e.isTrusted` guards both this and the filters-drawer listener below
-  // against Plotly.downloadImage()'s internal implementation: it builds a
-  // throwaway <a>, appends it to <body>, and calls .click() on it to
-  // trigger browser for saving dialog. That programmatic click bubbles to
-  // document as a real "click" event with a target outside every one of
-  // our containers, which — without this guard — closed the scouting card
-  // and, worse, closed the mobile filters drawer immediately after Save
-  // Plot, even though Save Plot is supposed to leave the drawer open for
-  // repeated exports. Synthetic (script-dispatched) events always report
-  // isTrusted: false, so filtering on it distinguishes Plotly's anchor
-  // click from an actual user tap outside the drawer/card.
-  document.addEventListener("click", (e) => {
-    if (!e.isTrusted) return;
-    if (pinnedIndex == null) return;
-    if (!els.chart.contains(e.target) && !els.scoutCard.contains(e.target)) {
-      pinnedIndex = null;
-      resetScoutCard();
-    }
-  });
+  // Deliberately no "click outside closes the card" handler here, unlike the
+  // Teams/Players dropdowns and the filters drawer below. Those are
+  // transient single-purpose overlays where dismissing on an outside click
+  // is the expected pattern; scouting cards are meant to stay pinned — any
+  // number open at once, see openScoutCard() — until the user explicitly
+  // hits a card's own ×. Auto-closing all of them on an incidental click
+  // elsewhere on the chart would undercut the whole point of letting
+  // several stay open side by side.
 
   els.filtersToggle.addEventListener("click", () => {
     const isOpen = els.filtersDrawer.classList.toggle("open");
     els.filtersToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
+  // Same e.isTrusted guard as the Teams/Players dropdown listeners above —
+  // it protects against Plotly.downloadImage()'s internal implementation:
+  // it builds a throwaway <a>, appends it to <body>, and calls .click() on
+  // it to trigger the browser's save dialog. That programmatic click
+  // bubbles to document as a real "click" event with a target outside the
+  // drawer, which — without this guard — closed the mobile filters drawer
+  // immediately after Save Plot, even though Save Plot is supposed to leave
+  // the drawer open for repeated exports. Synthetic (script-dispatched)
+  // events always report isTrusted: false, so filtering on it distinguishes
+  // Plotly's anchor click from an actual user tap outside the drawer.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     if (!els.filtersDrawer.classList.contains("open")) return;
