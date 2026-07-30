@@ -973,40 +973,6 @@ function highlightSubtitle(cat, records, isDimmed, selectedTeams, selectedPlayer
   return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
 }
 
-// Teams and Players both only dim, never exclude (see the isDimmed comment
-// in render()), so unlike the old Teams-only subtitle this can't just count
-// currentFiltered — a reader needs to know *why* a non-highlighted-team
-// player might still be sitting on the chart. Falls back to the plain
-// "N players ≥ threshold" line when nothing is actually being highlighted
-// (all teams selected, no players added) so the common case stays terse.
-function highlightSubtitle(cat, records, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold) {
-  const fieldLabel = thresholdFieldLabel(cat);
-  const totalTeams = allTeamCodes().length;
-  const allTeamsSelected = selectedTeams.size === totalTeams;
-
-  const parts = [];
-  if (allTeamsSelected) {
-    // Every team already selected — Players is the only real filter, no
-    // point naming "32 Teams".
-  } else if (selectedTeams.size === 0) {
-    parts.push("no teams");
-  } else if (selectedTeams.size <= 2) {
-    parts.push(Array.from(selectedTeams).map(teamName).join(" + "));
-  } else {
-    parts.push(`${selectedTeams.size} teams`);
-  }
-
-  const playerRecords = records.filter((r) => selectedPlayerKeys.has(r.player));
-  if (playerRecords.length) {
-    const names = playerRecords.map((r) => r.abbr_name || r.player);
-    parts.push(names.length <= 2 ? names.join(" + ") : `${names.length} players`);
-  }
-
-  const highlightedCount = records.length - isDimmed.filter(Boolean).length;
-  const clause = parts.length ? parts.join(" + ") : "nothing";
-  return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
-}
-
 function render() {
   const cat = appliedCategoryMeta();
 
