@@ -89,10 +89,13 @@
 
            Collapsed behind a summary button + click-to-open panel, same
            mechanism as Teams above — otherwise a handful of chips would
-           make this box balloon past its neighbors' width/height (see the
+           make this box balloon past its neighbors' width/height (see
            control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
       <div class="control control-players" id="players-control">
         <div class="players-label-row">
+          <span class="info-hint" tabindex="0"
+                title="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected."
+                data-tooltip="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.">i</span>
           <label id="players-label" for="players-toggle-btn">Players</label>
           <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
         </div>

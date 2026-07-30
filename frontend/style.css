@@ -214,7 +214,18 @@ body {
   padding: 9px 10px;
   font-family: var(--font-body);
   font-size: 14px;
-  min-width: 150px;
+  /* Fixed, not min-: a native <select> auto-sizes to fit its *selected*
+     option's text, so a bare min-width still lets long option text (a
+     position label, a metric name) grow that one control past everyone
+     else's width and break the row's alignment. Pinning width and eliding
+     overflow keeps every plain select this same width regardless of which
+     option is picked — the full text is still one click away in the
+     native dropdown, so truncation here loses nothing. */
+  width: 150px;
+  max-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .control select:focus-visible,
 .control input:focus-visible {
@@ -278,10 +289,10 @@ body {
 }
 
 /* Season only ever holds a 4-digit year — the shared 150px .control select
-   min-width was sized for longer option text (metric names, position
-   labels) and left Season looking as wide as Category for no reason. */
+   width was sized for longer option text (metric names, position labels)
+   and left Season looking as wide as Category for no reason. */
 .control-season { min-width: auto; }
-.control-season select { width: 72px; min-width: 72px; padding-right: 4px; }
+.control-season select { width: 72px; min-width: 72px; max-width: 72px; padding-right: 4px; }
 
 /* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
@@ -305,7 +316,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
+  /* Fixed, matching the plain .control select width (not the old
+     width: 100% + min-width: 150px, which let the summary text — "12
+     Teams", a long typed player name — grow this past every select's width
+     and break row alignment). The summary span below does the eliding. */
+  width: 150px;
+  max-width: 150px;
   background: var(--turf-950);
   color: var(--chalk);
   border: 1px solid var(--turf-600);
@@ -314,9 +330,18 @@ body {
   font-family: var(--font-body);
   font-size: 14px;
   line-height: normal;
-  min-width: 150px;
   cursor: pointer;
   text-align: left;
+}
+#teams-select-summary,
+#players-select-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Flex items default to min-width: auto, which floors them at their
+     content's intrinsic width and defeats text-overflow — this lets the
+     span actually shrink below "12 Teams" so the ellipsis can kick in. */
+  min-width: 0;
 }
 .teams-select-btn:hover,
 .teams-select-btn:focus-visible {
@@ -472,6 +497,65 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Sits before the Players label to flag that Teams and Players aren't two
+   independent filters — see the isDimmed union in app.js's render() — a
+   selected team highlights all its players regardless of the Players list,
+   and vice versa. Hover/focus reveals the explanation below; `title` is a
+   plain-text fallback for anything that doesn't run the CSS (screen
+   readers, no-hover touch devices long-pressing for the native tooltip). */
+.info-hint {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--chalk-dim);
+  color: var(--chalk-dim);
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-size: 10px;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+}
+.info-hint:hover,
+.info-hint:focus-visible {
+  border-color: var(--flag-gold);
+  color: var(--flag-gold);
+  outline: none;
+}
+.info-hint::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 240px;
+  background: var(--turf-800);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.info-hint:hover::after,
+.info-hint:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 /* Blue rather than the gold/chalk every other label-adjacent control uses —
    deliberately off-palette so a destructive "clear everything" action reads
@@ -1157,6 +1241,14 @@ body {
     width: 100%;
   }
   .filters-drawer .control-season select { width: 100%; }
+  /* Every plain select and .teams-select-btn (Teams/Players) is pinned to a
+     fixed 150px width on desktop to keep the control bar's row aligned (see
+     the rules near .control-season and .teams-select-btn above) —
+     irrelevant here since the drawer stacks controls in a single column,
+     but max-width would otherwise still win over this width: 100% and leave
+     the control artificially narrow. */
+  .filters-drawer .control select { max-width: 100%; }
+  .filters-drawer .teams-select-btn { width: 100%; max-width: 100%; }
 
   /* The teams dropdown is absolutely positioned on desktop; inside the
      fixed bottom-sheet drawer (which scrolls) that risks clipping/overlap,

@@ -937,7 +937,7 @@ function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField, isDimm
 // stays on the plot (still visible, still clickable, still counted in the
 // median) but fades to these opacities instead of disappearing.
 const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
-const LABEL_ALPHA = 0.55; // normal (non-dimmed) player-name opacity
+const LABEL_ALPHA = 0.8; // normal (non-dimmed) player-name opacity
 
 // Teams and Players both only dim, never exclude (see the isDimmed comment
 // in render()), so unlike the old Teams-only subtitle this can't just count
@@ -1303,8 +1303,7 @@ function openScoutCard(record) {
 
   // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
   // stats, not rate metrics — rank/percentile against them wouldn't mean
-  // "how well this player performed," so only the metrics loop below gets a
-  // rank.
+  // "how well this player performed," so only the metrics loop below gets a rank.
   addRow("Games", record.games);
   addRow(cat.threshold_field, record[cat.threshold_field]);
   Object.entries(cat.metrics).forEach(([key, meta]) => {
