@@ -679,15 +679,15 @@ function populateCategoryDependentControls() {
     });
   });
   // Distinct defaults, mirroring the pipeline's canonical query pairs
-  // (e.g. TPS Win Rate vs. plain Win Rate). Pass rush gets an explicit
+  // (e.g. plain Win Rate vs. TPS Win Rate). Pass rush gets an explicit
   // Win Rate / Havoc Rate pairing; pass block falls back to the generic
-  // TPS-vs-non-TPS heuristic.
+  // non-TPS-vs-TPS heuristic.
   if (els.category.value === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("Havoc Rate")) {
     els.xMetric.value = "Win Rate";
     els.yMetric.value = "Havoc Rate";
   } else {
-    els.xMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[0];
-    els.yMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
+    els.xMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0];
+    els.yMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
   }
 
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
@@ -769,6 +769,71 @@ function sanitizeForFilename(value) {
   return String(value).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+// Credit strip baked into exported PNGs only — the on-screen chart never
+// shows this (the page's own .meta-band already covers it for site
+// visitors). Drawn via canvas rather than a Plotly annotation: the extra
+// margin an in-chart annotation would need depends on the live isMobile
+// axis-title sizing (see render()'s margin.b), which is fragile to
+// replicate here — layering a fixed-height strip onto the finished raster
+// is simpler and pixel-exact regardless of what layout produced it.
+const EXPORT_FOOTER_TEXT = "LinesShines · www.lines-shines.com · Source: PFF Premium Stats";
+const EXPORT_FOOTER_HEIGHT = 30; // logical px, pre-scale
+const EXPORT_FOOTER_FONT_SIZE = 12; // logical px, pre-scale — chart-annotation size
+const EXPORT_FOOTER_PADDING_X = 16; // logical px, pre-scale
+const EXPORT_FOOTER_BG = "#16301f"; // matches --turf-800, same swap render() does for export bg
+const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, muted so it doesn't compete with the plot
+
+// Renders the chart to a PNG via Plotly.toImage, then composites a footer
+// strip onto a taller canvas before triggering the download — keeps the
+// credit line out of the on-screen/exported-without-footer chart state.
+function exportChartPngWithFooter(chartDiv, { width, height, scale, filename }) {
+  return Plotly.toImage(chartDiv, { format: "png", width, height, scale }).then(
+    (dataUrl) =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height + footerPx;
+
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = EXPORT_FOOTER_BG;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+
+          ctx.fillStyle = EXPORT_FOOTER_COLOR;
+          ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillText(
+            EXPORT_FOOTER_TEXT,
+            canvas.width - Math.round(EXPORT_FOOTER_PADDING_X * scale),
+            img.height + footerPx / 2
+          );
+
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error("canvas.toBlob returned null"));
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = `${filename}.png`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            resolve();
+          }, "image/png");
+        };
+        img.onerror = () => reject(new Error("Failed to load rendered chart image"));
+        img.src = dataUrl;
+      })
+  );
+}
+
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
@@ -787,6 +852,17 @@ function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
   return `${value}${unit}`;
+}
+
+// Some metric display names (OL's "Allowed Pressure %", "TPS Allowed Havoc %")
+// already end in the unit symbol, since PFF's naming bakes it in — appending
+// " (%)" on top of that would duplicate it. DL names ("Win Rate", "Havoc Rate")
+// don't carry the unit, so they still need the suffix appended.
+function axisTitle(metricName, meta) {
+  const unit = meta && meta.unit ? meta.unit : "";
+  if (!unit) return metricName;
+  if (metricName.trimEnd().endsWith(unit)) return metricName;
+  return `${metricName} (${unit})`;
 }
 
 function ordinal(n) {
@@ -1128,13 +1204,13 @@ function render() {
     xaxis: {
       // Plotly 3.x requires title as {text: ...} — a bare string is
       // silently ignored (renders as an empty <g class="g-xtitle">).
-      title: { text: `${xKey}${xMeta.unit ? " (" + xMeta.unit + ")" : ""}` },
+      title: { text: axisTitle(xKey, xMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
       autorange: reversed ? "reversed" : true,
     },
     yaxis: {
-      title: { text: `${yKey}${yMeta.unit ? " (" + yMeta.unit + ")" : ""}` },
+      title: { text: axisTitle(yKey, yMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
       autorange: reversed ? "reversed" : true,
@@ -1641,7 +1717,7 @@ function attachEvents() {
   });
 
   // Same e.isTrusted guard as the scouting card / filters drawer listeners
-  // below — protects against Plotly.downloadImage()'s synthetic anchor
+  // below — protects against exportChartPngWithFooter()'s synthetic anchor
   // click, which bubbles to document as an untrusted "click" outside every
   // container and would otherwise slam this dropdown shut mid-export.
   document.addEventListener("click", (e) => {
@@ -1794,8 +1870,7 @@ function attachEvents() {
         // close to the real on-screen size and reaching the same 2400x1500
         // output via scale:2 instead makes exported text match what's on
         // screen while keeping the image just as crisp.
-        Plotly.downloadImage(els.chart, {
-          format: "png",
+        exportChartPngWithFooter(els.chart, {
           filename,
           width: 1200,
           height: 750,
@@ -1841,15 +1916,15 @@ function attachEvents() {
   });
 
   // Same e.isTrusted guard as the Teams/Players dropdown listeners above —
-  // it protects against Plotly.downloadImage()'s internal implementation:
-  // it builds a throwaway <a>, appends it to <body>, and calls .click() on
-  // it to trigger the browser's save dialog. That programmatic click
-  // bubbles to document as a real "click" event with a target outside the
-  // drawer, which — without this guard — closed the mobile filters drawer
+  // it protects against exportChartPngWithFooter()'s download trigger: it
+  // builds a throwaway <a>, appends it to <body>, and calls .click() on it
+  // to trigger the browser's save dialog. That programmatic click bubbles
+  // to document as a real "click" event with a target outside the drawer,
+  // which — without this guard — closed the mobile filters drawer
   // immediately after Save Plot, even though Save Plot is supposed to leave
   // the drawer open for repeated exports. Synthetic (script-dispatched)
   // events always report isTrusted: false, so filtering on it distinguishes
-  // Plotly's anchor click from an actual user tap outside the drawer.
+  // the export's anchor click from an actual user tap outside the drawer.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     if (!els.filtersDrawer.classList.contains("open")) return;

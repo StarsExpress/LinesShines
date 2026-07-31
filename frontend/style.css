@@ -60,7 +60,6 @@ body {
 
 .hero {
   padding: 28px 24px 20px;
-  border-bottom: 1px solid var(--turf-600);
 }
 
 .hero-inner {
@@ -127,6 +126,49 @@ body {
   margin: 0;
 }
 
+/* Sits in the gap between the hero and the filter panel — its own
+   presence (generous padding + no bordering <hr>s either side) reads as
+   the divider, rather than a rule bracketing empty space. Each segment is
+   its own nowrap flex item, with the following separator baked into the
+   segment's own text (see index.html) rather than a standalone item, so a
+   wrap always lands *before* a "· phrase" pair — never leaves a bare dot
+   stranded at the end of the previous line. Plain flex-wrap handles every
+   breakpoint in the spec (one line / two / three) with no explicit
+   per-breakpoint markup: each segment's rendered width decides whether it
+   still fits the current line. The one thing flex-wrap *can't* self-heal
+   is a single segment wider than the viewport itself — see the phone-only
+   font/padding override below for why that needs its own rule. */
+.meta-band {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+  margin: 0;
+  padding: 30px 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--chalk-dim);
+  text-align: center;
+}
+.meta-segment { white-space: nowrap; }
+
+/* The longest single segment ("· Median lines are calculated according to
+   current filter", ~416px at the 11px base size) is wider than most phone
+   viewports on its own. Once flex-wrap gives it its own line (see above),
+   centering an overflowing item spills it equally past both edges of the
+   container — and since body has overflow-x: hidden (top of this file),
+   the spilled-left half, dot included, would silently disappear instead
+   of scrolling. Shrinking font-size + padding here keeps every segment,
+   including that one, narrower than the viewport at any real phone width
+   so nothing ever gets clipped. */
+@media (max-width: 480px) {
+  .meta-band {
+    font-size: 8px;
+    padding: 30px 10px;
+  }
+}
+
 .layout {
   max-width: 1180px;
   margin: 0 auto;
@@ -172,6 +214,10 @@ body {
 }
 
 /* --- control bar --- */
+/* No border-top: that edge used to sit right under the hero's own
+   border-bottom, bracketing the hero/filters gap with a second rule. The
+   .meta-band now living in that gap is the only divider — see its
+   comment above. */
 .control-bar {
   display: flex;
   flex-wrap: wrap;
@@ -180,6 +226,7 @@ body {
   padding: 18px 20px;
   background: var(--turf-800);
   border: 1px solid var(--turf-600);
+  border-top: none;
   border-radius: 10px;
   margin-bottom: 22px;
 }
@@ -1103,14 +1150,6 @@ body {
   color: var(--chalk-dim);
   min-width: 64px;
 }
-
-.footnote {
-  margin-top: 26px;
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--chalk-dim);
-}
-.footnote a { color: var(--flag-gold-bright); }
 
 @media (max-width: 860px) {
   .board { grid-template-columns: 1fr; }
