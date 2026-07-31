@@ -1,10 +1,11 @@
 /* LinesShines · 鋒光.
  * Talks to the FastAPI backend for metadata + per-slice records:
  *   GET /api/metadata
- *   GET /api/pass_rush?season=&position=
- *   GET /api/pass_block?season=&position=
- * Filtering (min-snap threshold), axis choice, and label toggle all run
- * client-side against a small in-memory cache of already-fetched slices.
+ *   GET /api/pass_rush?season=  (all positions in the category, one response)
+ *   GET /api/pass_block?season=
+ * Filtering (min-snap threshold, position), axis choice, and label toggle
+ * all run client-side against a small in-memory cache of already-fetched
+ * slices — see fetchSlice()/positionPool() below.
  */
 
 // Team logos live next to LinesShines/logos/ — the FastAPI service exposes
@@ -50,6 +51,15 @@ const els = {
   scoutCards: document.getElementById("scout-cards"),
   scoutEmptyHint: document.getElementById("scout-empty-hint"),
   scoutCardTemplate: document.getElementById("scout-card-template"),
+  mergeCardTemplate: document.getElementById("merge-card-template"),
+  teammateCardTemplate: document.getElementById("teammate-card-template"),
+  mergeToolbar: document.getElementById("merge-toolbar"),
+  mergeQuotaLabel: document.getElementById("merge-quota-label"),
+  mergeMessage: document.getElementById("merge-message"),
+  mergeBtn: document.getElementById("merge-btn"),
+  mergeConfirmOverlay: document.getElementById("merge-confirm-overlay"),
+  mergeConfirmCancel: document.getElementById("merge-confirm-cancel"),
+  mergeConfirmClear: document.getElementById("merge-confirm-clear"),
 };
 
 let metadata = null;                 // /api/metadata payload
@@ -459,11 +469,16 @@ function scorePlayerAgainstQuery(queryTokens, playerRecord) {
 // currentSliceCategory) so this always reflects the pending category —
 // updatePlayerPool() keeps both live on every category/season/position
 // change, independent of whether that change has been Applied yet.
+// playerPoolRecords now holds every position in the category (see
+// fetchSlice), so this also scopes to the pending position — otherwise a
+// query typed while Position=ED would start suggesting DI players too.
 function qualifyingPlayerPool() {
   if (!playerPoolCategory) return [];
   const cat = metadata[playerPoolCategory];
   const minThreshold = Number(els.thresholdNumber.value);
-  return playerPoolRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
+  return playerPoolRecords.filter(
+    (r) => r.position === els.position.value && r[cat.threshold_field] >= minThreshold
+  );
 }
 
 // Top `topK` matches for `query` among `pool`, excluding players already
@@ -695,12 +710,19 @@ function populateCategoryDependentControls() {
 
 // Shared by loadCurrentSlice() (Apply-gated, drives the chart) and
 // updatePlayerPool() (live, drives only the Players search pool) — both
-// just need the records for a given category/season/position, memoized in
-// sliceCache so switching back to an already-seen combination is free.
-async function fetchSlice(category, season, position) {
-  const key = `${category}:${season}:${position}`;
+// just need every position's records for a given category/season, memoized
+// in sliceCache so switching back to an already-seen combination is free.
+// No position param: the API returns every position in the category (see
+// main.py), and the client partitions by position from here on — required
+// so Teammate Cards can pull cross-position rosters (T/G/C, ED/DI) out of
+// the same in-memory slice instead of a second fetch. Percentile pools must
+// still be computed per exact position (see positionPool() below) — never
+// over this combined array — per the "first philosophy" comment in
+// BLUEPRINT.md §3.
+async function fetchSlice(category, season) {
+  const key = `${category}:${season}`;
   if (!sliceCache.has(key)) {
-    const url = `/api/${category}?season=${season}&position=${encodeURIComponent(position)}`;
+    const url = `/api/${category}?season=${season}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     const data = await res.json();
@@ -712,14 +734,13 @@ async function fetchSlice(category, season, position) {
 async function loadCurrentSlice() {
   const category = els.category.value;
   const season = Number(els.season.value);
-  const position = els.position.value;
-  currentRecords = await fetchSlice(category, season, position);
+  currentRecords = await fetchSlice(category, season);
   currentSliceCategory = category;
   updateThresholdRange();
 }
 
-// Mirrors loadCurrentSlice(), but for whatever category/season/position the
-// controls are pending on right now, and never touches currentRecords/
+// Mirrors loadCurrentSlice(), but for whatever category/season the controls
+// are pending on right now, and never touches currentRecords/
 // currentSliceCategory/updateThresholdRange — those stay reserved for the
 // last Applied slice the chart is actually showing. Fired on every
 // category/season/position change (see attachEvents()) so the Players
@@ -730,16 +751,31 @@ async function loadCurrentSlice() {
 async function updatePlayerPool() {
   const category = els.category.value;
   const season = Number(els.season.value);
-  const position = els.position.value;
-  playerPoolRecords = await fetchSlice(category, season, position);
+  playerPoolRecords = await fetchSlice(category, season);
   playerPoolCategory = category;
   prunePlayerSelections();
   runPlayersSearch();
 }
 
+// Every position pool now lives in currentRecords (see fetchSlice above), so
+// percentiles/ranks for Merge and Teammate cards must filter down to one
+// exact position — never the combined multi-position array — before ranking.
+// Mirrors currentFiltered's own filter in render(), just parameterized over
+// position instead of being locked to appliedFilters.position.
+function positionPool(position) {
+  const cat = appliedCategoryMeta();
+  const minThreshold = Number(appliedFilters.threshold);
+  return currentRecords.filter((r) => r.position === position && r[cat.threshold_field] >= minThreshold);
+}
+
 function updateThresholdRange() {
   const cat = currentCategoryMeta();
-  const values = currentRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
+  // currentRecords now holds every position in the category (see
+  // fetchSlice) — scope to the pending position before computing the
+  // slider's max, otherwise switching to a smaller-pool position (e.g. DI)
+  // would inherit a max sized for a bigger one (e.g. ED).
+  const positionRecords = currentRecords.filter((r) => r.position === els.position.value);
+  const values = positionRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
   const maxVal = values.length ? Math.max(...values) : 100;
   const max = Math.ceil(maxVal / 10) * 10;
 
@@ -1056,7 +1092,13 @@ function render() {
   const selectedTeams = new Set(appliedFilters.teams ? appliedFilters.teams.split(",") : []);
   const selectedPlayerKeys = new Set(appliedFilters.players ? appliedFilters.players.split(",") : []);
 
-  currentFiltered = currentRecords.filter((r) => r[cat.threshold_field] >= minThreshold);
+  // currentRecords holds every position in the category (see fetchSlice) —
+  // scope to the applied position here, same as positionPool() does for
+  // Merge/Teammate cards, so the chart's own percentile pool never mixes
+  // positions.
+  currentFiltered = currentRecords.filter(
+    (r) => r.position === appliedFilters.position && r[cat.threshold_field] >= minThreshold
+  );
   // Players joins Teams via OR — a player is highlighted if their team is
   // selected OR they were explicitly added, so an explicitly-picked player
   // off a dimmed team still stands out. Empty selectedTeams (Teams → None)
@@ -1293,8 +1335,59 @@ function isDesktopScoutLayout() {
   return window.innerWidth >= 860;
 }
 
+// --- Card identity (Player / Merge / Teammate) ------------------------------
+//
+// Every open card gets a stable {id, origin} pair per BLUEPRINT.md §5, so a
+// future recommender (v2.0.0) can read merge provenance without a card's
+// identity depending on its current member set. origin is 'seed' for a
+// Player Card the user opened directly off the chart, 'merge' for one built
+// via the Merge button, 'teammate' for a Teammate Association Card.
+let cardSeq = 0;
+function nextCardId() {
+  cardSeq += 1;
+  return `card-${cardSeq}`;
+}
+
+// Player Cards currently checked for merging, keyed the same way scoutCards
+// is (record.player). Cleared on merge, on manual uncheck, or whenever the
+// underlying Player Card closes (see closeScoutCard()).
+const mergeSelection = new Set();
+
+// Open Merge Cards, keyed by their own generated id (never by player — a
+// Merge Card has several members). Entry: { id, origin:'merge',
+// memberKeys:[player,...], el, folded }.
+const mergeCards = new Map();
+
+// Open Teammate Association Cards, keyed by the anchor's player string — one
+// per anchor regardless of whether the toggle that opened it lives on a
+// Player Card or a Merge Card member row. This is what makes BLUEPRINT.md
+// §2.3's recursion guard trivial: a Teammate Card never renders a teammate
+// toggle of its own, so there's no second layer of anchors to key around.
+// Entry: { id, origin:'teammate', anchorKey, el, folded, seeMore }.
+const teammateCards = new Map();
+
+const MERGE_CARD_MAX_MEMBERS = 5;
+const MERGE_QUOTA = 8;
+// Position-group pulled into a Teammate Card's roster and the per-category
+// cap on how many can be shown — both keyed by category, not position,
+// since a Teammate Card spans every position within its anchor's category
+// (BLUEPRINT.md §2.2).
+const TEAMMATE_POSITIONS = { pass_block: ["T", "G", "C"], pass_rush: ["ED", "DI"] };
+const TEAMMATE_CAP = { pass_block: 5, pass_rush: 7 };
+const TEAMMATE_VISIBLE_DEFAULT = 5;
+
+function mergedPlayerKeys() {
+  const keys = new Set();
+  mergeCards.forEach((c) => c.memberKeys.forEach((k) => keys.add(k)));
+  return keys;
+}
+
+function openCardsCount() {
+  return scoutCards.size + mergeCards.size + teammateCards.size;
+}
+
 function updateScoutEmptyHint() {
-  els.scoutEmptyHint.hidden = scoutCards.size > 0;
+  els.scoutEmptyHint.hidden = openCardsCount() > 0;
 }
 
 // Every open card gets a higher inline z-index than anything opened,
@@ -1308,17 +1401,18 @@ function bringScoutCardToFront(cardEl) {
 // The first card opened keeps the CSS default top-right anchor (top:24,
 // right:24) — same spot the single card always used to appear. Every card
 // after that gets an explicit inline left/top, nudged down-left a bit
-// further per already-open card, so opening several in a row fans them out
+// further per already-open card (Player, Merge, or Teammate — they all share
+// this one cascade sequence), so opening several in a row fans them out
 // instead of stacking them exactly on top of each other. They're still
 // fully draggable afterward, and dragging one on top of another is exactly
 // the overlap the user asked to allow.
 const SCOUT_CASCADE_STEP = 28;
 const SCOUT_CASCADE_WRAP = 8; // wrap the offset so a long run of opens can't drift off-panel
 function cascadeScoutCardPosition(cardEl) {
-  if (scoutCards.size === 0 || !isDesktopScoutLayout()) return;
+  if (openCardsCount() === 0 || !isDesktopScoutLayout()) return;
   const panelRect = els.chartPanel.getBoundingClientRect();
   const cardRect = cardEl.getBoundingClientRect();
-  const offset = (scoutCards.size % SCOUT_CASCADE_WRAP) * SCOUT_CASCADE_STEP;
+  const offset = (openCardsCount() % SCOUT_CASCADE_WRAP) * SCOUT_CASCADE_STEP;
   const maxLeft = Math.max(panelRect.width - cardRect.width, 0);
   const maxTop = Math.max(panelRect.height - cardRect.height, 0);
   cardEl.style.left = `${Math.min(Math.max(panelRect.width - cardRect.width - 24 - offset, 0), maxLeft)}px`;
@@ -1326,18 +1420,34 @@ function cascadeScoutCardPosition(cardEl) {
   cardEl.style.right = "auto";
 }
 
+// Shared by every card type's fold button. Two discrete states only
+// (BLUEPRINT.md §1.3) — no inline height, no min-size clamp, this replaces
+// the old free edge-resize entirely. `onUnfold` lets a Teammate Card reset
+// its "See more" state back to collapsed every time it re-expands (§2.5).
+function toggleCardFold(cardEl, state, onUnfold) {
+  state.folded = !state.folded;
+  cardEl.classList.toggle("is-folded", state.folded);
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const icon = foldBtn && foldBtn.querySelector("i");
+  if (icon) icon.className = state.folded ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
+  if (foldBtn) foldBtn.setAttribute("aria-label", state.folded ? "Unfold card" : "Fold card");
+  if (!state.folded && onUnfold) onUnfold();
+}
+
 function openScoutCard(record) {
   const cat = appliedCategoryMeta();
   const cardEl = els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
 
   const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
-  const panelEl = cardEl.querySelector(".scout-card-panel");
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
   const nameEl = cardEl.querySelector(".scout-name");
   const metaEl = cardEl.querySelector(".scout-meta");
   const statsEl = cardEl.querySelector(".scout-stats");
+  const mergeCheckbox = cardEl.querySelector(".scout-merge-select");
+  const teammateBtn = cardEl.querySelector(".card-teammate-toggle");
 
   const color = teamColor(record.team);
   logoImg.src = logoSrc(record.team);
@@ -1389,77 +1499,82 @@ function openScoutCard(record) {
   });
 
   els.scoutCards.appendChild(cardEl);
-  cascadeScoutCardPosition(cardEl); // reads scoutCards.size, so must run before scoutCards.set() below
+  cascadeScoutCardPosition(cardEl); // reads openCardsCount(), so must run before scoutCards.set() below
   cardEl.classList.add("is-active");
   bringScoutCardToFront(cardEl);
 
+  const entry = { record, el: cardEl, id: nextCardId(), origin: "seed", folded: false };
+
   closeBtn.addEventListener("click", () => closeScoutCard(record.player));
+  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
   dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
   dragHandle.addEventListener("pointermove", onScoutDragMove);
   dragHandle.addEventListener("pointerup", endScoutDrag);
   dragHandle.addEventListener("pointercancel", endScoutDrag);
   // Raises a card even on a plain click, not just a drag, so tapping an
-  // overlapped card's stats (not just its drag handle) also brings it front.
-  // Also doubles as the resize trigger: no visible grip (see the CSS comment
-  // by .scout-card.is-resizing) — like a Mac window, a pointerdown within a
-  // few px of any edge starts a resize instead of just a bring-to-front.
-  cardEl.addEventListener("pointerdown", (e) => {
-    bringScoutCardToFront(cardEl);
-    if (!isDesktopScoutLayout()) return;
-    const edges = getResizeEdges(cardEl, e.clientX, e.clientY);
-    if (edges) beginScoutResize(e, cardEl, panelEl, edges);
-  });
-  // Hover-only cursor feedback while not actively resizing; once a resize
-  // starts, pointer capture (set in beginScoutResize) keeps routing move
-  // events to this same listener, so performScoutResize takes over instead.
-  cardEl.addEventListener("pointermove", (e) => {
-    if (scoutResizeState && scoutResizeState.cardEl === cardEl) {
-      performScoutResize(e);
-    } else if (!scoutResizeState) {
-      updateScoutResizeCursor(cardEl, e);
-    }
-  });
-  cardEl.addEventListener("pointerup", endScoutResize);
-  cardEl.addEventListener("pointercancel", endScoutResize);
-  cardEl.addEventListener("pointerleave", () => {
-    if (!scoutResizeState) cardEl.style.cursor = "";
-  });
+  // overlapped card's stats brings it to front too.
+  cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+  mergeCheckbox.addEventListener("change", () => toggleMergeSelect(record.player, mergeCheckbox));
+  teammateBtn.addEventListener("click", () => toggleTeammateCard(record));
 
-  scoutCards.set(record.player, { record, el: cardEl });
+  scoutCards.set(record.player, entry);
   updateScoutEmptyHint();
+  updateMergeToolbar();
 }
 
+// Closing a Player Card also drops it out of any pending merge selection and
+// closes its own Teammate Card if one is open — a player can't simultaneously
+// be an open Player Card and part of a Merge Card (performMerge() closes the
+// source cards), so there's no other card left that could still anchor that
+// Teammate Card once this one is gone.
 function closeScoutCard(key) {
   const entry = scoutCards.get(key);
   if (!entry) return;
   entry.el.remove();
   scoutCards.delete(key);
+  mergeSelection.delete(key);
+  closeTeammateCard(key);
   updateScoutEmptyHint();
+  updateMergeToolbar();
 }
 
+// Only ever touches Player Cards — see clearMergeAndTeammateCards() for the
+// Merge/Teammate equivalent, kept separate so applyFilters() can gate that
+// one behind the confirm modal while Player Cards keep closing unconditionally
+// on every slice change, exactly like they always have.
 function closeAllScoutCards() {
   scoutCards.forEach((entry) => entry.el.remove());
   scoutCards.clear();
+  mergeSelection.clear();
   updateScoutEmptyHint();
+  updateMergeToolbar();
+}
+
+// Dissolves every Merge Card and closes every Teammate Card — the pool
+// invalidation from BLUEPRINT.md §4 (season/category/position/threshold
+// changes). Called from applyFilters() once any confirm prompt it needed has
+// already resolved.
+function clearMergeAndTeammateCards() {
+  mergeCards.forEach((entry) => entry.el.remove());
+  mergeCards.clear();
+  teammateCards.forEach((entry) => entry.el.remove());
+  teammateCards.clear();
+  updateScoutEmptyHint();
+  updateMergeToolbar();
 }
 
 // Inline left/top (set by dragging or cascadeScoutCardPosition) sit at
 // higher specificity than the mobile media query's `top: auto; right: auto;`
 // reset, so they'd otherwise survive a resize down to mobile and break the
 // stacked layout. Clearing them lets the stylesheet's position rules take
-// back over for every currently-open card. Inline width/height from
-// beginScoutResize would equally survive (and equally make no sense once
-// mobile takes over sizing via its own min-height rule), so those get
-// cleared here too.
+// back over for every currently-open card of every type — Fold/Unfold never
+// sets inline styles (see toggleCardFold(), a CSS class only), so there's
+// nothing else here to clear now that resize is gone.
 function clearScoutCardDragPositions() {
-  scoutCards.forEach((entry) => {
+  [...scoutCards.values(), ...mergeCards.values(), ...teammateCards.values()].forEach((entry) => {
     entry.el.style.left = "";
     entry.el.style.top = "";
     entry.el.style.right = "";
-    entry.el.style.width = "";
-    const panelEl = entry.el.querySelector(".scout-card-panel");
-    panelEl.style.height = "";
-    panelEl.style.maxHeight = "";
   });
 }
 
@@ -1513,124 +1628,420 @@ function endScoutDrag(e) {
   scoutDragState = null;
 }
 
-// Bounds for the edge-resize below — width mirrors style.css's .scout-card
-// min/max-width (keep these in sync with that rule; CSS alone can't gate
-// height since .scout-card-panel's height is otherwise auto, so its bounds
-// only live here).
-const SCOUT_CARD_MIN_WIDTH = 260;
-const SCOUT_CARD_MAX_WIDTH = 640;
-const SCOUT_CARD_MIN_HEIGHT = 160;
-const SCOUT_CARD_MAX_HEIGHT = 900;
+// --- Player Merge Cards (BLUEPRINT.md §1) -----------------------------------
 
-// How close the pointer needs to be to a card's outer edge, in px, to count
-// as a resize grab rather than a plain click/drag — no visible grip, so this
-// margin *is* the hit target, like a Mac window's edge. Comfortably clears
-// .scout-close (offset 10px from the same corner) so the close button never
-// gets swallowed by the resize zone.
-const SCOUT_RESIZE_MARGIN = 8;
+// Persistent quota readout + Merge button, visible whenever any card is open
+// on desktop/tablet (BLUEPRINT.md §1.4: "display remaining quota somewhere
+// persistent" — not just while mid-selection).
+function updateMergeToolbar() {
+  const visible = isDesktopScoutLayout() && openCardsCount() > 0;
+  els.mergeToolbar.hidden = !visible;
+  if (!visible) return;
 
-// Which of a card's four edges (if any) a point sits within SCOUT_RESIZE_MARGIN
-// of, e.g. {left:false, right:true, top:false, bottom:true} for a
-// bottom-right corner grab — or null if the point isn't near any edge.
-function getResizeEdges(cardEl, clientX, clientY) {
-  const rect = cardEl.getBoundingClientRect();
-  const edges = {
-    left: clientX - rect.left <= SCOUT_RESIZE_MARGIN,
-    right: rect.right - clientX <= SCOUT_RESIZE_MARGIN,
-    top: clientY - rect.top <= SCOUT_RESIZE_MARGIN,
-    bottom: rect.bottom - clientY <= SCOUT_RESIZE_MARGIN,
-  };
-  return edges.left || edges.right || edges.top || edges.bottom ? edges : null;
+  const usedSlots = mergedPlayerKeys().size;
+  els.mergeQuotaLabel.textContent = `Merge quota: ${MERGE_QUOTA - usedSlots}/${MERGE_QUOTA} remaining`;
+
+  const selectedCount = mergeSelection.size;
+  els.mergeBtn.textContent = selectedCount ? `Merge (${selectedCount})` : "Merge";
+  const quotaExhausted = usedSlots >= MERGE_QUOTA;
+  els.mergeBtn.disabled = selectedCount < 2 || quotaExhausted;
+  els.mergeBtn.title = quotaExhausted
+    ? "Merge limit reached — dissolve a card to free slots"
+    : selectedCount < 2
+    ? "Select 2 or more Player Cards to merge"
+    : "";
 }
 
-function cursorForEdges(edges) {
-  if ((edges.left && edges.top) || (edges.right && edges.bottom)) return "nwse-resize";
-  if ((edges.right && edges.top) || (edges.left && edges.bottom)) return "nesw-resize";
-  if (edges.left || edges.right) return "ew-resize";
-  return "ns-resize";
+function setMergeMessage(text) {
+  els.mergeMessage.textContent = text || "";
 }
 
-// Live cursor feedback as the pointer wanders near a card's edges — the only
-// hint a resize zone exists, since there's no visible grip.
-function updateScoutResizeCursor(cardEl, e) {
-  const edges = isDesktopScoutLayout() ? getResizeEdges(cardEl, e.clientX, e.clientY) : null;
-  cardEl.style.cursor = edges ? cursorForEdges(edges) : "";
-}
-
-// Resize state for the one pointer currently dragging a card's edge, or
-// null — same single-pointer-at-a-time shape as scoutDragState above.
-let scoutResizeState = null;
-
-function beginScoutResize(e, cardEl, panelEl, edges) {
-  const panelRect = els.chartPanel.getBoundingClientRect();
-  const cardRect = cardEl.getBoundingClientRect();
-  scoutResizeState = {
-    cardEl,
-    panelEl,
-    edges,
-    pointerId: e.pointerId,
-    startX: e.clientX,
-    startY: e.clientY,
-    // Same left/top conversion beginScoutDrag does — dragging the left or
-    // top edge needs an explicit anchor to push around, not just a width/
-    // height to grow, since the opposite edge has to stay put.
-    startLeft: cardRect.left - panelRect.left,
-    startTop: cardRect.top - panelRect.top,
-    startWidth: cardRect.width,
-    startHeight: panelEl.getBoundingClientRect().height,
-  };
-  cardEl.style.left = `${scoutResizeState.startLeft}px`;
-  cardEl.style.top = `${scoutResizeState.startTop}px`;
-  cardEl.style.right = "auto";
-  // Drop the open/close max-height cap in favor of an explicit height the
-  // user now controls directly; is-resizing (in style.css) kills the
-  // max-height transition so that swap doesn't animate.
-  panelEl.style.maxHeight = "none";
-  cardEl.classList.add("is-resizing");
-  bringScoutCardToFront(cardEl);
-  cardEl.setPointerCapture(e.pointerId);
-  e.preventDefault();
-}
-
-function performScoutResize(e) {
-  const s = scoutResizeState;
-  const panelRect = els.chartPanel.getBoundingClientRect();
-  const dx = e.clientX - s.startX;
-  const dy = e.clientY - s.startY;
-
-  let width = s.startWidth;
-  let left = s.startLeft;
-  if (s.edges.right) {
-    width = Math.min(Math.max(s.startWidth + dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
-  } else if (s.edges.left) {
-    width = Math.min(Math.max(s.startWidth - dx, SCOUT_CARD_MIN_WIDTH), SCOUT_CARD_MAX_WIDTH);
-    left = s.startLeft + (s.startWidth - width); // keep the right edge fixed while the left one moves
+// Wired to every Player Card's merge-select checkbox. Enforces the 5-per-
+// card cap at selection time — BLUEPRINT.md's testing checklist calls for
+// the 6th selection to be refused with a stated reason, not silently
+// truncated once Merge is pressed.
+function toggleMergeSelect(player, checkbox) {
+  if (!isDesktopScoutLayout()) return;
+  if (checkbox.checked) {
+    if (mergeSelection.size >= MERGE_CARD_MAX_MEMBERS) {
+      checkbox.checked = false;
+      setMergeMessage(`Merge Cards hold at most ${MERGE_CARD_MAX_MEMBERS} players — unselect one first.`);
+      return;
+    }
+    mergeSelection.add(player);
+  } else {
+    mergeSelection.delete(player);
   }
-  left = Math.min(Math.max(left, 0), Math.max(panelRect.width - width, 0));
-
-  let height = s.startHeight;
-  let top = s.startTop;
-  if (s.edges.bottom) {
-    height = Math.min(Math.max(s.startHeight + dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
-  } else if (s.edges.top) {
-    height = Math.min(Math.max(s.startHeight - dy, SCOUT_CARD_MIN_HEIGHT), SCOUT_CARD_MAX_HEIGHT);
-    top = s.startTop + (s.startHeight - height); // keep the bottom edge fixed while the top one moves
-  }
-  top = Math.min(Math.max(top, 0), Math.max(panelRect.height - height, 0));
-
-  s.cardEl.style.width = `${width}px`;
-  s.cardEl.style.left = `${left}px`;
-  s.cardEl.style.top = `${top}px`;
-  s.panelEl.style.height = `${height}px`;
+  setMergeMessage("");
+  updateMergeToolbar();
 }
 
-function endScoutResize(e) {
-  if (!scoutResizeState || scoutResizeState.cardEl !== e.currentTarget || e.pointerId !== scoutResizeState.pointerId)
+function performMerge() {
+  if (!isDesktopScoutLayout() || mergeSelection.size < 2) return;
+  const usedSlots = mergedPlayerKeys().size;
+  if (usedSlots + mergeSelection.size > MERGE_QUOTA) {
+    setMergeMessage("Merge limit reached — dissolve a card to free slots.");
     return;
-  e.currentTarget.releasePointerCapture(e.pointerId);
-  scoutResizeState.cardEl.classList.remove("is-resizing");
-  scoutResizeState.cardEl.style.cursor = "";
-  scoutResizeState = null;
+  }
+
+  const memberKeys = Array.from(mergeSelection);
+  const memberRecords = memberKeys.map((key) => scoutCards.get(key)).filter(Boolean).map((entry) => entry.record);
+  memberKeys.forEach((key) => closeScoutCard(key));
+  mergeSelection.clear();
+  setMergeMessage("");
+  openMergeCard(memberRecords);
+}
+
+// A single <td> holding this row's teammate-toggle — shared by every row in
+// a Merge Card's table (BLUEPRINT.md §2.1: one teammate toggle per merged
+// member, no team-level dedupe even when two members share a team).
+function makeTeammateCell(record) {
+  const td = document.createElement("td");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "merge-row-teammate-toggle";
+  btn.innerHTML = '<i class="fa-solid fa-people-group"></i>';
+  btn.setAttribute("aria-label", `Teammates for ${record.player}`);
+  btn.addEventListener("click", () => toggleTeammateCard(record));
+  td.appendChild(btn);
+  return td;
+}
+
+// One row per player, one column per metric, percentile-only cells
+// (BLUEPRINT.md §1.2) — never the raw value, never #rank/N.
+function openMergeCard(memberRecords) {
+  const cat = appliedCategoryMeta();
+  const cardEl = els.mergeCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const titleEl = cardEl.querySelector(".merge-card-title");
+  const subtitleEl = cardEl.querySelector(".merge-card-subtitle");
+  const table = cardEl.querySelector(".merge-table");
+
+  const id = nextCardId();
+  const memberKeys = memberRecords.map((r) => r.player);
+
+  titleEl.textContent = `Merge Card · ${memberRecords.length} players`;
+  subtitleEl.textContent = memberRecords.map((r) => r.abbr_name || r.player).join(" + ");
+
+  const metricKeys = Object.keys(cat.metrics);
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["Player", "Pool", "Games", cat.threshold_field, ...metricKeys, "Teammates"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+
+  const tbody = document.createElement("tbody");
+  memberRecords.forEach((record) => {
+    const pool = positionPool(record.position);
+    const tr = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    nameTd.className = "merge-table-name";
+    nameTd.textContent = record.abbr_name || record.player;
+    tr.appendChild(nameTd);
+
+    const poolTd = document.createElement("td");
+    poolTd.className = "merge-table-pool";
+    poolTd.textContent = `${cat.positions[record.position] || record.position}, n=${pool.length}`;
+    tr.appendChild(poolTd);
+
+    const gamesTd = document.createElement("td");
+    gamesTd.textContent = record.games ?? "—";
+    tr.appendChild(gamesTd);
+
+    const snapsTd = document.createElement("td");
+    snapsTd.textContent = record[cat.threshold_field] ?? "—";
+    tr.appendChild(snapsTd);
+
+    metricKeys.forEach((key) => {
+      const meta = cat.metrics[key];
+      const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
+      const td = document.createElement("td");
+      td.textContent = rank ? ordinal(rank.percentile) : "—";
+      tr.appendChild(td);
+    });
+
+    tr.appendChild(makeTeammateCell(record));
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  els.scoutCards.appendChild(cardEl);
+  cascadeScoutCardPosition(cardEl); // must run before mergeCards.set() below
+  cardEl.classList.add("is-active");
+  bringScoutCardToFront(cardEl);
+
+  const entry = { id, origin: "merge", memberKeys, el: cardEl, folded: false };
+
+  closeBtn.addEventListener("click", () => closeMergeCard(id));
+  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
+  dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
+  dragHandle.addEventListener("pointermove", onScoutDragMove);
+  dragHandle.addEventListener("pointerup", endScoutDrag);
+  dragHandle.addEventListener("pointercancel", endScoutDrag);
+  cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+
+  mergeCards.set(id, entry);
+  updateScoutEmptyHint();
+  updateMergeToolbar();
+}
+
+// Dissolve: releases the merged players' quota slots and removes the card.
+// No undo, no partial-unmerge — out of scope for v1.2.0 (BLUEPRINT.md §0).
+function closeMergeCard(id) {
+  const entry = mergeCards.get(id);
+  if (!entry) return;
+  entry.el.remove();
+  mergeCards.delete(id);
+  entry.memberKeys.forEach((key) => closeTeammateCard(key));
+  updateScoutEmptyHint();
+  updateMergeToolbar();
+}
+
+// --- Teammate Association Cards (BLUEPRINT.md §2) ---------------------------
+
+// Same-team, same-season, same-category roster around `anchorRecord`,
+// including same-position teammates (BLUEPRINT.md §2.2's position table),
+// excluding the anchor himself. Splits into pre-/post-threshold sets so the
+// caller can state how many were omitted for missing the snap bar, then
+// sorts by snap count (the category's threshold_field, the only volume stat
+// available per player) descending and caps at the category's limit —
+// dropping the lowest first, no positional reservation.
+function computeTeammateRoster(anchorRecord) {
+  const cat = appliedCategoryMeta();
+  const positions = TEAMMATE_POSITIONS[appliedFilters.category];
+  const threshold = Number(appliedFilters.threshold);
+
+  const teamPool = currentRecords.filter(
+    (r) => positions.includes(r.position) && r.team === anchorRecord.team && r.player !== anchorRecord.player
+  );
+  const qualifying = teamPool.filter((r) => r[cat.threshold_field] >= threshold);
+  const omittedCount = teamPool.length - qualifying.length;
+
+  const sorted = qualifying.slice().sort((a, b) => b[cat.threshold_field] - a[cat.threshold_field]);
+  const cap = TEAMMATE_CAP[appliedFilters.category];
+
+  return { roster: sorted.slice(0, cap), omittedCount };
+}
+
+// Min/Median/Max/RSWA per metric over `rosterRecords` — always the full
+// capped roster, regardless of "See more" state (BLUEPRINT.md §2.5: that
+// control is display-only). RSWA weights each teammate by his snap overlap
+// with the anchor, capped at the anchor's own snaps — see the formula in
+// BLUEPRINT.md §2.5 for why the cap matters (PFF publishes no
+// who-played-with-whom data, so this is the cheapest bound on it).
+function computeThreeMRSWA(anchorRecord, rosterRecords, cat) {
+  const anchorSnaps = anchorRecord[cat.threshold_field] || 0;
+  const perPlayer = rosterRecords.map((t) => {
+    const pool = positionPool(t.position);
+    const percentiles = {};
+    Object.entries(cat.metrics).forEach(([key, meta]) => {
+      const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
+      percentiles[key] = rank ? rank.percentile : null;
+    });
+    return { percentiles, effSnaps: Math.min(anchorSnaps, t[cat.threshold_field] || 0) };
+  });
+
+  const totalEff = perPlayer.reduce((sum, p) => sum + p.effSnaps, 0);
+
+  const results = {};
+  Object.keys(cat.metrics).forEach((key) => {
+    const values = perPlayer.map((p) => p.percentiles[key]).filter((v) => v != null);
+    let rswa = null;
+    if (totalEff > 0) {
+      rswa = perPlayer.reduce((sum, p) => sum + (p.percentiles[key] ?? 0) * (p.effSnaps / totalEff), 0);
+      rswa = Math.round(rswa * 10) / 10;
+    }
+    results[key] = {
+      min: values.length ? Math.min(...values) : null,
+      median: median(values),
+      max: values.length ? Math.max(...values) : null,
+      rswa,
+    };
+  });
+  return results;
+}
+
+function toggleTeammateCard(anchorRecord) {
+  if (!isDesktopScoutLayout()) return;
+  if (teammateCards.has(anchorRecord.player)) {
+    closeTeammateCard(anchorRecord.player);
+  } else {
+    openTeammateCard(anchorRecord);
+  }
+}
+
+function closeTeammateCard(anchorKey) {
+  const entry = teammateCards.get(anchorKey);
+  if (!entry) return;
+  entry.el.remove();
+  teammateCards.delete(anchorKey);
+  updateScoutEmptyHint();
+  updateMergeToolbar();
+}
+
+// Renders the visible slice of the roster (first 5 by snap count, or all of
+// it once "See more" is toggled) into listEl — percentiles only, each
+// against the teammate's own position pool, with the pool denominator shown
+// per BLUEPRINT.md §2.4.
+function renderTeammateRoster(entry, roster, listEl) {
+  const cat = appliedCategoryMeta();
+  listEl.innerHTML = "";
+  const visibleCount = entry.seeMore ? roster.length : Math.min(TEAMMATE_VISIBLE_DEFAULT, roster.length);
+
+  roster.slice(0, visibleCount).forEach((t) => {
+    const pool = positionPool(t.position);
+    const row = document.createElement("div");
+    row.className = "teammate-row";
+
+    const name = document.createElement("span");
+    name.className = "teammate-row-name";
+    name.textContent = `${t.abbr_name || t.player} (${cat.positions[t.position] || t.position})`;
+    row.appendChild(name);
+
+    const cellsWrap = document.createElement("div");
+    cellsWrap.className = "teammate-row-cells";
+    Object.entries(cat.metrics).forEach(([key, meta]) => {
+      const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
+      const cell = document.createElement("span");
+      cell.className = "teammate-cell";
+      cell.textContent = rank ? ordinal(rank.percentile) : "—";
+      cell.title = rank
+        ? `${key}: #${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}`
+        : key;
+      cellsWrap.appendChild(cell);
+    });
+    row.appendChild(cellsWrap);
+
+    listEl.appendChild(row);
+  });
+}
+
+function openTeammateCard(anchorRecord) {
+  const cat = appliedCategoryMeta();
+  const cardEl = els.teammateCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const titleEl = cardEl.querySelector(".teammate-card-title");
+  const subtitleEl = cardEl.querySelector(".teammate-card-subtitle");
+  const omittedEl = cardEl.querySelector(".teammate-omitted-note");
+  const listEl = cardEl.querySelector(".teammate-roster");
+  const seeMoreBtn = cardEl.querySelector(".teammate-see-more");
+  const summaryTable = cardEl.querySelector(".teammate-summary-table");
+
+  const { roster, omittedCount } = computeTeammateRoster(anchorRecord);
+  const id = nextCardId();
+  const entry = { id, origin: "teammate", anchorKey: anchorRecord.player, el: cardEl, folded: false, seeMore: false };
+
+  titleEl.textContent = anchorRecord.player;
+  subtitleEl.textContent = `${roster.length} teammate${roster.length === 1 ? "" : "s"}`;
+
+  if (omittedCount > 0) {
+    omittedEl.hidden = false;
+    omittedEl.textContent = `${omittedCount} linemate${omittedCount === 1 ? "" : "s"} below the snap threshold not shown.`;
+  } else {
+    omittedEl.hidden = true;
+  }
+
+  const renderRoster = () => renderTeammateRoster(entry, roster, listEl);
+  renderRoster();
+
+  if (roster.length > TEAMMATE_VISIBLE_DEFAULT) {
+    seeMoreBtn.hidden = false;
+    seeMoreBtn.textContent = "See more";
+    seeMoreBtn.addEventListener("click", () => {
+      entry.seeMore = !entry.seeMore;
+      seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
+      renderRoster();
+    });
+  } else {
+    seeMoreBtn.hidden = true;
+  }
+
+  // 3M + RSWA summary, computed over every qualifying (capped) teammate
+  // regardless of "See more" state.
+  const summary = computeThreeMRSWA(anchorRecord, roster, cat);
+  const theadRow = document.createElement("tr");
+  ["Metric", "Min", "Median", "Max", "RSWA"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    theadRow.appendChild(th);
+  });
+  const thead = document.createElement("thead");
+  thead.appendChild(theadRow);
+
+  const tbody = document.createElement("tbody");
+  Object.keys(cat.metrics).forEach((key) => {
+    const row = summary[key];
+    const tr = document.createElement("tr");
+    const labelTd = document.createElement("td");
+    labelTd.className = "teammate-summary-metric";
+    labelTd.textContent = key;
+    tr.appendChild(labelTd);
+    [row.min, row.median, row.max, row.rswa].forEach((v) => {
+      const td = document.createElement("td");
+      td.textContent = v == null ? "—" : ordinal(Math.round(v));
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  summaryTable.appendChild(thead);
+  summaryTable.appendChild(tbody);
+
+  els.scoutCards.appendChild(cardEl);
+  cascadeScoutCardPosition(cardEl); // must run before teammateCards.set() below
+  cardEl.classList.add("is-active");
+  bringScoutCardToFront(cardEl);
+
+  closeBtn.addEventListener("click", () => closeTeammateCard(anchorRecord.player));
+  // Fold resets "See more" back to collapsed on unfold (BLUEPRINT.md §2.5).
+  foldBtn.addEventListener("click", () =>
+    toggleCardFold(cardEl, entry, () => {
+      entry.seeMore = false;
+      seeMoreBtn.textContent = "See more";
+      renderRoster();
+    })
+  );
+  dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
+  dragHandle.addEventListener("pointermove", onScoutDragMove);
+  dragHandle.addEventListener("pointerup", endScoutDrag);
+  dragHandle.addEventListener("pointercancel", endScoutDrag);
+  cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+
+  teammateCards.set(anchorRecord.player, entry);
+  updateScoutEmptyHint();
+  updateMergeToolbar();
+}
+
+// --- Pool-change confirm modal (BLUEPRINT.md §4) -----------------------------
+
+// Resolves true (proceed) or false (cancel). Only ever shown when at least
+// one Merge Card exists — Teammate Cards alone are cheap to rebuild (one
+// toggle click) and don't warrant interrupting Apply, see applyFilters().
+function showMergeInvalidationConfirm() {
+  return new Promise((resolve) => {
+    els.mergeConfirmOverlay.hidden = false;
+    const cleanup = (result) => {
+      els.mergeConfirmOverlay.hidden = true;
+      els.mergeConfirmCancel.removeEventListener("click", onCancel);
+      els.mergeConfirmClear.removeEventListener("click", onClear);
+      resolve(result);
+    };
+    const onCancel = () => cleanup(false);
+    const onClear = () => cleanup(true);
+    els.mergeConfirmCancel.addEventListener("click", onCancel);
+    els.mergeConfirmClear.addEventListener("click", onClear);
+  });
 }
 
 function closeFiltersDrawer() {
@@ -1647,6 +2058,22 @@ async function applyFilters() {
     els.category.value !== appliedFilters.category ||
     els.season.value !== appliedFilters.season ||
     els.position.value !== appliedFilters.position;
+  // Threshold isn't part of sliceChanged (no refetch needed — currentRecords
+  // already holds every threshold value), but it does change which rows
+  // clear the bar, so it still invalidates Merge/Teammate percentile pools
+  // exactly like a slice change does (BLUEPRINT.md §4). Axes/Teams/Players
+  // deliberately don't participate here — none of them affect
+  // currentFiltered/positionPool, see the "do NOT invalidate" list in §4.
+  const thresholdChanged = els.thresholdNumber.value !== appliedFilters.threshold;
+  const poolChanged = sliceChanged || thresholdChanged;
+
+  if (poolChanged && mergeCards.size > 0) {
+    const proceed = await showMergeInvalidationConfirm();
+    if (!proceed) return; // Cancel aborts entirely — pending controls stay lit, nothing is fetched or cleared.
+  }
+  if (poolChanged) {
+    clearMergeAndTeammateCards();
+  }
 
   if (sliceChanged) {
     closeAllScoutCards();
@@ -1899,7 +2326,13 @@ function attachEvents() {
   // layout can take back over, see clearScoutCardDragPositions().
   window.addEventListener("resize", () => {
     if (!isDesktopScoutLayout()) clearScoutCardDragPositions();
+    // Merge/Teammate cards and the toolbar are desktop/tablet-only
+    // (BLUEPRINT.md §0) — a resize across the 860px breakpoint needs to
+    // re-evaluate the toolbar's own visibility either way.
+    updateMergeToolbar();
   });
+
+  els.mergeBtn.addEventListener("click", performMerge);
 
   // Deliberately no "click outside closes the card" handler here, unlike the
   // Teams/Players dropdowns and the filters drawer below. Those are

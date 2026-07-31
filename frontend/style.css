@@ -957,10 +957,8 @@ body {
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". min/max-width bound the edge-resize drag in app.js (see
-     SCOUT_CARD_MIN_WIDTH/SCOUT_CARD_MAX_WIDTH there, kept in sync with
-     these) — below min the header/rank column start wrapping, above max it
-     can swallow the whole chart panel. */
+     Rate". Fixed, not resizable — see .is-folded below for the two-state
+     Fold/Unfold that replaced the old free edge-resize (BLUEPRINT.md §1.3). */
   width: 380px;
   min-width: 260px;
   max-width: 640px;
@@ -970,6 +968,12 @@ body {
      clicked or dragged, so the most recently touched card always wins. */
   z-index: 5;
 }
+
+/* Merge/Teammate cards reuse every .scout-card rule above (position, drag,
+   z-index, mobile stacking) via this base class, plus their own modifier
+   below for anything that needs to differ. */
+.scout-card--merge { width: 460px; }
+.scout-card--teammate { width: 420px; }
 
 /* Positioned relative to .scout-card itself (not .scout-card-panel) so the
    same top/right offsets land in the right corner whether .scout-card is
@@ -1035,20 +1039,51 @@ body {
   max-height: 480px;
   opacity: 1;
   pointer-events: auto;
-  /* Once the user edge-resizes the card (see beginScoutResize() in app.js),
-     app.js sets an explicit inline height and clears max-height —
-     overflow-y:auto here means a card shrunk below its content's natural
-     height scrolls instead of clipping silently. overflow-x stays hidden
-     from the rule above. */
+  /* A card's body (stats table / merge table / teammate roster+summary) can
+     run taller than the 480px cap above — overflow-y:auto means it scrolls
+     instead of clipping silently. overflow-x stays hidden from the rule
+     above. */
   overflow-y: auto;
 }
 
-/* No visible grip — like a Mac window, the whole card edge is a resize
-   target (see getResizeEdges()/beginScoutResize() in app.js, both gated by
-   isDesktopScoutLayout() the same as dragging). This only kills the
-   max-height transition so an active resize doesn't fight the CSS-driven
-   open/close animation. */
-.scout-card.is-resizing .scout-card-panel { transition: none; }
+/* Fold/Unfold (BLUEPRINT.md §1.3) — two discrete states only, no continuous
+   resize. Folding hides each card type's metric body and leaves just the
+   header (.scout-card-top) — and, for a Player Card, its always-visible
+   .scout-card-actions row (merge-select + teammate toggle), which should
+   stay usable without unfolding first. No inline height is ever set here,
+   so there's no min-size clamp and nothing can mid-row clip. */
+.scout-card.is-folded .scout-stats,
+.scout-card.is-folded .merge-table-wrap,
+.scout-card.is-folded .teammate-omitted-note,
+.scout-card.is-folded .teammate-roster,
+.scout-card.is-folded .teammate-see-more,
+.scout-card.is-folded .teammate-summary-wrap {
+  display: none;
+}
+.scout-fold {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 40px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.scout-fold:hover,
+.scout-fold:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.scout-card.is-active .scout-fold { display: flex; }
 
 /* A cloned card is only ever in the DOM while its player is pinned, so
    unlike the old single static card, the body never needs its own
@@ -1151,6 +1186,312 @@ body {
   min-width: 64px;
 }
 
+/* --- Player Card actions: merge-select + teammate toggle (BLUEPRINT.md §1/§2) ---
+   Sits between the header and the stats table, always visible — including
+   while the card is folded, see .is-folded above — so a card doesn't need
+   to be unfolded to be selected for a merge or to pull up its teammates. */
+.scout-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 2px;
+  border-bottom: 1px dashed var(--turf-600);
+}
+.card-merge-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  cursor: pointer;
+}
+.card-merge-select input {
+  accent-color: var(--flag-gold);
+  width: 14px;
+  height: 14px;
+}
+.card-teammate-toggle,
+.merge-row-teammate-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--turf-700);
+  color: var(--chalk-dim);
+  border: 1px solid var(--turf-600);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.card-teammate-toggle:hover,
+.card-teammate-toggle:focus-visible,
+.merge-row-teammate-toggle:hover,
+.merge-row-teammate-toggle:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.merge-row-teammate-toggle { padding: 3px 6px; font-size: 11px; }
+
+/* --- Merge toolbar --- persistent quota readout + Merge button
+   (BLUEPRINT.md §1.4), styled after .apply-btn/.png-btn's conventions.
+   Sits above the scout-cards overlay, inside .board. */
+.merge-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  margin-bottom: -4px;
+}
+.merge-quota {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--chalk-dim);
+}
+.merge-message {
+  flex: 1 1 auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--rush-clay);
+}
+.merge-btn {
+  flex: none;
+  margin-left: auto;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-btn:hover,
+.merge-btn:focus-visible {
+  background: var(--flag-gold-bright);
+  border-color: var(--flag-gold-bright);
+}
+.merge-btn:disabled {
+  background: var(--turf-700);
+  color: var(--chalk-dim);
+  border-color: var(--turf-600);
+  cursor: not-allowed;
+}
+
+/* --- Merge Card table --- one row per player, one column per metric,
+   percentile-only cells (BLUEPRINT.md §1.2). */
+.merge-table-wrap { overflow-x: auto; }
+.merge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.merge-table th,
+.merge-table td {
+  padding: 6px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.merge-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.merge-table td { color: var(--chalk); }
+.merge-table .merge-table-name,
+.merge-table th:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.merge-table .merge-table-pool {
+  text-align: left;
+  color: var(--chalk-dim);
+  font-size: 10.5px;
+}
+
+/* --- Teammate Association Card --- roster rows + 3M/RSWA summary
+   (BLUEPRINT.md §2). */
+.teammate-omitted-note {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--chalk-dim);
+  font-style: italic;
+}
+.teammate-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.teammate-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--turf-600);
+}
+.teammate-row-name {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--chalk);
+}
+.teammate-row-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.teammate-cell {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--chalk-dim);
+  background: rgba(241, 236, 221, 0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+}
+.teammate-see-more {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  background: transparent;
+  border: none;
+  color: var(--instant-replay-blue);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+.teammate-see-more:hover,
+.teammate-see-more:focus-visible {
+  color: var(--instant-replay-blue-bright);
+  outline: none;
+}
+.teammate-summary-wrap { overflow-x: auto; }
+.teammate-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.teammate-summary-table th,
+.teammate-summary-table td {
+  padding: 5px 7px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.teammate-summary-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+.teammate-summary-table td { color: var(--chalk); }
+.teammate-summary-metric,
+.teammate-summary-table th:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+/* --- Pool-change confirm modal (BLUEPRINT.md §4) --- */
+.merge-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.merge-confirm-overlay[hidden] { display: none; }
+.merge-confirm-box {
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.merge-confirm-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--chalk);
+}
+.merge-confirm-body {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+.merge-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.merge-confirm-actions button {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-confirm-cancel {
+  background: transparent;
+  color: var(--chalk-dim);
+  border: 1px solid var(--turf-600);
+}
+.merge-confirm-cancel:hover,
+.merge-confirm-cancel:focus-visible {
+  color: var(--chalk);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.merge-confirm-clear {
+  background: var(--rush-clay);
+  color: var(--chalk);
+  border: 1px solid var(--rush-clay);
+}
+.merge-confirm-clear:hover,
+.merge-confirm-clear:focus-visible {
+  filter: brightness(1.1);
+  outline: none;
+}
+
 @media (max-width: 860px) {
   .board { grid-template-columns: 1fr; }
 
@@ -1196,9 +1537,6 @@ body {
     cursor: auto;
     touch-action: auto;
   }
-  /* Resizing is desktop-only too (same isDesktopScoutLayout() guard on
-     beginScoutResize() in app.js) — the stacked mobile layout sizes each
-     card to its content instead. */
   .scout-card-panel {
     max-height: none;
     overflow: visible;
@@ -1212,6 +1550,11 @@ body {
     padding: 20px 18px 18px;
     min-height: 320px;
   }
+  /* Fold/Unfold isn't restricted to desktop (unlike Merge/Teammate) — but a
+     folded card's body is empty (see .is-folded in the desktop rules above),
+     so the 320px min-height meant for an always-expanded mobile card would
+     otherwise leave a tall dead gap under the header. */
+  .scout-card.is-folded .scout-card-panel { min-height: 0; }
   .scout-card-body { padding: 0; }
 
   /* Standalone placeholder (not nested in a card) shown when nothing is
@@ -1242,6 +1585,17 @@ body {
      .control-players above) — no mobile fallback, no read-only messaging,
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
+
+  /* Merge Cards & Teammate Cards are desktop/tablet-only too (BLUEPRINT.md
+     §0) — app.js's isDesktopScoutLayout() guards already stop new ones from
+     opening below 860px; this hides the affordances that would start that
+     flow (the persistent toolbar, and each Player Card's merge-select/
+     teammate-toggle row) so the mobile card body is exactly what v1.1.0
+     shipped. */
+  .merge-toolbar,
+  .scout-card-actions {
+    display: none;
+  }
 
   .filters-drawer {
     position: fixed;

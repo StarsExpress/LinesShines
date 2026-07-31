@@ -2,8 +2,10 @@
 
 Routes:
   GET  /api/metadata                    → seasons, positions, metric defs, teams
-  GET  /api/pass_rush?season=&position= → per-slice records
-  GET  /api/pass_block?season=&position= → per-slice records
+  GET  /api/pass_rush?season=[&position=] → records; position omitted → every
+                                             position in the category (client
+                                             partitions/filters from there)
+  GET  /api/pass_block?season=[&position=] → same shape as pass_rush
   GET  /health                          → readiness probe for Railway
 
 Anything else falls through to StaticFiles serving `frontend/`.
@@ -199,19 +201,29 @@ def metadata() -> dict:
 @app.get("/api/pass_rush")
 def pass_rush(
     season: int = Query(..., ge=1980, le=2100),
-    position: str = Query(..., min_length=1, max_length=4),
+    position: str | None = Query(None, min_length=1, max_length=4),
 ) -> dict:
-    if position not in PASS_RUSH_POSITIONS:
+    if position is not None and position not in PASS_RUSH_POSITIONS:
         raise HTTPException(
             400,
             f"invalid position: {position!r} — choose from {list(PASS_RUSH_POSITIONS)}",
         )
 
+    filters = [PassRushStat.season == season]
+    # Omitted position means "every supported position", not literally every
+    # row for the season — the table can carry positions PASS_RUSH_POSITIONS
+    # doesn't expose (e.g. LB), left over from a broader raw ingest.
+    filters.append(
+        PassRushStat.position == position
+        if position is not None
+        else PassRushStat.position.in_(PASS_RUSH_POSITIONS)
+    )
+
     with SessionLocal() as sess:
         rows = (
             sess.execute(
                 select(PassRushStat)
-                .where(PassRushStat.season == season, PassRushStat.position == position)
+                .where(*filters)
                 .order_by(PassRushStat.pr_opp.desc())
             )
             .scalars()
@@ -229,21 +241,26 @@ def pass_rush(
 @app.get("/api/pass_block")
 def pass_block(
     season: int = Query(..., ge=1980, le=2100),
-    position: str = Query(..., min_length=1, max_length=4),
+    position: str | None = Query(None, min_length=1, max_length=4),
 ) -> dict:
-    if position not in PASS_BLOCK_POSITIONS:
+    if position is not None and position not in PASS_BLOCK_POSITIONS:
         raise HTTPException(
             400,
             f"invalid position: {position!r} — choose from {list(PASS_BLOCK_POSITIONS)}",
         )
 
+    filters = [PassBlockStat.season == season]
+    filters.append(
+        PassBlockStat.position == position
+        if position is not None
+        else PassBlockStat.position.in_(PASS_BLOCK_POSITIONS)
+    )
+
     with SessionLocal() as sess:
         rows = (
             sess.execute(
                 select(PassBlockStat)
-                .where(
-                    PassBlockStat.season == season, PassBlockStat.position == position
-                )
+                .where(*filters)
                 .order_by(PassBlockStat.non_spike_pb_snaps.desc())
             )
             .scalars()

@@ -217,10 +217,23 @@
       </p>
     </div>
 
+    <!-- Merge Cards & Teammate Cards (BLUEPRINT.md v1.2.0), desktop/tablet
+         only — see isDesktopScoutLayout() in app.js, which both this toolbar
+         and every merge-select/teammate-toggle control defer to. Persistent
+         quota readout per BLUEPRINT.md §1.4: visible whenever any card is
+         open, not just while mid-selection. -->
+    <div class="merge-toolbar" id="merge-toolbar" hidden>
+      <span class="merge-quota" id="merge-quota-label"></span>
+      <span class="merge-message" id="merge-message"></span>
+      <button type="button" class="merge-btn" id="merge-btn" disabled>Merge</button>
+    </div>
+
     <!-- Live scouting cards are cloned from #scout-card-template (one per
-         pinned player, see openScoutCard() in app.js) and appended here as
-         siblings — each keeps its own position/z-index so several can be
-         open and dragged independently without stepping on each other. -->
+         pinned player), #merge-card-template, or #teammate-card-template
+         (see openScoutCard()/openMergeCard()/openTeammateCard() in app.js)
+         and appended here as siblings — each keeps its own position/z-index
+         so several can be open and dragged independently without stepping
+         on each other. -->
     <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
 
     <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
@@ -229,6 +242,9 @@
 
     <template id="scout-card-template">
       <aside class="scout-card">
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
         <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
 
         <div class="scout-card-panel">
@@ -243,13 +259,98 @@
                 <div class="scout-meta"></div>
               </div>
             </div>
+            <!-- Lives in the header row (survives folding, see .is-folded in
+                 style.css), not the collapsible body below — a folded card
+                 should still be selectable for a merge or able to pull up
+                 its teammates without unfolding first. -->
+            <div class="scout-card-actions">
+              <label class="card-merge-select" title="Select this card for merging">
+                <input type="checkbox" class="scout-merge-select" />
+                <span>Merge</span>
+              </label>
+              <button type="button" class="card-teammate-toggle" aria-label="Show teammates">
+                <i class="fa-solid fa-people-group"></i> Teammates
+              </button>
+            </div>
             <dl class="scout-stats"></dl>
+          </div>
+        </div>
+      </aside>
+    </template>
+
+    <!-- One row per merged player, one column per metric, percentile-only
+         cells (BLUEPRINT.md §1.2) — filled in by openMergeCard() in app.js. -->
+    <template id="merge-card-template">
+      <aside class="scout-card scout-card--merge">
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button type="button" class="scout-close" aria-label="Dissolve merge card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-id">
+                <div class="scout-name merge-card-title"></div>
+                <div class="scout-meta merge-card-subtitle"></div>
+              </div>
+            </div>
+            <div class="merge-table-wrap">
+              <table class="merge-table"></table>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </template>
+
+    <!-- Roster (percentiles only, own-position pool) + the 3M/RSWA summary
+         table (BLUEPRINT.md §2) — filled in by openTeammateCard() in app.js.
+         No teammate toggle anywhere on this card: the recursion guard from
+         §2.3 is enforced by simply never rendering one here. -->
+    <template id="teammate-card-template">
+      <aside class="scout-card scout-card--teammate">
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button type="button" class="scout-close" aria-label="Close teammate card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-id">
+                <div class="scout-name teammate-card-title"></div>
+                <div class="scout-meta teammate-card-subtitle"></div>
+              </div>
+            </div>
+            <p class="teammate-omitted-note" hidden></p>
+            <div class="teammate-roster"></div>
+            <button type="button" class="teammate-see-more" hidden>See more</button>
+            <div class="teammate-summary-wrap">
+              <table class="teammate-summary-table"></table>
+            </div>
           </div>
         </div>
       </aside>
     </template>
   </section>
 </main>
+
+<!-- Warns before dissolving Merge/Teammate cards on a pool-changing Apply
+     (BLUEPRINT.md §4) — only ever shown when at least one Merge Card exists,
+     see showMergeInvalidationConfirm() in app.js. -->
+<div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
+  <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
+    <p class="merge-confirm-title" id="merge-confirm-title">Clear merged cards?</p>
+    <p class="merge-confirm-body">
+      This filter change recomputes the player pool — every Merge Card and Teammate Card built
+      against the old pool will be dissolved. This can't be undone.
+    </p>
+    <div class="merge-confirm-actions">
+      <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
+      <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Clear &amp; Apply</button>
+    </div>
+  </div>
+</div>
 
 <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
 <script src="app.js?v={{VERSION}}"></script>
