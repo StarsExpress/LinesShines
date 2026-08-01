@@ -217,9 +217,9 @@
       </p>
     </div>
 
-    <!-- Merge Cards & Teammate Cards (BLUEPRINT.md v1.2.0), desktop/tablet
+    <!-- Merge Cards & Linemate Cards (BLUEPRINT.md v1.2.0), desktop/tablet
          only — see isDesktopScoutLayout() in app.js, which both this toolbar
-         and every merge-select/teammate-toggle control defer to. Persistent
+         and every merge-select/linemate-toggle control defer to. Persistent
          quota readout per BLUEPRINT.md §1.4: visible whenever any card is
          open, not just while mid-selection. -->
     <div class="merge-toolbar" id="merge-toolbar" hidden>
@@ -229,8 +229,8 @@
     </div>
 
     <!-- Live scouting cards are cloned from #scout-card-template (one per
-         pinned player), #merge-card-template, or #teammate-card-template
-         (see openScoutCard()/openMergeCard()/openTeammateCard() in app.js)
+         pinned player), #merge-card-template, or #linemate-card-template
+         (see openScoutCard()/openMergeCard()/openLinemateCard() in app.js)
          and appended here as siblings — each keeps its own position/z-index
          so several can be open and dragged independently without stepping
          on each other. -->
@@ -262,14 +262,14 @@
             <!-- Lives in the header row (survives folding, see .is-folded in
                  style.css), not the collapsible body below — a folded card
                  should still be selectable for a merge or able to pull up
-                 its teammates without unfolding first. -->
+                 its linemates without unfolding first. -->
             <div class="scout-card-actions">
               <label class="card-merge-select" title="Select this card for merging">
                 <input type="checkbox" class="scout-merge-select" />
                 <span>Merge</span>
               </label>
-              <button type="button" class="card-teammate-toggle" aria-label="Show teammates">
-                <i class="fa-solid fa-people-group"></i> Teammates
+              <button type="button" class="card-linemate-toggle" aria-label="Show linemates">
+                <i class="fa-solid fa-people-group"></i> Linemates
               </button>
             </div>
             <dl class="scout-stats"></dl>
@@ -304,29 +304,27 @@
     </template>
 
     <!-- Roster (percentiles only, own-position pool) + the 3M/RSWA summary
-         table (BLUEPRINT.md §2) — filled in by openTeammateCard() in app.js.
-         No teammate toggle anywhere on this card: the recursion guard from
+         table (BLUEPRINT.md §2) — filled in by openLinemateCard() in app.js.
+         No linemate toggle anywhere on this card: the recursion guard from
          §2.3 is enforced by simply never rendering one here. -->
-    <template id="teammate-card-template">
-      <aside class="scout-card scout-card--teammate">
-        <button type="button" class="scout-fold" aria-label="Fold card">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button type="button" class="scout-close" aria-label="Close teammate card">&times;</button>
+    <template id="linemate-card-template">
+      <aside class="scout-card scout-card--linemate">
+        <button type="button" class="scout-close" aria-label="Close linemate card">&times;</button>
 
         <div class="scout-card-panel">
           <div class="scout-card-body">
             <div class="scout-card-top scout-drag-handle" title="Drag to move">
               <div class="scout-id">
-                <div class="scout-name teammate-card-title"></div>
-                <div class="scout-meta teammate-card-subtitle"></div>
+                <div class="scout-name linemate-card-title"></div>
+                <p class="linemate-card-note">All numbers are a player's percentiles among his position.</p>
+                <p class="linemate-card-hint">Tooltip each percentile for more info.</p>
               </div>
             </div>
-            <p class="teammate-omitted-note" hidden></p>
-            <div class="teammate-roster"></div>
-            <button type="button" class="teammate-see-more" hidden>See more</button>
-            <div class="teammate-summary-wrap">
-              <table class="teammate-summary-table"></table>
+            <div class="linemate-roster"></div>
+            <button type="button" class="linemate-see-more" hidden>See more</button>
+            <div class="linemate-summary-wrap">
+              <h4 class="linemate-summary-title">Line Summary</h4>
+              <table class="linemate-summary-table"></table>
             </div>
           </div>
         </div>
@@ -335,14 +333,14 @@
   </section>
 </main>
 
-<!-- Warns before dissolving Merge/Teammate cards on a pool-changing Apply
+<!-- Warns before dissolving Merge/Linemate cards on a pool-changing Apply
      (BLUEPRINT.md §4) — only ever shown when at least one Merge Card exists,
      see showMergeInvalidationConfirm() in app.js. -->
 <div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
   <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
     <p class="merge-confirm-title" id="merge-confirm-title">Clear merged cards?</p>
     <p class="merge-confirm-body">
-      This filter change recomputes the player pool — every Merge Card and Teammate Card built
+      This filter change recomputes the player pool — every Merge Card and Linemate Card built
       against the old pool will be dissolved. This can't be undone.
     </p>
     <div class="merge-confirm-actions">

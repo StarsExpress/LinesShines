@@ -144,7 +144,7 @@ body {
   justify-content: center;
   row-gap: 4px;
   margin: 0;
-  padding: 30px 24px;
+  padding: 10px 24px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.03em;
@@ -165,7 +165,7 @@ body {
 @media (max-width: 480px) {
   .meta-band {
     font-size: 8px;
-    padding: 30px 10px;
+    padding: 10px 10px;
   }
 }
 
@@ -604,6 +604,31 @@ body {
   opacity: 1;
   visibility: visible;
 }
+
+/* Body-appended tooltip (attachAppTooltip()/showAppTooltip() in app.js) for
+   triggers where .info-hint's own ::after popup would get clipped by a
+   scrolling ancestor (.linemate-summary-wrap, .scout-card-panel) — living
+   outside the card's DOM subtree means no ancestor's overflow can touch it.
+   Positioned via inline left/top computed from the trigger's own rect. */
+.app-tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  background: var(--turf-800);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.4;
+  /* Preserves the "\n" showAppTooltip() callers use to force a break (e.g.
+     between a percentile cell's "Metric:" and its "#rank/n" line) while
+     still wrapping normally within max-width otherwise. */
+  white-space: pre-line;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
 /* Blue rather than the gold/chalk every other label-adjacent control uses —
    deliberately off-palette so a destructive "clear everything" action reads
    as visually distinct at a glance, not just another muted label. */
@@ -969,11 +994,11 @@ body {
   z-index: 5;
 }
 
-/* Merge/Teammate cards reuse every .scout-card rule above (position, drag,
+/* Merge/Linemate cards reuse every .scout-card rule above (position, drag,
    z-index, mobile stacking) via this base class, plus their own modifier
    below for anything that needs to differ. */
 .scout-card--merge { width: 460px; }
-.scout-card--teammate { width: 420px; }
+.scout-card--linemate { width: 420px; }
 
 /* Positioned relative to .scout-card itself (not .scout-card-panel) so the
    same top/right offsets land in the right corner whether .scout-card is
@@ -1039,7 +1064,7 @@ body {
   max-height: 480px;
   opacity: 1;
   pointer-events: auto;
-  /* A card's body (stats table / merge table / teammate roster+summary) can
+  /* A card's body (stats table / merge table / linemate roster+summary) can
      run taller than the 480px cap above — overflow-y:auto means it scrolls
      instead of clipping silently. overflow-x stays hidden from the rule
      above. */
@@ -1047,17 +1072,15 @@ body {
 }
 
 /* Fold/Unfold (BLUEPRINT.md §1.3) — two discrete states only, no continuous
-   resize. Folding hides each card type's metric body and leaves just the
-   header (.scout-card-top) — and, for a Player Card, its always-visible
-   .scout-card-actions row (merge-select + teammate toggle), which should
-   stay usable without unfolding first. No inline height is ever set here,
-   so there's no min-size clamp and nothing can mid-row clip. */
+   resize. Player and Merge Cards are the only types with a fold button
+   (Linemate Cards have none, see their template); folding hides the card's
+   metric body and leaves just the header (.scout-card-top) — and, for a
+   Player Card, its always-visible .scout-card-actions row (merge-select +
+   linemate toggle), which should stay usable without unfolding first. No
+   inline height is ever set here, so there's no min-size clamp and nothing
+   can mid-row clip. */
 .scout-card.is-folded .scout-stats,
-.scout-card.is-folded .merge-table-wrap,
-.scout-card.is-folded .teammate-omitted-note,
-.scout-card.is-folded .teammate-roster,
-.scout-card.is-folded .teammate-see-more,
-.scout-card.is-folded .teammate-summary-wrap {
+.scout-card.is-folded .merge-table-wrap {
   display: none;
 }
 .scout-fold {
@@ -1114,6 +1137,59 @@ body {
 .scout-card.is-dragging .scout-card-panel {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
+
+/* Edge/corner resize handles (BLUEPRINT.md-style: shared by every card type
+   via .scout-card, wired in app.js's attachScoutResize()). Straddle the
+   panel's border like a native window's resize grips — invisible until
+   hovered so they don't clutter the card, but wide enough (10-14px) to grab
+   without pixel-hunting. Desktop-only and hidden while folded, see the
+   mobile media query and .is-folded rule below. */
+.scout-resize-handle {
+  position: absolute;
+  z-index: 7;
+  background: transparent;
+}
+.scout-resize-handle:hover,
+.scout-resize-handle:active {
+  background: rgba(211, 167, 61, 0.22);
+}
+.scout-resize-handle.scout-resize-n,
+.scout-resize-handle.scout-resize-s {
+  left: 8px;
+  right: 8px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.scout-resize-handle.scout-resize-n { top: -5px; }
+.scout-resize-handle.scout-resize-s { bottom: -5px; }
+.scout-resize-handle.scout-resize-e,
+.scout-resize-handle.scout-resize-w {
+  top: 8px;
+  bottom: 8px;
+  width: 10px;
+  cursor: ew-resize;
+}
+.scout-resize-handle.scout-resize-e { right: -5px; }
+.scout-resize-handle.scout-resize-w { left: -5px; }
+.scout-resize-handle.scout-resize-ne,
+.scout-resize-handle.scout-resize-nw,
+.scout-resize-handle.scout-resize-se,
+.scout-resize-handle.scout-resize-sw {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+.scout-resize-handle.scout-resize-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.scout-resize-handle.scout-resize-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.scout-resize-handle.scout-resize-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.scout-resize-handle.scout-resize-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+
+.scout-card.is-folded .scout-resize-handle { display: none; }
+/* Disables the panel's open/close max-height transition while an active
+   drag would otherwise fight it every frame (BLUEPRINT.md pattern: same
+   reasoning as .is-dragging above, just for the panel's own height). */
+.scout-card.is-resizing .scout-card-panel { transition: none; }
+.scout-card.is-resizing { user-select: none; }
 
 .scout-logo-wrap {
   width: 52px; height: 52px;
@@ -1186,10 +1262,10 @@ body {
   min-width: 64px;
 }
 
-/* --- Player Card actions: merge-select + teammate toggle (BLUEPRINT.md §1/§2) ---
+/* --- Player Card actions: merge-select + linemate toggle (BLUEPRINT.md §1/§2) ---
    Sits between the header and the stats table, always visible — including
    while the card is folded, see .is-folded above — so a card doesn't need
-   to be unfolded to be selected for a merge or to pull up its teammates. */
+   to be unfolded to be selected for a merge or to pull up its linemates. */
 .scout-card-actions {
   display: flex;
   align-items: center;
@@ -1215,8 +1291,8 @@ body {
   width: 14px;
   height: 14px;
 }
-.card-teammate-toggle,
-.merge-row-teammate-toggle {
+.card-linemate-toggle,
+.merge-row-linemate-toggle {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
@@ -1233,15 +1309,15 @@ body {
   text-transform: uppercase;
   cursor: pointer;
 }
-.card-teammate-toggle:hover,
-.card-teammate-toggle:focus-visible,
-.merge-row-teammate-toggle:hover,
-.merge-row-teammate-toggle:focus-visible {
+.card-linemate-toggle:hover,
+.card-linemate-toggle:focus-visible,
+.merge-row-linemate-toggle:hover,
+.merge-row-linemate-toggle:focus-visible {
   color: var(--flag-gold-bright);
   border-color: var(--flag-gold);
   outline: none;
 }
-.merge-row-teammate-toggle { padding: 3px 6px; font-size: 11px; }
+.merge-row-linemate-toggle { padding: 3px 6px; font-size: 11px; }
 
 /* --- Merge toolbar --- persistent quota readout + Merge button
    (BLUEPRINT.md §1.4), styled after .apply-btn/.png-btn's conventions.
@@ -1332,40 +1408,56 @@ body {
   font-size: 10.5px;
 }
 
-/* --- Teammate Association Card --- roster rows + 3M/RSWA summary
+/* --- Linemate Association Card --- roster rows + 3M/RSWA summary
    (BLUEPRINT.md §2). */
-.teammate-omitted-note {
-  margin: 0 0 10px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+.linemate-card-title-hint {
+  margin-left: 6px;
+  font-size: 13px;
   color: var(--chalk-dim);
-  font-style: italic;
+  cursor: help;
 }
-.teammate-roster {
+.linemate-card-title:hover .linemate-card-title-hint {
+  color: var(--flag-gold);
+}
+.linemate-card-note {
+  margin: 4px 0 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
+}
+.linemate-card-hint {
+  margin: 2px 0 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--chalk-dim);
+}
+.linemate-roster {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 10px;
 }
-.teammate-row {
+.linemate-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding-bottom: 8px;
   border-bottom: 1px dashed var(--turf-600);
 }
-.teammate-row-name {
+.linemate-row-name {
   font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--chalk);
 }
-.teammate-row-cells {
+.linemate-row-cells {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.teammate-cell {
+.linemate-cell {
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--chalk-dim);
@@ -1374,7 +1466,7 @@ body {
   padding: 2px 6px;
   cursor: help;
 }
-.teammate-see-more {
+.linemate-see-more {
   appearance: none;
   -webkit-appearance: none;
   display: block;
@@ -1389,37 +1481,75 @@ body {
   padding: 0 0 12px;
   cursor: pointer;
 }
-.teammate-see-more:hover,
-.teammate-see-more:focus-visible {
+/* Same specificity as the base rule above, so without this the [hidden]
+   attribute app.js sets (roster.length <= LINEMATE_VISIBLE_DEFAULT) loses
+   the cascade tie to `display: block` and the button stays visible with
+   nothing left to reveal — this is the fix, not that base rule. */
+.linemate-see-more[hidden] { display: none; }
+.linemate-see-more:hover,
+.linemate-see-more:focus-visible {
   color: var(--instant-replay-blue-bright);
   outline: none;
 }
-.teammate-summary-wrap { overflow-x: auto; }
-.teammate-summary-table {
+.linemate-summary-wrap { overflow-x: auto; }
+.linemate-summary-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+}
+.linemate-summary-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 11px;
 }
-.teammate-summary-table th,
-.teammate-summary-table td {
+/* Every column, header and data alike, shares one alignment (BLUEPRINT.md
+   §2.5's summary is a stat grid, not a label-then-numbers report — mixing
+   left-aligned metric names against right-aligned figures read as two
+   different tables stitched together). Metric column gets a fixed, narrower
+   width than table-layout:auto would give its longest label ("TPS Allowed
+   Pressure %"), with wrapping turned back on so that label breaks onto a
+   second line instead of forcing the other four columns to shrink. */
+.linemate-summary-table th,
+.linemate-summary-table td {
   padding: 5px 7px;
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
   border-bottom: 1px solid var(--turf-600);
 }
-.teammate-summary-table th {
+.linemate-summary-table th {
   color: var(--chalk-dim);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   font-size: 9.5px;
 }
-.teammate-summary-table td { color: var(--chalk); }
-.teammate-summary-metric,
-.teammate-summary-table th:first-child {
-  text-align: left;
+.linemate-summary-table td { color: var(--chalk); }
+.linemate-summary-metric,
+.linemate-summary-table th:first-child {
   font-family: var(--font-body);
+}
+.linemate-summary-table th:first-child,
+.linemate-summary-table td:first-child {
+  width: 46%;
+  white-space: normal;
+}
+/* The RSWA header's info icon (BLUEPRINT.md §2.5's formula) — a native
+   `title` tooltip, not the app's usual .info-hint ::after popup, since a
+   popup here would get clipped by .linemate-summary-wrap's overflow-x:auto. */
+.linemate-summary-hint {
+  margin-left: 4px;
+  color: var(--chalk-dim);
+  font-size: 10px;
+  cursor: help;
+}
+.linemate-summary-table th:hover .linemate-summary-hint {
+  color: var(--flag-gold);
 }
 
 /* --- Pool-change confirm modal (BLUEPRINT.md §4) --- */
@@ -1550,7 +1680,7 @@ body {
     padding: 20px 18px 18px;
     min-height: 320px;
   }
-  /* Fold/Unfold isn't restricted to desktop (unlike Merge/Teammate) — but a
+  /* Fold/Unfold isn't restricted to desktop (unlike Merge/Linemate) — but a
      folded card's body is empty (see .is-folded in the desktop rules above),
      so the 320px min-height meant for an always-expanded mobile card would
      otherwise leave a tall dead gap under the header. */
@@ -1586,14 +1716,15 @@ body {
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
 
-  /* Merge Cards & Teammate Cards are desktop/tablet-only too (BLUEPRINT.md
+  /* Merge Cards & Linemate Cards are desktop/tablet-only too (BLUEPRINT.md
      §0) — app.js's isDesktopScoutLayout() guards already stop new ones from
      opening below 860px; this hides the affordances that would start that
      flow (the persistent toolbar, and each Player Card's merge-select/
-     teammate-toggle row) so the mobile card body is exactly what v1.1.0
+     linemate-toggle row) so the mobile card body is exactly what v1.1.0
      shipped. */
   .merge-toolbar,
-  .scout-card-actions {
+  .scout-card-actions,
+  .scout-resize-handle {
     display: none;
   }
 
