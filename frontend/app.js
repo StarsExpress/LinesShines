@@ -53,13 +53,40 @@ const els = {
   scoutCardTemplate: document.getElementById("scout-card-template"),
   mergeCardTemplate: document.getElementById("merge-card-template"),
   linemateCardTemplate: document.getElementById("linemate-card-template"),
-  mergeToolbar: document.getElementById("merge-toolbar"),
-  mergeQuotaLabel: document.getElementById("merge-quota-label"),
-  mergeMessage: document.getElementById("merge-message"),
-  mergeBtn: document.getElementById("merge-btn"),
   mergeConfirmOverlay: document.getElementById("merge-confirm-overlay"),
   mergeConfirmCancel: document.getElementById("merge-confirm-cancel"),
   mergeConfirmClear: document.getElementById("merge-confirm-clear"),
+  workspaceNoticeOverlay: document.getElementById("workspace-notice-overlay"),
+  workspaceNoticeBody: document.getElementById("workspace-notice-body"),
+  workspaceNoticeOk: document.getElementById("workspace-notice-ok"),
+  // Pinned Players (BLUEPRINT_PinnedPlayers.md) — see
+  // renderPlayerCardsSpace() in app.js.
+  playerCardsSpace: document.getElementById("player-cards-space"),
+  pcsQuotaLabel: document.getElementById("pcs-quota-label"),
+  pcsInspectBtn: document.getElementById("pcs-inspect-btn"),
+  pcsPanel: document.getElementById("pcs-panel"),
+  pcsSinglesList: document.getElementById("pcs-singles-list"),
+  pcsMergedList: document.getElementById("pcs-merged-list"),
+  pcsMergedEmpty: document.getElementById("pcs-merged-empty"),
+  // Single Cards add-search (v1.2.0 §4) — Pinned Players' only entry point.
+  pcsAddInput: document.getElementById("pcs-add-input"),
+  pcsAddDropdown: document.getElementById("pcs-add-dropdown"),
+  // Merged Cards "Create" button + its popup (v1.2.0 §5).
+  pcsCreateBtn: document.getElementById("pcs-create-btn"),
+  mergeCreateOverlay: document.getElementById("merge-create-overlay"),
+  mergeCreateMembers: document.getElementById("merge-create-members"),
+  mergeCreateInput: document.getElementById("merge-create-input"),
+  mergeCreateDropdown: document.getElementById("merge-create-dropdown"),
+  mergeCreateMessage: document.getElementById("merge-create-message"),
+  mergeCreateCancel: document.getElementById("merge-create-cancel"),
+  mergeCreateSubmit: document.getElementById("merge-create-submit"),
+  // Merge Card membership editor popup.
+  mergeEditOverlay: document.getElementById("merge-edit-overlay"),
+  mergeEditMembers: document.getElementById("merge-edit-members"),
+  mergeEditInput: document.getElementById("merge-edit-input"),
+  mergeEditDropdown: document.getElementById("merge-edit-dropdown"),
+  mergeEditMessage: document.getElementById("merge-edit-message"),
+  mergeEditDone: document.getElementById("merge-edit-done"),
 };
 
 let metadata = null;                 // /api/metadata payload
@@ -101,12 +128,25 @@ const selectedPlayers = new Map();
 // leak in a half-picked axis or threshold that hasn't been applied yet.
 let appliedFilters = null;
 
-// Live scouting cards, one per pinned player, keyed by the same full
-// "player" string selectedPlayers/prunePlayerSelections use elsewhere —
+// Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
+// persistent Single Cards list, keyed by the same full "player" string as
+// everything else (record.player → record). Populated ONLY by the Single
+// Cards fuzzy-search box (addPlayerToSingleCards(), v1.2.0 §4) — a plot click
+// never touches this, see viewFloatingCard(). Deliberately independent of
+// scoutCards below: a player can be listed here with his floating card
+// closed, or vice versa — see removeSingleCard()/closeScoutCard(). Together
+// with mergeCards' memberKeys (declared further down), this is what
+// distinctWorkspacePlayers() counts against the 8-player quota.
+const workspaceSingles = new Map();
+
+// Live floating Player Cards, one per currently-open card, keyed by the same
+// full "player" string selectedPlayers/prunePlayerSelections use elsewhere —
 // player.player uniquely identifies a row within a slice. Each entry is
 // { record, el } where el is the cloned .scout-card DOM node currently
 // sitting in #scout-cards. Any number can be open/dragged/overlapping at
-// once; see openScoutCard()/closeScoutCard() below.
+// once; see openScoutCard()/closeScoutCard() below. Purely an "is this
+// floating card open" registry now — it does NOT imply Workspace membership,
+// see workspaceSingles above.
 const scoutCards = new Map();
 // Shared incrementing counter so whichever card was most recently opened,
 // clicked, or dragged gets bumped above every other open card — otherwise
@@ -183,6 +223,7 @@ async function loadMetadata() {
   els.logoPreload.hidden = true;
 
   render();
+  renderPlayerCardsSpace();
   updatePendingState();
 }
 
@@ -481,17 +522,20 @@ function qualifyingPlayerPool() {
   );
 }
 
-// Top `topK` matches for `query` among `pool`, excluding players already
-// selected (no point suggesting a chip that already exists). Search runs
-// against the full "player" field (e.g. "Will Anderson Jr."), never
-// "abbr_name" ("W. Anderson Jr.") — abbr_name exists purely for chart-label
-// rendering and would make a query like "will" fail to match.
-function searchPlayers(query, pool, topK = 8) {
+// Top `topK` matches for `query` among `pool`, excluding any player key in
+// `excludeKeys`. Search runs against the full "player" field (e.g. "Will
+// Anderson Jr."), never "abbr_name" ("W. Anderson Jr.") — abbr_name exists
+// purely for chart-label rendering and would make a query like "will" fail
+// to match. Shared by the Players filter (searchPlayers below, excluding
+// already-selected chips) and the Merge Card Edit popup
+// (BLUEPRINT_PinnedPlayers.md §5, same fuzzy-match style, its own
+// exclusion set) so both stay on exactly one matching engine.
+function searchPlayersExcluding(query, pool, excludeKeys, topK = 8) {
   const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (queryTokens.length === 0) return [];
 
   const scored = pool
-    .filter((record) => !selectedPlayers.has(record.player))
+    .filter((record) => !excludeKeys.has(record.player))
     .map((record) => ({ record, result: scorePlayerAgainstQuery(queryTokens, record) }))
     .filter((x) => x.result !== null);
 
@@ -506,6 +550,12 @@ function searchPlayers(query, pool, topK = 8) {
   });
 
   return scored.slice(0, topK).map((x) => x.record);
+}
+
+// Players filter's own search — no point suggesting a chip that already
+// exists, so it excludes whatever's already selected there.
+function searchPlayers(query, pool, topK = 8) {
+  return searchPlayersExcluding(query, pool, new Set(selectedPlayers.keys()), topK);
 }
 
 function renderPlayerChips() {
@@ -768,6 +818,15 @@ function positionPool(position) {
   return currentRecords.filter((r) => r.position === position && r[cat.threshold_field] >= minThreshold);
 }
 
+// Shared pool for every Pinned Players fuzzy-search box — the Single
+// Cards add-search, the Create-merge popup, and the Edit-merge popup
+// (BLUEPRINT_PinnedPlayers.md v1.2.0 §4: never cross-position, always
+// "the same pool the plot is showing"). Just positionPool() locked to
+// appliedFilters.position rather than an arbitrary position argument.
+function pcsSearchPool() {
+  return positionPool(appliedFilters.position);
+}
+
 function updateThresholdRange() {
   const cat = currentCategoryMeta();
   // currentRecords now holds every position in the category (see
@@ -932,6 +991,13 @@ function rankAndPercentile(pool, key, higherIsBetter, value) {
   const rank = values.filter(better).length + 1;
   const percentile = Math.round(((n - rank) / (n - 1)) * 100);
   return { rank, n, percentile };
+}
+
+// Avoids a stray double period in messages that tack a full stop onto a
+// player name — "Jr."/"Sr." suffixes (and any other name already ending in
+// a period) don't get a second one.
+function withTrailingPeriod(text) {
+  return text.endsWith(".") ? text : `${text}.`;
 }
 
 function teamColor(code) {
@@ -1318,12 +1384,7 @@ function render() {
 
   els.chart.on("plotly_click", (e) => {
     const idx = e.points[0].pointIndex;
-    const record = currentFiltered[idx];
-    if (scoutCards.has(record.player)) {
-      closeScoutCard(record.player);
-    } else {
-      openScoutCard(record);
-    }
+    viewFloatingCard(currentFiltered[idx]);
   });
 }
 
@@ -1348,10 +1409,12 @@ function nextCardId() {
   return `card-${cardSeq}`;
 }
 
-// Player Cards currently checked for merging, keyed the same way scoutCards
-// is (record.player). Cleared on merge, on manual uncheck, or whenever the
-// underlying Player Card closes (see closeScoutCard()).
-const mergeSelection = new Set();
+// Pending membership for the Create-merge popup (BLUEPRINT_PinnedPlayers.md
+// v1.2.0 §5) — record.player → record, in pick order. Staged locally and
+// discarded on Cancel; only becomes a real Merge Card on Submit
+// (submitCreateMergePopup()). Unlike the Edit popup's live-commit model, so a
+// half-built card never briefly exists as a real, addressable Merge Card.
+const createSelection = new Map();
 
 // Open Merge Cards, keyed by their own generated id (never by player — a
 // Merge Card has several members). Entry: { id, origin:'merge',
@@ -1378,14 +1441,60 @@ const LINEMATE_POSITIONS = { pass_block: ["T", "G", "C"], pass_rush: ["ED", "DI"
 const LINEMATE_CAP = { pass_block: 5, pass_rush: 7 };
 const LINEMATE_VISIBLE_DEFAULT = 5;
 
-function mergedPlayerKeys() {
-  const keys = new Set();
+// The 8-player quota's universe (BLUEPRINT_PinnedPlayers.md §6): every
+// distinct player in Single Cards OR any Merged Card, counted once
+// regardless of how many places he appears — a player merged into three
+// cards, or merged AND still a Single Cards row, still costs exactly 1 slot.
+function distinctWorkspacePlayers() {
+  const keys = new Set(workspaceSingles.keys());
   mergeCards.forEach((c) => c.memberKeys.forEach((k) => keys.add(k)));
   return keys;
 }
 
+// A merged member can outlive his Single Cards row (Remove only touches
+// Single Cards, never merged instances — §4/§6), so his full record has to
+// come from the applied slice itself rather than from workspaceSingles.
+function findRecordByPlayer(key) {
+  return currentRecords.find((r) => r.player === key) || null;
+}
+
+// BLUEPRINT_PinnedPlayers.md v1.2.0 §5/CHANGE 5 — order-independent
+// membership hash for duplicate-card detection, keyed by player `id` (the DB
+// row id, not the display name, per the spec) rather than record.player:
+// two cards with the same player SET, picked in any order, must hash
+// identically.
+function memberIdsKey(memberKeys) {
+  const ids = memberKeys
+    .map((key) => findRecordByPlayer(key))
+    .filter(Boolean)
+    .map((record) => record.id)
+    .sort((a, b) => a - b);
+  return ids.join(",");
+}
+
+// Finds an existing Merge Card whose membership hash matches `memberKeys`,
+// other than `excludeId` (a card being edited must not compare against its
+// own unchanged membership) — used by both the Create and Edit popups to
+// block a membership that would produce two identical cards.
+function findDuplicateMergeCard(memberKeys, excludeId) {
+  const key = memberIdsKey(memberKeys);
+  if (!key) return null;
+  for (const [id, entry] of mergeCards) {
+    if (id === excludeId) continue;
+    if (memberIdsKey(entry.memberKeys) === key) return entry;
+  }
+  return null;
+}
+
+// Merge Card entries can outlive their floating view (closeMergeCardFloating()
+// leaves the row in mergeCards with entry.el === null), so counting mergeCards.size
+// directly would overcount what's actually on screen — only count its open entries.
 function openCardsCount() {
-  return scoutCards.size + mergeCards.size + linemateCards.size;
+  let openMergeCount = 0;
+  mergeCards.forEach((entry) => {
+    if (entry.el) openMergeCount += 1;
+  });
+  return scoutCards.size + openMergeCount + linemateCards.size;
 }
 
 function updateScoutEmptyHint() {
@@ -1422,14 +1531,16 @@ function cascadeScoutCardPosition(cardEl) {
   cardEl.style.right = "auto";
 }
 
-// Shared by every card type's fold button. Folding hides the metric body via
-// CSS (.is-folded); a card the user has edge-resized taller would otherwise
-// leave a tall dead gap under the header once that body disappears, so its
-// inline panel height is stashed here and restored on unfold rather than
-// lost. `onUnfold` lets a Linemate Card reset its "See more" state back to
-// collapsed every time it re-expands (§2.5).
-function toggleCardFold(cardEl, state, onUnfold) {
-  state.folded = !state.folded;
+// Applies fold/unfold visuals for whatever state.folded currently holds —
+// shared by the explicit fold-button click (toggleCardFold) and the
+// resize-driven auto fold/unfold below (setCardFolded), so both paths stay
+// in sync on the same CSS class, icon, and stashed-height behavior. Folding
+// hides the metric body via CSS (.is-folded); a card the user has edge-
+// resized taller would otherwise leave a tall dead gap under the header once
+// that body disappears, so its inline panel height is stashed here and
+// restored on unfold rather than lost. `onUnfold` lets a Linemate Card reset
+// its "See more" state back to collapsed every time it re-expands (§2.5).
+function applyCardFoldVisual(cardEl, state, onUnfold) {
   cardEl.classList.toggle("is-folded", state.folded);
   const foldBtn = cardEl.querySelector(".scout-fold");
   const icon = foldBtn && foldBtn.querySelector("i");
@@ -1449,6 +1560,23 @@ function toggleCardFold(cardEl, state, onUnfold) {
   }
 
   if (!state.folded && onUnfold) onUnfold();
+}
+
+// Wired to every card type's fold button — flips state.folded and applies it.
+function toggleCardFold(cardEl, state, onUnfold) {
+  state.folded = !state.folded;
+  applyCardFoldVisual(cardEl, state, onUnfold);
+}
+
+// Wired to the resize handles (see beginScoutResize/endScoutResize below) so
+// a pull/push can drive fold state directly instead of only the button —
+// dragging a folded card's edge auto-unfolds it (there's nothing to reveal
+// while its body is display:none), and pushing an unfolded card's edge back
+// down to the resize floor auto-folds it. No-ops if already in that state.
+function setCardFolded(cardEl, state, folded, onUnfold) {
+  if (state.folded === folded) return;
+  state.folded = folded;
+  applyCardFoldVisual(cardEl, state, onUnfold);
 }
 
 // Builds/rebuilds a Player Card's stat rows (value + rank/percentile) — used
@@ -1518,7 +1646,6 @@ function openScoutCard(record) {
   const badge = cardEl.querySelector(".scout-badge");
   const nameEl = cardEl.querySelector(".scout-name");
   const metaEl = cardEl.querySelector(".scout-meta");
-  const mergeCheckbox = cardEl.querySelector(".scout-merge-select");
   const linemateBtn = cardEl.querySelector(".card-linemate-toggle");
 
   const color = teamColor(record.team);
@@ -1542,9 +1669,9 @@ function openScoutCard(record) {
   cascadeScoutCardPosition(cardEl); // reads openCardsCount(), so must run before scoutCards.set() below
   cardEl.classList.add("is-active");
   bringScoutCardToFront(cardEl);
-  attachScoutResize(cardEl);
 
   const entry = { record, el: cardEl, id: nextCardId(), origin: "seed", folded: false };
+  attachScoutResize(cardEl, entry);
 
   closeBtn.addEventListener("click", () => closeScoutCard(record.player));
   foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
@@ -1555,40 +1682,33 @@ function openScoutCard(record) {
   // Raises a card even on a plain click, not just a drag, so tapping an
   // overlapped card's stats brings it to front too.
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
-  mergeCheckbox.addEventListener("change", () => toggleMergeSelect(record.player, mergeCheckbox));
   linemateBtn.addEventListener("click", () => toggleLinemateCard(record));
 
   scoutCards.set(record.player, entry);
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
-// Closing a Player Card also drops it out of any pending merge selection.
-// Its own Linemate Card, if one is open, is left alone — the roster and
-// summary a Linemate Card shows were computed once at open time and never
+// The floating card's own × — per BLUEPRINT_PinnedPlayers.md §3, this
+// ONLY closes the floating card. It does NOT touch workspaceSingles or the
+// Pinned Players in any way — a player's Single Cards row survives
+// regardless, exactly mirroring how his own Linemate Card, if open, is also
+// left alone: its roster/summary were computed once at open time and never
 // read back from scoutCards, so it has nothing left to depend on and can
-// keep floating on screen after its anchor Player Card is gone. It still
-// has its own close button for whenever the user's done with it.
+// keep floating on screen after its anchor Player Card is gone.
 function closeScoutCard(key) {
   const entry = scoutCards.get(key);
   if (!entry) return;
   entry.el.remove();
   scoutCards.delete(key);
-  mergeSelection.delete(key);
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
-// Only ever touches Player Cards — see clearMergeCards()/clearLinemateCards()
-// for the Merge/Linemate equivalents, kept separate so applyFilters() can
-// gate the Merge one behind the confirm modal while Player Cards keep
-// closing unconditionally on every slice change, exactly like they always have.
+// Bulk-closes every floating Player Card — used by clearWorkspace() (a real
+// Workspace-clearing operation, unlike the individual × above).
 function closeAllScoutCards() {
   scoutCards.forEach((entry) => entry.el.remove());
   scoutCards.clear();
-  mergeSelection.clear();
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
 // Dissolves every Merge Card — the pool invalidation from BLUEPRINT.md §4
@@ -1597,13 +1717,13 @@ function closeAllScoutCards() {
 // dissolve on every pool change, threshold included: refreshing up to 5
 // players' percentiles in place, possibly spanning multiple positions, is
 // more surface area than the confirm-and-rebuild UX already buys the user.
-// Player Cards and Linemate Cards don't share this — see
-// refreshOpenScoutCards()/refreshOpenLinemateCards() in applyFilters().
+// Linemate Cards don't share this — see refreshOpenLinemateCards() in
+// applyFilters().
 function clearMergeCards() {
-  mergeCards.forEach((entry) => entry.el.remove());
+  mergeCards.forEach((entry) => entry.el && entry.el.remove());
   mergeCards.clear();
   updateScoutEmptyHint();
-  updateMergeToolbar();
+  renderPlayerCardsSpace();
 }
 
 // Closes every Linemate Card — only for a season/category/position change
@@ -1613,7 +1733,6 @@ function clearLinemateCards() {
   linemateCards.forEach((entry) => entry.el.remove());
   linemateCards.clear();
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
 // Inline left/top/width/height (set by dragging, edge-resizing, or
@@ -1624,6 +1743,7 @@ function clearLinemateCards() {
 // currently-open card of every type.
 function clearScoutCardDragPositions() {
   [...scoutCards.values(), ...mergeCards.values(), ...linemateCards.values()].forEach((entry) => {
+    if (!entry.el) return; // a Merge Card row can survive its floating view being closed, see closeMergeCardFloating()
     entry.el.style.left = "";
     entry.el.style.top = "";
     entry.el.style.right = "";
@@ -1696,11 +1816,15 @@ function endScoutDrag(e) {
 const SCOUT_RESIZE_DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const SCOUT_RESIZE_MIN_HEIGHT = 160;
 
-function attachScoutResize(cardEl) {
+// `state`/`onUnfold` are the same fold-state object and callback the card's
+// fold button was wired with (see toggleCardFold) — passed through so a
+// pull/push on the resize handles can drive fold state too, see
+// beginScoutResize/endScoutResize below.
+function attachScoutResize(cardEl, state, onUnfold) {
   SCOUT_RESIZE_DIRS.forEach((dir) => {
     const handle = document.createElement("div");
     handle.className = `scout-resize-handle scout-resize-${dir}`;
-    handle.addEventListener("pointerdown", (e) => beginScoutResize(e, cardEl, dir));
+    handle.addEventListener("pointerdown", (e) => beginScoutResize(e, cardEl, dir, state, onUnfold));
     handle.addEventListener("pointermove", onScoutResizeMove);
     handle.addEventListener("pointerup", endScoutResize);
     handle.addEventListener("pointercancel", endScoutResize);
@@ -1712,10 +1836,18 @@ function attachScoutResize(cardEl) {
 // single-gesture-at-a-time shape as scoutDragState above.
 let scoutResizeState = null;
 
-function beginScoutResize(e, cardEl, dir) {
+function beginScoutResize(e, cardEl, dir, state, onUnfold) {
   if (!isDesktopScoutLayout()) return;
   e.stopPropagation();
   e.preventDefault();
+  // A folded card's body is display:none (see .is-folded in style.css), so
+  // dragging its height open wouldn't reveal anything without also
+  // unfolding it first — do that before measuring rects below, so the
+  // gesture's start height/width reflect the now-unfolded layout instead of
+  // the collapsed header-only one.
+  if ((dir.includes("n") || dir.includes("s")) && state && state.folded) {
+    setCardFolded(cardEl, state, false, onUnfold);
+  }
   const panelEl = cardEl.querySelector(".scout-card-panel");
   const panelRect = els.chartPanel.getBoundingClientRect();
   const cardRect = cardEl.getBoundingClientRect();
@@ -1726,6 +1858,8 @@ function beginScoutResize(e, cardEl, dir) {
     cardEl,
     panelEl,
     dir,
+    state,
+    onUnfold,
     pointerId: e.pointerId,
     startX: e.clientX,
     startY: e.clientY,
@@ -1790,70 +1924,333 @@ function endScoutResize(e) {
   if (!s || e.pointerId !== s.pointerId) return;
   e.currentTarget.releasePointerCapture(e.pointerId);
   s.cardEl.classList.remove("is-resizing");
+  // Pushed all the way down to the resize floor reads as "collapse this" —
+  // auto-fold rather than leaving it sitting open at its smallest size, and
+  // flip the fold button to match.
+  if (s.state && (s.dir.includes("n") || s.dir.includes("s"))) {
+    const currentHeight = parseFloat(s.panelEl.style.height);
+    if (currentHeight <= SCOUT_RESIZE_MIN_HEIGHT) {
+      setCardFolded(s.cardEl, s.state, true, s.onUnfold);
+    }
+  }
   scoutResizeState = null;
 }
 
-// --- Player Merge Cards (BLUEPRINT.md §1) -----------------------------------
+// --- Pinned Players: Workspace admission/removal ------------------------
+// (BLUEPRINT_PinnedPlayers.md §3/§4)
 
-// Persistent quota readout + Merge button, visible whenever any card is open
-// on desktop/tablet (BLUEPRINT.md §1.4: "display remaining quota somewhere
-// persistent" — not just while mid-selection).
-function updateMergeToolbar() {
-  const visible = isDesktopScoutLayout() && openCardsCount() > 0;
-  els.mergeToolbar.hidden = !visible;
-  if (!visible) return;
-
-  const usedSlots = mergedPlayerKeys().size;
-  els.mergeQuotaLabel.textContent = `Merge quota: ${MERGE_QUOTA - usedSlots}/${MERGE_QUOTA} remaining`;
-
-  const selectedCount = mergeSelection.size;
-  els.mergeBtn.textContent = selectedCount ? `Merge (${selectedCount})` : "Merge";
-  const quotaExhausted = usedSlots >= MERGE_QUOTA;
-  els.mergeBtn.disabled = selectedCount < 2 || quotaExhausted;
-  els.mergeBtn.title = quotaExhausted
-    ? "Merge limit reached — dissolve a card to free slots"
-    : selectedCount < 2
-    ? "Select 2 or more Player Cards to merge"
-    : "";
+// Pops up a reminder for a quota/cap refusal (Workspace full, Merge Card
+// 5-member cap, Merge 8-player limit) — reused everywhere one of those
+// decisions needs to explain itself. Was an easy-to-miss inline message in
+// Pinned Players' compact bar; a popup can't go unnoticed regardless of which
+// control triggered it, and there's no "clear the message" case to track
+// anymore since it dismisses itself via its own OK button.
+function showWorkspaceNotice(text) {
+  els.workspaceNoticeBody.textContent = text;
+  els.workspaceNoticeOverlay.hidden = false;
+  const onOk = () => {
+    els.workspaceNoticeOverlay.hidden = true;
+    els.workspaceNoticeOk.removeEventListener("click", onOk);
+  };
+  els.workspaceNoticeOk.addEventListener("click", onOk);
 }
 
-function setMergeMessage(text) {
-  els.mergeMessage.textContent = text || "";
-}
-
-// Wired to every Player Card's merge-select checkbox. Enforces the 5-per-
-// card cap at selection time — BLUEPRINT.md's testing checklist calls for
-// the 6th selection to be refused with a stated reason, not silently
-// truncated once Merge is pressed.
-function toggleMergeSelect(player, checkbox) {
-  if (!isDesktopScoutLayout()) return;
-  if (checkbox.checked) {
-    if (mergeSelection.size >= MERGE_CARD_MAX_MEMBERS) {
-      checkbox.checked = false;
-      setMergeMessage(`Merge Cards hold at most ${MERGE_CARD_MAX_MEMBERS} players — unselect one first.`);
-      return;
-    }
-    mergeSelection.add(player);
+// Wired to the chart's plotly_click handler (v1.2.0 §4 — plot-click and
+// Space-membership are now fully decoupled: this ONLY opens or flashes the
+// floating card for viewing, it never touches workspaceSingles). A click on
+// a player whose card is already open just flashes/refocuses it; repeat
+// clicks must be safe and never toggle-close anything.
+function viewFloatingCard(record) {
+  const key = record.player;
+  if (scoutCards.has(key)) {
+    flashFloatingCard(key);
   } else {
-    mergeSelection.delete(player);
+    openScoutCard(record);
   }
-  setMergeMessage("");
-  updateMergeToolbar();
 }
 
-function performMerge() {
-  if (!isDesktopScoutLayout() || mergeSelection.size < 2) return;
-  const usedSlots = mergedPlayerKeys().size;
-  if (usedSlots + mergeSelection.size > MERGE_QUOTA) {
-    setMergeMessage("Merge limit reached — dissolve a card to free slots.");
+// Single Cards' only entry point now (v1.2.0 §4) — the fuzzy-search box at
+// the top of the column, NOT the plot (see viewFloatingCard()) and NOT a
+// per-row Merge action (removed, v1.2.0 §5's Create popup replaces it).
+// Deliberately does not open the floating card — that stays the job of
+// clicking the player's name in the list once he's added, an existing,
+// unchanged behavior (see the row click handler in renderSinglesList()).
+function addPlayerToSingleCards(record) {
+  const key = record.player;
+  if (workspaceSingles.has(key)) return;
+
+  const distinct = distinctWorkspacePlayers();
+  if (!distinct.has(key) && distinct.size >= MERGE_QUOTA) {
+    showWorkspaceNotice(
+      `Workspace full (${MERGE_QUOTA}/${MERGE_QUOTA}) — remove a player to add ${withTrailingPeriod(record.abbr_name || key)}`
+    );
     return;
   }
 
-  const memberKeys = Array.from(mergeSelection);
-  const memberRecords = memberKeys.map((key) => scoutCards.get(key)).filter(Boolean).map((entry) => entry.record);
-  memberKeys.forEach((key) => closeScoutCard(key));
-  mergeSelection.clear();
-  setMergeMessage("");
+  workspaceSingles.set(key, record);
+  renderPlayerCardsSpace();
+}
+
+// Single Cards "Remove" (§4) — exits the Workspace entirely: drops the row
+// and closes the floating card if it's open (decision 3). Does NOT touch any
+// Merge Card the player still belongs to (§4/§6) — his stats there keep
+// coming from findRecordByPlayer().
+function removeSingleCard(key) {
+  if (!workspaceSingles.has(key)) return;
+  workspaceSingles.delete(key);
+  closeScoutCard(key);
+  renderPlayerCardsSpace();
+}
+
+// --- Single Cards add-search (v1.2.0 §4) ------------------------------------
+// Pinned Players' only entry point now. Same fuzzy-match style/behavior as the
+// Players filter (mirrors runPlayersSearch()/renderPlayersDropdown()), just
+// against pcsSearchPool() and excluding players already on the Workspace.
+
+function hidePcsAddDropdown() {
+  els.pcsAddDropdown.hidden = true;
+  els.pcsAddDropdown.innerHTML = "";
+}
+
+function renderPcsAddDropdown(matches) {
+  els.pcsAddDropdown.innerHTML = "";
+  if (!matches.length) {
+    hidePcsAddDropdown();
+    return;
+  }
+
+  matches.forEach((record) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "player-option";
+
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+    const code = document.createElement("span");
+    code.textContent = record.team;
+
+    team.append(logo, code);
+    opt.append(name, team);
+    opt.addEventListener("click", () => {
+      addPlayerToSingleCards(record);
+      els.pcsAddInput.value = "";
+      els.pcsAddInput.focus();
+      runPcsAddSearch();
+    });
+
+    els.pcsAddDropdown.appendChild(opt);
+  });
+
+  els.pcsAddDropdown.hidden = false;
+}
+
+function runPcsAddSearch() {
+  const query = els.pcsAddInput.value.trim();
+  if (!query) {
+    hidePcsAddDropdown();
+    return;
+  }
+  renderPcsAddDropdown(searchPlayersExcluding(query, pcsSearchPool(), new Set(workspaceSingles.keys())));
+}
+
+function flashFloatingCard(key) {
+  const entry = scoutCards.get(key);
+  if (!entry) return;
+  bringScoutCardToFront(entry.el);
+  entry.el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  entry.el.classList.remove("is-flash");
+  void entry.el.offsetWidth;
+  entry.el.classList.add("is-flash");
+  entry.el.addEventListener("animationend", () => entry.el.classList.remove("is-flash"), { once: true });
+}
+
+// --- Player Merge Cards ------------------------------------------------------
+// (BLUEPRINT.md §1, BLUEPRINT_PinnedPlayers.md §5/§6)
+
+// --- Create Merged Card popup (v1.2.0 §5) -----------------------------------
+// Replaces the old per-row Merge-button + header-Merge-button flow entirely:
+// the Merged Cards column's "Create" button is now the only way to start a
+// new merged card. Membership is staged in createSelection (module state,
+// declared above) until Submit — Cancel discards it untouched, so a
+// half-built card never briefly exists as a real, addressable Merge Card.
+
+function setCreateMessage(text) {
+  els.mergeCreateMessage.textContent = text || "";
+}
+
+function hideCreateDropdown() {
+  els.mergeCreateDropdown.hidden = true;
+  els.mergeCreateDropdown.innerHTML = "";
+}
+
+function openCreateMergePopup() {
+  createSelection.clear();
+  renderCreateMembers();
+  els.mergeCreateInput.value = "";
+  hideCreateDropdown();
+  setCreateMessage("");
+  els.mergeCreateOverlay.hidden = false;
+  els.mergeCreateInput.focus();
+}
+
+// Cancel — discards the staged selection outright, no card created.
+function closeCreateMergePopup() {
+  createSelection.clear();
+  els.mergeCreateOverlay.hidden = true;
+  hideCreateDropdown();
+}
+
+function renderCreateMembers() {
+  els.mergeCreateMembers.innerHTML = "";
+  createSelection.forEach((record, key) => {
+    const label = record.abbr_name || record.player;
+
+    const row = document.createElement("div");
+    row.className = "merge-edit-member";
+
+    const name = document.createElement("span");
+    name.className = "merge-edit-member-name";
+    name.textContent = label;
+    row.appendChild(name);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "merge-edit-member-remove";
+    removeBtn.setAttribute("aria-label", `Remove ${label}`);
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => removeCreateMember(key));
+    row.appendChild(removeBtn);
+
+    els.mergeCreateMembers.appendChild(row);
+  });
+}
+
+// Mirrors renderMergeEditDropdown()'s markup/classes exactly (.player-option
+// etc.) — same fuzzy-match input style as the Players filter (v1.2.0 §5).
+function renderCreateDropdown(matches) {
+  els.mergeCreateDropdown.innerHTML = "";
+  if (!matches.length) {
+    hideCreateDropdown();
+    return;
+  }
+
+  matches.forEach((record) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "player-option";
+
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+    const code = document.createElement("span");
+    code.textContent = record.team;
+
+    team.append(logo, code);
+    opt.append(name, team);
+    opt.addEventListener("click", () => addCreateMember(record));
+
+    els.mergeCreateDropdown.appendChild(opt);
+  });
+
+  els.mergeCreateDropdown.hidden = false;
+}
+
+function runCreateSearch() {
+  const query = els.mergeCreateInput.value.trim();
+  if (!query) {
+    hideCreateDropdown();
+    return;
+  }
+  // No exclusion set — an already-picked player is caught (and explained) in
+  // addCreateMember() instead, same "blocked, with a prompt" convention the
+  // Edit popup already uses. Pool is position-scoped only (v1.2.0 §4).
+  renderCreateDropdown(searchPlayersExcluding(query, pcsSearchPool(), new Set()));
+}
+
+// 5-per-card cap enforced at pick time (v1.2.0 §5) — deliberately does NOT
+// check the 8-player Workspace quota here; that's a Submit-time-only check
+// against the DISTINCT total (submitCreateMergePopup()), not the raw number
+// picked in the popup, per the spec.
+function addCreateMember(record) {
+  const key = record.player;
+  if (createSelection.has(key)) {
+    setCreateMessage(`${record.abbr_name || key} is already selected — pick someone else.`);
+    return;
+  }
+  if (createSelection.size >= MERGE_CARD_MAX_MEMBERS) {
+    setCreateMessage(`Merge Cards hold at most ${MERGE_CARD_MAX_MEMBERS} players — remove one first.`);
+    return;
+  }
+  createSelection.set(key, record);
+  renderCreateMembers();
+  setCreateMessage("");
+  els.mergeCreateInput.value = "";
+  runCreateSearch();
+}
+
+function removeCreateMember(key) {
+  createSelection.delete(key);
+  renderCreateMembers();
+}
+
+// Submit: the one point membership is checked against the duplicate-card
+// hash and the DISTINCT-player quota (v1.2.0 §5/CHANGE 5) — a player already
+// in the Workspace elsewhere costs nothing toward the 8. Mirrors
+// addMergeMember()'s "surface new members as Single Cards rows too" habit,
+// and — like the old performMerge() — does not open the members' floating
+// cards; their Single Cards rows are enough.
+function submitCreateMergePopup() {
+  if (createSelection.size < 2) {
+    setCreateMessage("Select at least 2 players for a merged card.");
+    return;
+  }
+
+  const memberKeys = Array.from(createSelection.keys());
+  if (findDuplicateMergeCard(memberKeys, null)) {
+    setCreateMessage("This merged card already exists.");
+    return;
+  }
+
+  const distinct = distinctWorkspacePlayers();
+  memberKeys.forEach((key) => distinct.add(key));
+  if (distinct.size > MERGE_QUOTA) {
+    setCreateMessage(
+      `Workspace full (${MERGE_QUOTA}/${MERGE_QUOTA}) — this card would add too many new players. Remove someone first.`
+    );
+    return;
+  }
+
+  const memberRecords = Array.from(createSelection.values());
+  memberRecords.forEach((record) => {
+    if (!workspaceSingles.has(record.player)) workspaceSingles.set(record.player, record);
+  });
+
+  createSelection.clear();
+  els.mergeCreateOverlay.hidden = true;
+  hideCreateDropdown();
   openMergeCard(memberRecords);
 }
 
@@ -1874,27 +2271,37 @@ function makeLinemateCell(record) {
 
 // One row per player, one column per metric, percentile-only cells
 // (BLUEPRINT.md §1.2) — never the raw value, never #rank/N.
-function openMergeCard(memberRecords) {
+// Builds/rebuilds a Merge Card's title, subtitle, and percentile table from
+// memberRecords — used both at creation (openMergeCard) and by the Edit
+// popup (rebuildMergeCardFromMembers, BLUEPRINT_PinnedPlayers.md §5) to
+// update an existing card in place after its membership changes, instead of
+// destroying/recreating the floating card. One row per player, one column
+// per metric, percentile-only cells (BLUEPRINT.md §1.2) — never the raw
+// value, never #rank/N.
+function renderMergeCardBody(cardEl, memberRecords) {
   const cat = appliedCategoryMeta();
-  const cardEl = els.mergeCardTemplate.content.firstElementChild.cloneNode(true);
-
-  const closeBtn = cardEl.querySelector(".scout-close");
-  const foldBtn = cardEl.querySelector(".scout-fold");
-  const dragHandle = cardEl.querySelector(".scout-drag-handle");
   const titleEl = cardEl.querySelector(".merge-card-title");
   const subtitleEl = cardEl.querySelector(".merge-card-subtitle");
+  const poolEl = cardEl.querySelector(".merge-card-pool");
   const table = cardEl.querySelector(".merge-table");
-
-  const id = nextCardId();
-  const memberKeys = memberRecords.map((r) => r.player);
 
   titleEl.textContent = `Merge Card · ${memberRecords.length} players`;
   subtitleEl.textContent = memberRecords.map((r) => r.abbr_name || r.player).join(" + ");
 
+  const pools = memberRecords.map((record) => ({ record, pool: positionPool(record.position) }));
+  const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
+    ? pools[0].record.position
+    : null;
+  poolEl.textContent = sharedPosition
+    ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition}.`
+    : `Percentiles calculated among ${pools
+        .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
+        .join(", ")}.`;
+
   const metricKeys = Object.keys(cat.metrics);
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Player", "Pool", "Games", cat.threshold_field, ...metricKeys, "Linemates"].forEach((label) => {
+  ["Player", "Linemates", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
     const th = document.createElement("th");
     th.textContent = label;
     headRow.appendChild(th);
@@ -1902,8 +2309,7 @@ function openMergeCard(memberRecords) {
   thead.appendChild(headRow);
 
   const tbody = document.createElement("tbody");
-  memberRecords.forEach((record) => {
-    const pool = positionPool(record.position);
+  pools.forEach(({ record, pool }) => {
     const tr = document.createElement("tr");
 
     const nameTd = document.createElement("td");
@@ -1911,10 +2317,7 @@ function openMergeCard(memberRecords) {
     nameTd.textContent = record.abbr_name || record.player;
     tr.appendChild(nameTd);
 
-    const poolTd = document.createElement("td");
-    poolTd.className = "merge-table-pool";
-    poolTd.textContent = `${cat.positions[record.position] || record.position}, n=${pool.length}`;
-    tr.appendChild(poolTd);
+    tr.appendChild(makeLinemateCell(record));
 
     const gamesTd = document.createElement("td");
     gamesTd.textContent = record.games ?? "—";
@@ -1932,22 +2335,40 @@ function openMergeCard(memberRecords) {
       tr.appendChild(td);
     });
 
-    tr.appendChild(makeLinemateCell(record));
     tbody.appendChild(tr);
   });
 
+  table.innerHTML = "";
   table.appendChild(thead);
   table.appendChild(tbody);
+}
+
+// Builds/mounts a Merge Card's floating DOM node onto an existing entry —
+// shared by openMergeCard() (fresh entry) and reopenMergeCard() (an entry
+// whose row survived a previous floating-card close, see
+// closeMergeCardFloating() below). Mirrors openScoutCard()'s own DOM-build
+// step; a reopen always starts from a clean node, same as a Player Card's
+// own close-then-reopen, so prior resize/position/fold state doesn't carry
+// over.
+function mountMergeCardElement(entry, memberRecords) {
+  const cardEl = els.mergeCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+
+  renderMergeCardBody(cardEl, memberRecords);
 
   els.scoutCards.appendChild(cardEl);
-  cascadeScoutCardPosition(cardEl); // must run before mergeCards.set() below
+  cascadeScoutCardPosition(cardEl); // reads openCardsCount(), so must run before entry.el is set below
   cardEl.classList.add("is-active");
   bringScoutCardToFront(cardEl);
-  attachScoutResize(cardEl);
 
-  const entry = { id, origin: "merge", memberKeys, el: cardEl, folded: false };
+  entry.el = cardEl;
+  entry.folded = false;
+  attachScoutResize(cardEl, entry);
 
-  closeBtn.addEventListener("click", () => closeMergeCard(id));
+  closeBtn.addEventListener("click", () => closeMergeCardFloating(entry.id));
   foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
   dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
   dragHandle.addEventListener("pointermove", onScoutDragMove);
@@ -1955,21 +2376,286 @@ function openMergeCard(memberRecords) {
   dragHandle.addEventListener("pointercancel", endScoutDrag);
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
 
-  mergeCards.set(id, entry);
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
-// Dissolve: releases the merged players' quota slots and removes the card.
-// No undo, no partial-unmerge — out of scope for v1.2.0 (BLUEPRINT.md §0).
+function openMergeCard(memberRecords) {
+  const id = nextCardId();
+  const memberKeys = memberRecords.map((r) => r.player);
+  const entry = { id, origin: "merge", memberKeys, el: null, folded: false };
+  mergeCards.set(id, entry);
+  mountMergeCardElement(entry, memberRecords);
+  renderPlayerCardsSpace();
+}
+
+// The floating card's own × — mirrors closeScoutCard()'s "view only" close
+// (BLUEPRINT_PinnedPlayers.md §3/§4 extended to Merge Cards): the entry
+// stays in mergeCards, so the Merged Cards row survives and reopenOrFocusMergeCard()
+// can bring the card back. Linemate Cards spawned from this card's rows are
+// left alone too, same as closeScoutCard() leaves a Player Card's.
+function closeMergeCardFloating(id) {
+  const entry = mergeCards.get(id);
+  if (!entry || !entry.el) return;
+  entry.el.remove();
+  entry.el = null;
+  updateScoutEmptyHint();
+}
+
+// Reopens a previously-closed Merge Card's floating view from its surviving
+// entry — the Merged Cards row's click target, see renderMergedList().
+function reopenMergeCard(id) {
+  const entry = mergeCards.get(id);
+  if (!entry || entry.el) return;
+  const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
+  mountMergeCardElement(entry, memberRecords);
+}
+
+function flashMergeCard(id) {
+  const entry = mergeCards.get(id);
+  if (!entry || !entry.el) return;
+  bringScoutCardToFront(entry.el);
+  entry.el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  entry.el.classList.remove("is-flash");
+  void entry.el.offsetWidth;
+  entry.el.classList.add("is-flash");
+  entry.el.addEventListener("animationend", () => entry.el.classList.remove("is-flash"), { once: true });
+}
+
+// Merged Cards row click (§4-style "admit or focus", extended to Merge
+// Cards): reopens the floating card if it's closed, or brings it to front
+// (flashed, scrolled into view) if it's already open somewhere off-screen.
+function reopenOrFocusMergeCard(id) {
+  const entry = mergeCards.get(id);
+  if (!entry) return;
+  if (entry.el) {
+    flashMergeCard(id);
+  } else {
+    reopenMergeCard(id);
+  }
+}
+
+// Dissolve: releases the merged players' quota slots and removes the card
+// entirely, row and all. Pinned Players' "Dismiss" button, and the Edit popup
+// auto-dissolving down to <= 1 remaining member (removeMergeMember()/
+// closeMergeEditPopup()), both call this — unlike the floating card's own ×
+// above, which only hides the view.
 function closeMergeCard(id) {
   const entry = mergeCards.get(id);
   if (!entry) return;
-  entry.el.remove();
+  if (entry.el) entry.el.remove();
   mergeCards.delete(id);
   entry.memberKeys.forEach((key) => closeLinemateCard(key));
   updateScoutEmptyHint();
-  updateMergeToolbar();
+  renderPlayerCardsSpace();
+}
+
+// --- Merge Card membership editor (BLUEPRINT_PinnedPlayers.md §5) --------
+// Its add pool is pcsSearchPool() (v1.2.0 §4) — the current position pool
+// only, same as the Create popup and the Single Cards add-search; merge
+// cards no longer cross positions.
+
+// The one merged card currently open in the popup, or null — single static
+// overlay instance (like #merge-confirm-overlay), repopulated per open.
+let mergeEditCardId = null;
+
+function setMergeEditMessage(text) {
+  els.mergeEditMessage.textContent = text || "";
+}
+
+function hideMergeEditDropdown() {
+  els.mergeEditDropdown.hidden = true;
+  els.mergeEditDropdown.innerHTML = "";
+}
+
+function openMergeEditPopup(id) {
+  const entry = mergeCards.get(id);
+  if (!entry) return;
+  mergeEditCardId = id;
+  renderMergeEditMembers(entry);
+  els.mergeEditInput.value = "";
+  hideMergeEditDropdown();
+  setMergeEditMessage("");
+  els.mergeEditOverlay.hidden = false;
+  els.mergeEditInput.focus();
+}
+
+// Closing the popup (Done, or Escape backing all the way out — both route
+// here) is the one point membership edits are checked against the <= 1
+// auto-dissolve rule, not each individual removeMergeMember() click — so the
+// user can freely remove members and see the card update live without it
+// disappearing out from under them until they're actually done editing.
+function closeMergeEditPopup() {
+  const id = mergeEditCardId;
+  mergeEditCardId = null;
+  els.mergeEditOverlay.hidden = true;
+  hideMergeEditDropdown();
+
+  if (id == null) return;
+  const entry = mergeCards.get(id);
+  if (!entry || entry.memberKeys.length > 1) return;
+
+  const survivorKey = entry.memberKeys[0];
+  closeMergeCard(id);
+  if (survivorKey && !workspaceSingles.has(survivorKey)) {
+    const survivorRecord = findRecordByPlayer(survivorKey);
+    if (survivorRecord) workspaceSingles.set(survivorKey, survivorRecord);
+  }
+  renderPlayerCardsSpace();
+}
+
+function renderMergeEditMembers(entry) {
+  els.mergeEditMembers.innerHTML = "";
+  entry.memberKeys.forEach((key) => {
+    const record = findRecordByPlayer(key);
+    const label = (record && (record.abbr_name || record.player)) || key;
+
+    const row = document.createElement("div");
+    row.className = "merge-edit-member";
+
+    const name = document.createElement("span");
+    name.className = "merge-edit-member-name";
+    name.textContent = label;
+    row.appendChild(name);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "merge-edit-member-remove";
+    removeBtn.setAttribute("aria-label", `Remove ${label}`);
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => removeMergeMember(entry.id, key));
+    row.appendChild(removeBtn);
+
+    els.mergeEditMembers.appendChild(row);
+  });
+}
+
+// Mirrors renderPlayersDropdown()'s markup/classes exactly (.player-option
+// etc.) for the "same fuzzy-match input style as the Players filter" rule.
+function renderMergeEditDropdown(matches) {
+  els.mergeEditDropdown.innerHTML = "";
+  if (!matches.length) {
+    hideMergeEditDropdown();
+    return;
+  }
+
+  matches.forEach((record) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "player-option";
+
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+    const code = document.createElement("span");
+    code.textContent = record.team;
+
+    team.append(logo, code);
+    opt.append(name, team);
+    opt.addEventListener("click", () => {
+      if (mergeEditCardId != null) addMergeMember(mergeEditCardId, record);
+    });
+
+    els.mergeEditDropdown.appendChild(opt);
+  });
+
+  els.mergeEditDropdown.hidden = false;
+}
+
+function runMergeEditSearch() {
+  const query = els.mergeEditInput.value.trim();
+  if (!query) {
+    hideMergeEditDropdown();
+    return;
+  }
+  // No exclusion set — an already-on-this-card pick is caught (and
+  // explained) defensively in addMergeMember() rather than hidden from the
+  // list, matching the checklist's "blocked, with a prompt" wording.
+  renderMergeEditDropdown(searchPlayersExcluding(query, pcsSearchPool(), new Set()));
+}
+
+// Rebuilds the floating Merge Card's title/subtitle/table from its current
+// memberKeys — the only place a merged member's record has to be looked up
+// fresh (findRecordByPlayer), since he may no longer be in workspaceSingles
+// (§4/§6: Remove doesn't touch merged instances).
+function rebuildMergeCardFromMembers(entry) {
+  if (!entry.el) return; // floating card closed (BLUEPRINT_PinnedPlayers.md §4-style) — nothing on screen to update
+  const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
+  renderMergeCardBody(entry.el, memberRecords);
+}
+
+// §5 Edit popup rules: blocks + explains a duplicate add, a 6th member, the
+// same 8-player hard cap as any other new admission, or a resulting
+// membership that would match another existing card's (CHANGE 5). Otherwise
+// appends, surfaces the new member as a Single Cards row too if he wasn't
+// already one (mirroring the invariant a normal Merge creates), and rebuilds
+// the card in place.
+function addMergeMember(id, record) {
+  const entry = mergeCards.get(id);
+  if (!entry) return;
+  const key = record.player;
+
+  if (entry.memberKeys.includes(key)) {
+    setMergeEditMessage(`${record.abbr_name || key} is already on this card — pick someone else.`);
+    return;
+  }
+  if (entry.memberKeys.length >= MERGE_CARD_MAX_MEMBERS) {
+    setMergeEditMessage(`Merge Cards hold at most ${MERGE_CARD_MAX_MEMBERS} players — remove one first.`);
+    return;
+  }
+  const distinct = distinctWorkspacePlayers();
+  if (!distinct.has(key) && distinct.size >= MERGE_QUOTA) {
+    setMergeEditMessage(
+      `Workspace full (${MERGE_QUOTA}/${MERGE_QUOTA}) — remove a player to add ${withTrailingPeriod(record.abbr_name || key)}`
+    );
+    return;
+  }
+  const proposedKeys = [...entry.memberKeys, key];
+  if (findDuplicateMergeCard(proposedKeys, id)) {
+    setMergeEditMessage("This merged card already exists.");
+    return;
+  }
+
+  entry.memberKeys = proposedKeys;
+  if (!workspaceSingles.has(key)) workspaceSingles.set(key, record);
+
+  rebuildMergeCardFromMembers(entry);
+  renderMergeEditMembers(entry);
+  setMergeEditMessage("");
+  els.mergeEditInput.value = "";
+  runMergeEditSearch();
+  renderPlayerCardsSpace();
+}
+
+// Removing a member down to <= 1 no longer dissolves the card immediately —
+// the popup stays open showing whatever's left, and the dissolve (with the
+// same "return the lone survivor to Single Cards" behavior as before) only
+// actually happens once the user hits Done, see closeMergeEditPopup(). A
+// removal that would leave this card's membership matching another existing
+// card's is blocked too (CHANGE 5) — the invariant holds on every mutation,
+// not just adds.
+function removeMergeMember(id, key) {
+  const entry = mergeCards.get(id);
+  if (!entry) return;
+  const remaining = entry.memberKeys.filter((k) => k !== key);
+  if (findDuplicateMergeCard(remaining, id)) {
+    setMergeEditMessage("This merged card already exists.");
+    return;
+  }
+  entry.memberKeys = remaining;
+  rebuildMergeCardFromMembers(entry);
+  renderMergeEditMembers(entry);
+  renderPlayerCardsSpace();
 }
 
 // Small, reliable hover/focus tooltip for elements where the native `title`
@@ -2098,7 +2784,6 @@ function closeLinemateCard(anchorKey) {
   entry.el.remove();
   linemateCards.delete(anchorKey);
   updateScoutEmptyHint();
-  updateMergeToolbar();
 }
 
 // Renders the visible slice of the roster (first 5 by snap count, or all of
@@ -2184,7 +2869,7 @@ function renderLinemateCardBody(entry) {
   const theadRow = document.createElement("tr");
   const RSWA_TOOLTIP =
     "Relative Snaps Weighted Average — each linemate's percentile weighted by his own " +
-    `share of roster's total ${thresholdFieldLabel(cat)} (weight = his snaps ÷ the roster's ` +
+    `share of roster's total ${thresholdFieldLabel(cat)} (weight = his snaps ÷ the filtered roster's ` +
     "total snaps), so a linemate who played more counts for more of line summary.";
   [
     { label: "Metric" },
@@ -2244,6 +2929,7 @@ function openLinemateCard(anchorRecord) {
   const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
 
   const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
   const listEl = cardEl.querySelector(".linemate-roster");
   const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
@@ -2275,9 +2961,18 @@ function openLinemateCard(anchorRecord) {
   cascadeScoutCardPosition(cardEl); // must run before linemateCards.set() below
   cardEl.classList.add("is-active");
   bringScoutCardToFront(cardEl);
-  attachScoutResize(cardEl);
+
+  // Shared by the fold button and the resize-driven auto-unfold (see
+  // beginScoutResize) so both paths reset "See more" the same way.
+  const onUnfold = () => {
+    entry.seeMore = false;
+    seeMoreBtn.textContent = "See more";
+    renderLinemateRoster(entry, entry.roster, listEl);
+  };
+  attachScoutResize(cardEl, entry, onUnfold);
 
   closeBtn.addEventListener("click", () => closeLinemateCard(anchorRecord.player));
+  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry, onUnfold));
   dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
   dragHandle.addEventListener("pointermove", onScoutDragMove);
   dragHandle.addEventListener("pointerup", endScoutDrag);
@@ -2286,15 +2981,163 @@ function openLinemateCard(anchorRecord) {
 
   linemateCards.set(anchorRecord.player, entry);
   updateScoutEmptyHint();
-  updateMergeToolbar();
+}
+
+// --- Pinned Players UI (BLUEPRINT_PinnedPlayers.md) ------------------
+
+// Pinned Players (quota bar + Single Cards / Merged Cards columns) is always
+// visible on desktop/tablet — unlike the old merge-toolbar it replaces, its
+// visibility isn't gated on any card being open (§2: "the quota counter
+// stays visible in BOTH [collapsed/expanded] states"). Called from every
+// place workspaceSingles/mergeCards change, plus the resize handler for the
+// breakpoint crossing. The Create button (v1.2.0 §5) is a static control —
+// no selection-count/disabled state to keep in sync here anymore, since the
+// Create popup runs its own checks at Submit time.
+function renderPlayerCardsSpace() {
+  const visible = isDesktopScoutLayout();
+  els.playerCardsSpace.hidden = !visible;
+  if (!visible) return;
+
+  const distinct = distinctWorkspacePlayers();
+  els.pcsQuotaLabel.textContent = `Pinned Players: ${distinct.size} / ${MERGE_QUOTA} Distinct Players.`;
+
+  renderSinglesList();
+  renderMergedList();
+}
+
+// Single Cards column (§1/§4): one row per Workspace player, name/team +
+// Remove (exits the Workspace). Entry is via the add-search box above the
+// list (runPcsAddSearch()/addPlayerToSingleCards()), not a plot click and
+// not a per-row Merge action (v1.2.0 §4/§5 — see the Create popup instead).
+function renderSinglesList() {
+  const empty = workspaceSingles.size === 0;
+  els.pcsSinglesList.hidden = empty;
+  els.pcsSinglesList.innerHTML = "";
+  if (empty) return;
+
+  workspaceSingles.forEach((record, key) => {
+    const row = document.createElement("div");
+    row.className = "pcs-row pcs-row--single is-clickable";
+    row.dataset.player = key;
+    // Reopens the floating card if it's been closed, or brings it to front
+    // (scrolled into view) if it's already open somewhere off-screen — this
+    // existing behavior is unchanged/reused as-is (v1.2.0 §4). Remove stops
+    // propagation so it keeps its own single-purpose click.
+    row.addEventListener("click", () => {
+      if (scoutCards.has(key)) {
+        flashFloatingCard(key);
+      } else {
+        openScoutCard(record);
+      }
+    });
+
+    const name = document.createElement("span");
+    name.className = "pcs-row-name";
+    name.textContent = record.abbr_name || key;
+    row.appendChild(name);
+
+    const meta = document.createElement("span");
+    meta.className = "pcs-row-meta";
+    meta.textContent = `${record.team} · ${record.position}`;
+    row.appendChild(meta);
+
+    const spacer = document.createElement("span");
+    spacer.className = "pcs-row-spacer";
+    row.appendChild(spacer);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "pcs-row-remove";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeSingleCard(key);
+    });
+    row.appendChild(removeBtn);
+
+    els.pcsSinglesList.appendChild(row);
+  });
+}
+
+// Merged Cards column (§1/§5): one row per Merge Card — open or closed, see
+// closeMergeCardFloating() — a short member-name summary + Edit (membership
+// popup) + Dismiss (closeMergeCard, the only full dissolve). The row itself
+// is clickable to reopen/focus the floating card, same "admit or focus"
+// pattern as Single Cards rows.
+function renderMergedList() {
+  const empty = mergeCards.size === 0;
+  els.pcsMergedEmpty.hidden = !empty;
+  els.pcsMergedList.hidden = empty;
+  els.pcsMergedList.innerHTML = "";
+  if (empty) return;
+
+  mergeCards.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "pcs-row is-clickable";
+    row.dataset.id = entry.id;
+    row.addEventListener("click", () => reopenOrFocusMergeCard(entry.id));
+
+    const names = entry.memberKeys.map((key) => {
+      const record = findRecordByPlayer(key);
+      return (record && (record.abbr_name || record.player)) || key;
+    });
+
+    const name = document.createElement("span");
+    name.className = "pcs-row-name";
+    name.textContent = `Merged — ${names.join(" · ")}`;
+    row.appendChild(name);
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "pcs-row-edit";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMergeEditPopup(entry.id);
+    });
+    row.appendChild(editBtn);
+
+    const dismissBtn = document.createElement("button");
+    dismissBtn.type = "button";
+    dismissBtn.className = "pcs-row-dismiss";
+    dismissBtn.textContent = "Dismiss";
+    dismissBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMergeCard(entry.id);
+    });
+    row.appendChild(dismissBtn);
+
+    els.pcsMergedList.appendChild(row);
+  });
+}
+
+// Manage (§2) — a panel that expands/collapses in place, deliberately not a
+// native <select>/dropdown. Manage is the only control for this now — no
+// separate close button inside the panel.
+function togglePlayerCardsSpacePanel() {
+  const next = els.pcsPanel.hidden;
+  els.pcsPanel.hidden = !next;
+  els.pcsInspectBtn.setAttribute("aria-expanded", String(next));
+  els.pcsInspectBtn.classList.toggle("is-open", next);
+}
+
+// Full Workspace wipe — Single Cards + Merged Cards together, per §9's
+// "Season/Category/Position/Threshold+Apply clear all Single Cards and
+// Merged Cards." Linemate Cards are handled separately in applyFilters()
+// (they only fully clear on a slice change, not threshold-only).
+function clearWorkspace() {
+  closeAllScoutCards();
+  workspaceSingles.clear();
+  clearMergeCards(); // already calls renderPlayerCardsSpace()
 }
 
 // --- Pool-change confirm modal (BLUEPRINT.md §4) -----------------------------
 
-// Resolves true (proceed) or false (cancel). Only ever shown when at least
-// one Merge Card exists — Linemate Cards refresh in place instead of being
-// dissolved (see refreshOpenLinemateCards() in applyFilters()), so they
-// don't warrant interrupting Apply either.
+// Resolves true (proceed) or false (cancel). Only ever shown when the
+// Workspace (Single Cards and/or Merged Cards, BLUEPRINT_PinnedPlayers.md
+// §9) is non-empty — Linemate Cards refresh in place instead of being
+// dissolved on a threshold-only change (see refreshOpenLinemateCards() in
+// applyFilters()), so they don't warrant interrupting Apply on their own.
 function showMergeInvalidationConfirm() {
   return new Promise((resolve) => {
     els.mergeConfirmOverlay.hidden = false;
@@ -2327,29 +3170,33 @@ async function applyFilters() {
     els.position.value !== appliedFilters.position;
   // Threshold isn't part of sliceChanged (no refetch needed — currentRecords
   // already holds every threshold value), but it does change which rows
-  // clear the bar, so it still invalidates Merge Card percentile pools
-  // exactly like a slice change does (BLUEPRINT.md §4). Axes/Teams/Players
-  // deliberately don't participate here — none of them affect
-  // currentFiltered/positionPool, see the "do NOT invalidate" list in §4.
+  // clear the bar, so it still invalidates the Workspace (Single Cards +
+  // Merged Cards) exactly like a slice change does
+  // (BLUEPRINT_PinnedPlayers.md §9 — a broader rule than the base
+  // BLUEPRINT.md §4's Merge-Card-only version it supersedes). Axes/Teams/
+  // Players deliberately don't participate here — none of them affect
+  // currentFiltered/positionPool, see the "do NOT invalidate" list in §4/§9.
   const thresholdChanged = els.thresholdNumber.value !== appliedFilters.threshold;
   const poolChanged = sliceChanged || thresholdChanged;
 
-  if (poolChanged && mergeCards.size > 0) {
+  const workspaceNonEmpty = workspaceSingles.size > 0 || mergeCards.size > 0;
+  if (poolChanged && workspaceNonEmpty) {
     const proceed = await showMergeInvalidationConfirm();
     if (!proceed) return; // Cancel aborts entirely — pending controls stay lit, nothing is fetched or cleared.
   }
   if (poolChanged) {
-    clearMergeCards();
+    clearWorkspace();
   }
 
   // A season/category/position change invalidates Linemate Cards outright
   // (different roster of possible linemates entirely) — a threshold-only
   // change doesn't get the same treatment: refreshOpenLinemateCards() below
-  // recomputes each open one's roster/percentiles in place instead, same as
-  // Player Cards via refreshOpenScoutCards().
+  // recomputes each open one's roster/percentiles in place instead. Player
+  // Cards no longer get a separate closeAllScoutCards() call here — they're
+  // already covered by clearWorkspace() above whenever poolChanged, and
+  // sliceChanged is always a poolChanged too.
   if (sliceChanged) {
     clearLinemateCards();
-    closeAllScoutCards();
     await loadCurrentSlice(); // may also reset/clamp the threshold controls
   }
 
@@ -2606,13 +3453,64 @@ function attachEvents() {
   // layout can take back over, see clearScoutCardDragPositions().
   window.addEventListener("resize", () => {
     if (!isDesktopScoutLayout()) clearScoutCardDragPositions();
-    // Merge/Linemate cards and the toolbar are desktop/tablet-only
+    // Merge/Linemate cards and Pinned Players are desktop/tablet-only
     // (BLUEPRINT.md §0) — a resize across the 860px breakpoint needs to
-    // re-evaluate the toolbar's own visibility either way.
-    updateMergeToolbar();
+    // re-evaluate Pinned Players' own visibility either way.
+    renderPlayerCardsSpace();
   });
 
-  els.mergeBtn.addEventListener("click", performMerge);
+  // Pinned Players collapse/expand (§2) — Manage does both, no separate
+  // close control inside the panel anymore.
+  els.pcsInspectBtn.addEventListener("click", () => togglePlayerCardsSpacePanel());
+
+  // Single Cards add-search (v1.2.0 §4) — same fuzzy-input conventions as
+  // the Players filter (input fires the live search; Enter commits the top
+  // suggestion; Escape backs out of the dropdown).
+  els.pcsAddInput.addEventListener("input", runPcsAddSearch);
+  els.pcsAddInput.addEventListener("focus", () => {
+    if (els.pcsAddInput.value.trim()) runPcsAddSearch();
+  });
+  els.pcsAddInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      hidePcsAddDropdown();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const first = els.pcsAddDropdown.querySelector(".player-option");
+      if (first) first.click();
+    }
+  });
+
+  // Create-merge popup (v1.2.0 §5) — replaces the old header Merge button.
+  els.pcsCreateBtn.addEventListener("click", openCreateMergePopup);
+  els.mergeCreateCancel.addEventListener("click", closeCreateMergePopup);
+  els.mergeCreateSubmit.addEventListener("click", submitCreateMergePopup);
+  els.mergeCreateInput.addEventListener("input", runCreateSearch);
+  els.mergeCreateInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!els.mergeCreateDropdown.hidden) hideCreateDropdown();
+      else closeCreateMergePopup();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const first = els.mergeCreateDropdown.querySelector(".player-option");
+      if (first) first.click();
+    }
+  });
+
+  // Merge Card membership editor (§5) — same fuzzy-input conventions as the
+  // Players filter (input fires the live search; Enter commits the top
+  // suggestion; Escape backs out one level at a time).
+  els.mergeEditInput.addEventListener("input", runMergeEditSearch);
+  els.mergeEditInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!els.mergeEditDropdown.hidden) hideMergeEditDropdown();
+      else closeMergeEditPopup();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const first = els.mergeEditDropdown.querySelector(".player-option");
+      if (first) first.click();
+    }
+  });
+  els.mergeEditDone.addEventListener("click", closeMergeEditPopup);
 
   // Deliberately no "click outside closes the card" handler here, unlike the
   // Teams/Players dropdowns and the filters drawer below. Those are
@@ -2643,6 +3541,16 @@ function attachEvents() {
     if (!els.filtersDrawer.classList.contains("open")) return;
     if (els.filtersDrawer.contains(e.target) || els.filtersToggle.contains(e.target)) return;
     closeFiltersDrawer();
+  });
+
+  // Refresh/close silently wipes the whole Workspace (BLUEPRINT_PinnedPlayers.md
+  // §7) — warn first so that isn't a silent loss of deliberate work. Skipped
+  // when the Workspace is empty (nothing to lose), same "skip unless
+  // non-empty" convention as showMergeInvalidationConfirm() above.
+  window.addEventListener("beforeunload", (e) => {
+    if (workspaceSingles.size === 0 && mergeCards.size === 0) return;
+    e.preventDefault();
+    e.returnValue = "";
   });
 }
 

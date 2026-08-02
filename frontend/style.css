@@ -1072,15 +1072,17 @@ body {
 }
 
 /* Fold/Unfold (BLUEPRINT.md §1.3) — two discrete states only, no continuous
-   resize. Player and Merge Cards are the only types with a fold button
-   (Linemate Cards have none, see their template); folding hides the card's
-   metric body and leaves just the header (.scout-card-top) — and, for a
-   Player Card, its always-visible .scout-card-actions row (merge-select +
-   linemate toggle), which should stay usable without unfolding first. No
-   inline height is ever set here, so there's no min-size clamp and nothing
-   can mid-row clip. */
+   resize, shared by all three card types. Folding hides the card's metric
+   body and leaves just the header (.scout-card-top) — and, for a Player
+   Card, its always-visible .scout-card-actions row (merge-select + linemate
+   toggle), which should stay usable without unfolding first. No inline
+   height is ever set here, so there's no min-size clamp and nothing can
+   mid-row clip. */
 .scout-card.is-folded .scout-stats,
-.scout-card.is-folded .merge-table-wrap {
+.scout-card.is-folded .merge-table-wrap,
+.scout-card.is-folded .linemate-roster,
+.scout-card.is-folded .linemate-see-more,
+.scout-card.is-folded .linemate-summary-wrap {
   display: none;
 }
 .scout-fold {
@@ -1142,8 +1144,9 @@ body {
    via .scout-card, wired in app.js's attachScoutResize()). Straddle the
    panel's border like a native window's resize grips — invisible until
    hovered so they don't clutter the card, but wide enough (10-14px) to grab
-   without pixel-hunting. Desktop-only and hidden while folded, see the
-   mobile media query and .is-folded rule below. */
+   without pixel-hunting. Desktop-only (see the mobile media query below) but
+   stay active while folded — a pull/push on a folded card auto-unfolds or
+   re-folds it in app.js, rather than the handles going dead. */
 .scout-resize-handle {
   position: absolute;
   z-index: 7;
@@ -1183,13 +1186,22 @@ body {
 .scout-resize-handle.scout-resize-nw { top: -6px; left: -6px; cursor: nwse-resize; }
 .scout-resize-handle.scout-resize-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
 .scout-resize-handle.scout-resize-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
-
-.scout-card.is-folded .scout-resize-handle { display: none; }
 /* Disables the panel's open/close max-height transition while an active
    drag would otherwise fight it every frame (BLUEPRINT.md pattern: same
    reasoning as .is-dragging above, just for the panel's own height). */
 .scout-card.is-resizing .scout-card-panel { transition: none; }
 .scout-card.is-resizing { user-select: none; }
+
+/* Flashes a floating card when the user re-clicks a player already in the
+   Workspace (BLUEPRINT_PinnedPlayers.md §4) — mirrors .pcs-row.is-flash's
+   pulse, scoped to the card's panel rather than the whole absolutely-
+   positioned .scout-card so it doesn't fight bringScoutCardToFront()'s
+   z-index bump. */
+@keyframes scout-card-flash {
+  0%, 100% { box-shadow: none; }
+  35% { box-shadow: 0 0 0 3px rgba(211, 167, 61, 0.55); }
+}
+.scout-card.is-flash .scout-card-panel { animation: scout-card-flash 0.6s ease; }
 
 .scout-logo-wrap {
   width: 52px; height: 52px;
@@ -1262,34 +1274,22 @@ body {
   min-width: 64px;
 }
 
-/* --- Player Card actions: merge-select + linemate toggle (BLUEPRINT.md §1/§2) ---
+/* --- Player Card actions: linemate toggle (BLUEPRINT.md §2) ---
    Sits between the header and the stats table, always visible — including
    while the card is folded, see .is-folded above — so a card doesn't need
-   to be unfolded to be selected for a merge or to pull up its linemates. */
+   to be unfolded to pull up its linemates. Merge selection moved to this
+   player's Single Cards row in the Pinned Players (see .pcs-row-merge
+   below) — BLUEPRINT_PinnedPlayers.md §4 — so this row now holds just the
+   one action; flex-end keeps it from stretching across the full width the
+   old two-item space-between layout needed. */
 .scout-card-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   padding-bottom: 12px;
   margin-bottom: 2px;
   border-bottom: 1px dashed var(--turf-600);
-}
-.card-merge-select {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--chalk-dim);
-  cursor: pointer;
-}
-.card-merge-select input {
-  accent-color: var(--flag-gold);
-  width: 14px;
-  height: 14px;
 }
 .card-linemate-toggle,
 .merge-row-linemate-toggle {
@@ -1319,10 +1319,16 @@ body {
 }
 .merge-row-linemate-toggle { padding: 3px 6px; font-size: 11px; }
 
-/* --- Merge toolbar --- persistent quota readout + Merge button
-   (BLUEPRINT.md §1.4), styled after .apply-btn/.png-btn's conventions.
-   Sits above the scout-cards overlay, inside .board. */
-.merge-toolbar {
+/* --- Pinned Players (BLUEPRINT_PinnedPlayers.md) ---
+   Persistent Workspace management region — replaces the old merge-toolbar.
+   Lives outside .board (see the comment on #player-cards-space in
+   index.html), styled after .apply-btn/.png-btn's conventions. */
+.player-cards-space {
+  margin: 18px 0;
+}
+.player-cards-space[hidden] { display: none; }
+
+.pcs-bar {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -1331,49 +1337,217 @@ body {
   background: var(--turf-800);
   border: 1px solid var(--turf-600);
   border-radius: 8px;
-  margin-bottom: -4px;
 }
-.merge-quota {
+.pcs-quota {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
-.merge-message {
-  flex: 1 1 auto;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--rush-clay);
-}
-.merge-btn {
+/* Same size/typography as .apply-btn (Apply) — an expand/collapse panel
+   toggle (§2: not a native select), but visually the row's primary action,
+   same gold treatment Apply gets in the filter bar. */
+.pcs-inspect-btn {
+  appearance: none;
+  -webkit-appearance: none;
   flex: none;
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 120px;
   background: var(--flag-gold);
   color: var(--turf-950);
   border: 1px solid var(--flag-gold);
   border-radius: 6px;
-  padding: 7px 16px;
+  padding: 9px 20px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
 }
-.merge-btn:hover,
-.merge-btn:focus-visible {
+.pcs-inspect-btn:hover,
+.pcs-inspect-btn:focus-visible {
   background: var(--flag-gold-bright);
   border-color: var(--flag-gold-bright);
+  outline: none;
 }
-.merge-btn:disabled {
+.pcs-inspect-btn .chevron {
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+.pcs-inspect-btn[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+.pcs-panel {
+  margin-top: 8px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.pcs-panel[hidden] { display: none; }
+
+.pcs-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 860px) {
+  .pcs-columns { grid-template-columns: 1fr; }
+}
+
+.pcs-column-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+}
+.pcs-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 37px; /* matches .merge-btn's rendered height, so Single/Merged Cards titles land on the same line */
+  margin-bottom: 8px;
+}
+.pcs-column-header .pcs-column-title { margin: 0; }
+
+/* Single Cards' add-search box (BLUEPRINT_PinnedPlayers.md v1.2.0 §4) —
+   .merge-edit-add/.merge-edit-input/.merge-edit-dropdown are reused wholesale
+   here (same fuzzy-match look as the Players filter and the Create/Edit
+   merge popups); this just adds the spacing before the list below it. */
+.pcs-add-wrap { margin-bottom: 10px; }
+
+.pcs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.pcs-empty {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--chalk-dim);
+  font-style: italic;
+}
+.pcs-empty[hidden] { display: none; }
+
+.pcs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--turf-700);
+}
+.pcs-row:last-child { border-bottom: none; }
+/* Single Cards rows double as a reopen/focus control for their floating
+   card (BLUEPRINT_PinnedPlayers.md §4) — Merged Cards rows don't get
+   this, they only act through their Edit/Dismiss buttons. */
+.pcs-row.is-clickable { cursor: pointer; }
+.pcs-row.is-clickable:hover { background: var(--turf-700); }
+.pcs-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--chalk);
+}
+/* Single Cards rows: name+meta sit together on the left instead of meta
+   getting flex-pushed next to the buttons — the name no longer grows to
+   fill the row, and a dedicated spacer takes that slack instead. */
+.pcs-row--single .pcs-row-name { flex: 0 1 auto; }
+.pcs-row-spacer { flex: 1 1 auto; }
+.pcs-row-meta {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--chalk-dim);
+}
+.pcs-row-remove,
+.pcs-row-edit,
+.pcs-row-dismiss {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
   background: var(--turf-700);
   color: var(--chalk-dim);
-  border-color: var(--turf-600);
+  border: 1px solid var(--turf-600);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pcs-row-remove:hover, .pcs-row-remove:focus-visible,
+.pcs-row-edit:hover, .pcs-row-edit:focus-visible,
+.pcs-row-dismiss:hover, .pcs-row-dismiss:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+
+/* Same size/typography as .png-btn (Save Plot) — black, the secondary-action
+   treatment, gold reserved for Manage/Apply. min-width matches
+   .pcs-inspect-btn's so Manage and Create render as the exact same size,
+   not just the same padding/font. */
+.merge-btn {
+  flex: none;
+  min-width: 120px;
+  background: #000;
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 9px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+}
+.merge-btn:hover,
+.merge-btn:focus-visible {
+  background: #1a1a1a;
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.merge-btn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 /* --- Merge Card table --- one row per player, one column per metric,
    percentile-only cells (BLUEPRINT.md §1.2). */
+/* Below the dashed .scout-card-top divider: the shared-pool sentence (Pool
+   column dropped from the table below, see renderMergeCardBody() — falls
+   back to listing each member's own pool if the card mixes positions), then
+   the scroll hint. One flex child of .scout-card-body so the two lines sit
+   close together instead of each taking the body's full 16px gap. */
+.merge-card-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.merge-card-pool,
+.merge-card-scroll-hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--chalk-dim);
+}
 .merge-table-wrap { overflow-x: auto; }
 .merge-table {
   width: 100%;
@@ -1401,11 +1575,6 @@ body {
   text-align: left;
   font-family: var(--font-body);
   font-weight: 600;
-}
-.merge-table .merge-table-pool {
-  text-align: left;
-  color: var(--chalk-dim);
-  font-size: 10.5px;
 }
 
 /* --- Linemate Association Card --- roster rows + 3M/RSWA summary
@@ -1552,6 +1721,60 @@ body {
   color: var(--flag-gold);
 }
 
+/* --- Workspace quota/cap notice popup --- same modal-overlay pattern as
+   .merge-confirm-overlay below, just a single acknowledgement button since
+   there's no decision to make, only a reason to see (showWorkspaceNotice()
+   in app.js). */
+.workspace-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.workspace-notice-overlay[hidden] { display: none; }
+.workspace-notice-box {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.workspace-notice-body {
+  margin: 0 0 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rush-clay);
+}
+.workspace-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.workspace-notice-ok {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
+}
+.workspace-notice-ok:hover,
+.workspace-notice-ok:focus-visible {
+  filter: brightness(1.1);
+  outline: none;
+}
+
 /* --- Pool-change confirm modal (BLUEPRINT.md §4) --- */
 .merge-confirm-overlay {
   position: fixed;
@@ -1619,6 +1842,143 @@ body {
 .merge-confirm-clear:hover,
 .merge-confirm-clear:focus-visible {
   filter: brightness(1.1);
+  outline: none;
+}
+
+/* --- Merge Card popups: Create + Edit (BLUEPRINT_PinnedPlayers.md v1.2.0
+   §5) --- .merge-edit-overlay/.merge-edit-box etc. are shared verbatim by
+   both #merge-create-overlay and #merge-edit-overlay (different ids, same
+   markup shape/classes) rather than duplicating the styling. Same
+   modal-overlay pattern as .merge-confirm-overlay above; the fuzzy-add
+   input/dropdown reuse .players-input/.players-dropdown/.player-option's
+   look wholesale (see runMergeEditSearch()/renderMergeEditDropdown() and
+   their Create-popup counterparts in app.js). */
+.merge-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.merge-edit-overlay[hidden] { display: none; }
+.merge-edit-box {
+  width: 100%;
+  max-width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.merge-edit-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--chalk);
+}
+.merge-edit-members {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.merge-edit-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.merge-edit-member-name {
+  font-size: 13px;
+  color: var(--chalk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.merge-edit-member-remove {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.merge-edit-member-remove:hover,
+.merge-edit-member-remove:focus-visible {
+  color: var(--flag-gold-bright);
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+.merge-edit-add { position: relative; }
+.merge-edit-input {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 8px 10px;
+}
+.merge-edit-input:focus {
+  outline: none;
+  border-color: var(--flag-gold);
+}
+.merge-edit-input::placeholder { color: var(--chalk-dim); }
+.merge-edit-dropdown {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 6px;
+}
+.merge-edit-dropdown[hidden] { display: none; }
+.merge-edit-message {
+  margin: 10px 0 0;
+  min-height: 1em;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--rush-clay);
+}
+.merge-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+.merge-edit-done {
+  border-radius: 6px;
+  padding: 8px 20px;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-edit-done:hover,
+.merge-edit-done:focus-visible {
+  background: var(--flag-gold-bright);
+  border-color: var(--flag-gold-bright);
   outline: none;
 }
 
@@ -1716,13 +2076,15 @@ body {
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
 
-  /* Merge Cards & Linemate Cards are desktop/tablet-only too (BLUEPRINT.md
-     §0) — app.js's isDesktopScoutLayout() guards already stop new ones from
-     opening below 860px; this hides the affordances that would start that
-     flow (the persistent toolbar, and each Player Card's merge-select/
+  /* Merge Cards, Linemate Cards, and Pinned Players are desktop/
+     tablet-only too (BLUEPRINT.md §0, BLUEPRINT_PinnedPlayers.md's own
+     "Not rendered on mobile" checklist item) — app.js's
+     isDesktopScoutLayout() guards already stop new ones from opening below
+     860px and already [hidden]-gate Pinned Players itself; this hides the
+     remaining affordance that would start that flow (each Player Card's
      linemate-toggle row) so the mobile card body is exactly what v1.1.0
      shipped. */
-  .merge-toolbar,
+  .player-cards-space,
   .scout-card-actions,
   .scout-resize-handle {
     display: none;

@@ -113,6 +113,7 @@ class PassBlockStat(Base):
 
 def pass_rush_row_to_dict(row: PassRushStat) -> dict:
     return {
+        "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
@@ -132,6 +133,7 @@ def pass_rush_row_to_dict(row: PassRushStat) -> dict:
 
 def pass_block_row_to_dict(row: PassBlockStat) -> dict:
     return {
+        "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
