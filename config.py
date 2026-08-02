@@ -15,7 +15,7 @@ ALLOWED_HAVOC_RATE_NOTE = (
     "Allowed Havoc Rate = (Sacks + QB Hits) / Non Spike Pass Block Snaps."
 )
 
-# Default thresholds applied on page load.
+# Default "historical seasons'" thresholds applied on page load.
 DEFAULT_THRESHOLDS = {
     "pass_rush": 230,  # Min PR Opp for pass rush filter.
     "pass_block": 300,  # Min Non Spike PB Snaps for pass block filter.
