@@ -63,6 +63,28 @@ def seeded_db():
             )
         )
 
+        # Second position within the same season/category as the ED row above,
+        # so a no-position request has something real to aggregate (see
+        # test_pass_rush_no_position_returns_all_positions).
+        sess.add(
+            PassRushStat(
+                season=2025,
+                position="DI",
+                team_code="BUF",
+                player="D. Test",
+                abbr_name="D. Test",
+                games=17,
+                pr_opp=280,
+                tps_pr_opp=110,
+                win_rate=12.0,
+                tps_win_rate=14.0,
+                pressure_rate=18.0,
+                tps_pressure_rate=22.0,
+                havoc_rate=7.0,
+                tps_havoc_rate=9.0,
+            )
+        )
+
         sess.add(
             PassBlockStat(
                 season=2025,
@@ -77,6 +99,24 @@ def seeded_db():
                 tps_allowed_pressure_pct=6.0,
                 allowed_havoc_pct=2.0,
                 tps_allowed_havoc_pct=3.0,
+            )
+        )
+
+        # Second position, mirrors the pass-rush DI row above.
+        sess.add(
+            PassBlockStat(
+                season=2025,
+                position="G",
+                team_code="MIA",
+                player="G. Uard",
+                abbr_name="G. Uard",
+                games=17,
+                non_spike_pb_snaps=450,
+                tps_non_spike_pb_snaps=180,
+                allowed_pressure_pct=4.0,
+                tps_allowed_pressure_pct=5.0,
+                allowed_havoc_pct=1.5,
+                tps_allowed_havoc_pct=2.5,
             )
         )
 

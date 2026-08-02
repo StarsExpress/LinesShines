@@ -3,7 +3,7 @@
 Reads `front_7_pass_rush/{season}.xlsx` and
 `ol_pass_block/{season}.xlsx` files that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
-produce, and upserts them into `pass_rush_stats` / `pass_block_stats` tables.
+produce, and bulk-inserts them into `pass_rush_stats` / `pass_block_stats` tables.
 
 Idempotent: rerunning for same season/position first deletes existing
 rows for that slice, then bulk-inserts fresh ones — cleaner than
@@ -107,7 +107,7 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
 
             position_df.dropna(subset=["PR Opp"], inplace=True)
 
-            # Wipe slice before reinserting: simplest cross-dialect upsert.
+            # Wipe slice before re-insertion.
             sess.execute(
                 delete(PassRushStat).where(
                     PassRushStat.season == season,

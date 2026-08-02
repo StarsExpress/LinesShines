@@ -31,6 +31,17 @@ def test_pass_rush_rejects_unknown_position(client, seeded_db):
     assert resp.status_code == 400
 
 
+def test_pass_rush_no_position_returns_all_positions(client, seeded_db):
+    resp = client.get("/api/pass_rush", params={"season": 2025})
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["position"] is None
+    positions = {r["position"] for r in body["records"]}
+    assert positions == {"ED", "DI"}
+    assert len(body["records"]) == 2
+
+
 def test_pass_rush_requires_query_params(client):
     resp = client.get("/api/pass_rush")
     assert resp.status_code == 422
@@ -49,6 +60,17 @@ def test_pass_block_returns_seeded_row(client, seeded_db):
 def test_pass_block_rejects_unknown_position(client, seeded_db):
     resp = client.get("/api/pass_block", params={"season": 2025, "position": "XX"})
     assert resp.status_code == 400
+
+
+def test_pass_block_no_position_returns_all_positions(client, seeded_db):
+    resp = client.get("/api/pass_block", params={"season": 2025})
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["position"] is None
+    positions = {r["position"] for r in body["records"]}
+    assert positions == {"T", "G"}
+    assert len(body["records"]) == 2
 
 
 def test_pass_rush_unknown_season_returns_empty(client, seeded_db):

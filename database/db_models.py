@@ -38,6 +38,7 @@ class PassRushStat(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     season = Column(Integer, nullable=False)
+
     position = Column(String(4), nullable=False)  # DI / ED.
     team_code = Column(String(4), ForeignKey("teams.code"), nullable=False)
     player = Column(String, nullable=False)
@@ -46,10 +47,13 @@ class PassRushStat(Base):
     games = Column(Integer)
     pr_opp = Column(Integer)  # PR Opp.
     tps_pr_opp = Column(Integer)  # TPS PR Opp.
+
     win_rate = Column(Float)  # Win Rate.
     tps_win_rate = Column(Float)  # TPS Win Rate.
+
     pressure_rate = Column(Float)  # Pressure Rate.
     tps_pressure_rate = Column(Float)  # TPS Pressure Rate.
+
     havoc_rate = Column(Float)  # Havoc Rate.
     tps_havoc_rate = Column(Float)  # TPS Havoc Rate.
 
@@ -72,7 +76,8 @@ class PassBlockStat(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     season = Column(Integer, nullable=False)
-    position = Column(String(4), nullable=False)  # T / G / C
+
+    position = Column(String(4), nullable=False)  # T / G / C.
     team_code = Column(String(4), ForeignKey("teams.code"), nullable=False)
     player = Column(String, nullable=False)
     abbr_name = Column(String, nullable=False)
@@ -80,8 +85,10 @@ class PassBlockStat(Base):
     games = Column(Integer)
     non_spike_pb_snaps = Column(Integer)  # Non Spike PB Snaps.
     tps_non_spike_pb_snaps = Column(Integer)  # TPS Non Spike PB Snaps.
+
     allowed_pressure_pct = Column(Float)  # Allowed Pressure %.
     tps_allowed_pressure_pct = Column(Float)  # TPS Allowed Pressure %.
+
     allowed_havoc_pct = Column(Float)  # Allowed Havoc %.
     tps_allowed_havoc_pct = Column(Float)  # TPS Allowed Havoc %.
 
@@ -101,11 +108,12 @@ class PassBlockStat(Base):
 
 # Serialization helpers used by main.py to keep API payload shape
 # identical to what frontend already expects (space-and-mixed-case keys
-# preserved so no client-side renaming is needed). ---
+# preserved so no client-side renaming is needed).
 
 
 def pass_rush_row_to_dict(row: PassRushStat) -> dict:
     return {
+        "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
@@ -125,6 +133,7 @@ def pass_rush_row_to_dict(row: PassRushStat) -> dict:
 
 def pass_block_row_to_dict(row: PassBlockStat) -> dict:
     return {
+        "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
