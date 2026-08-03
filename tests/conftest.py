@@ -63,7 +63,7 @@ def seeded_db():
             )
         )
 
-        # Second position within the same season/category as the ED row above,
+        # Second position within same season/category as ED row above,
         # so a no-position request has something real to aggregate (see
         # test_pass_rush_no_position_returns_all_positions).
         sess.add(
@@ -102,7 +102,7 @@ def seeded_db():
             )
         )
 
-        # Second position, mirrors the pass-rush DI row above.
+        # Second position, mirrors pass-rush DI row above.
         sess.add(
             PassBlockStat(
                 season=2025,

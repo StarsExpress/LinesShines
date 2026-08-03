@@ -293,6 +293,36 @@ export function submitCreateMergePopup() {
   openMergeCard(memberRecords);
 }
 
+// Metadata columns (Player, Team, Linemates) stay frozen in place while
+// Games/PR Opp and the metric columns scroll horizontally, Excel
+// frozen-pane style — see applyStickyMetaColumns() below.
+const META_COLUMN_COUNT = 3;
+
+// A single <td> holding this row's team logo+code — mirrors the
+// .player-option-team markup used by the Create/Edit popups' search
+// dropdowns (logoSrc()/teamSwatch() fallback), just inside a table cell.
+export function makeTeamCell(record) {
+  const td = document.createElement("td");
+  td.className = "merge-table-team";
+
+  const wrap = document.createElement("span");
+  wrap.className = "merge-table-team-inner";
+
+  const logo = document.createElement("img");
+  logo.className = "merge-table-team-logo";
+  logo.src = logoSrc(record.team);
+  logo.alt = "";
+  logo.loading = "lazy";
+  logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+
+  const code = document.createElement("span");
+  code.textContent = record.team;
+
+  wrap.append(logo, code);
+  td.appendChild(wrap);
+  return td;
+}
+
 // A single <td> holding this row's linemate-toggle — shared by every row in
 // a Merge Card's table (BLUEPRINT.md §2.1: one linemate toggle per merged
 // member, no team-level dedupe even when two members share a team).
@@ -324,7 +354,7 @@ export function renderMergeCardBody(cardEl, memberRecords) {
   const poolEl = cardEl.querySelector(".merge-card-pool");
   const table = cardEl.querySelector(".merge-table");
 
-  titleEl.textContent = `Merge Card · ${memberRecords.length} players`;
+  titleEl.textContent = `Merge Card · ${memberRecords.length} Players`;
   subtitleEl.textContent = memberRecords.map((r) => r.abbr_name || r.player).join(" + ");
 
   const pools = memberRecords.map((record) => ({ record, pool: positionPool(record.position) }));
@@ -340,7 +370,7 @@ export function renderMergeCardBody(cardEl, memberRecords) {
   const metricKeys = Object.keys(cat.metrics);
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Player", "Linemates", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
+  ["Player", "Team", "Linemates", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
     const th = document.createElement("th");
     th.textContent = label;
     headRow.appendChild(th);
@@ -356,6 +386,7 @@ export function renderMergeCardBody(cardEl, memberRecords) {
     nameTd.textContent = record.abbr_name || record.player;
     tr.appendChild(nameTd);
 
+    tr.appendChild(makeTeamCell(record));
     tr.appendChild(makeLinemateCell(record));
 
     const gamesTd = document.createElement("td");
@@ -380,6 +411,39 @@ export function renderMergeCardBody(cardEl, memberRecords) {
   table.innerHTML = "";
   table.appendChild(thead);
   table.appendChild(tbody);
+
+  // Deferred a frame: on first build, table is still off-DOM here (the
+  // caller appends cardEl to els.scoutCards after this returns), so column
+  // widths aren't measurable yet. rAF fires after that append lands.
+  requestAnimationFrame(() => applyStickyMetaColumns(table));
+}
+
+// Freezes the Player/Team/Linemates columns (BLUEPRINT.md §1.2 extended) in
+// place while Games/PR Opp and the metric columns scroll underneath them,
+// Excel frozen-pane style. Measures each metadata column's actual rendered width
+// off the header row (uniform per column across every row in a <table>) so
+// it holds regardless of player-name length or which metrics are showing —
+// no hardcoded pixel widths to keep in sync with content.
+export function applyStickyMetaColumns(table) {
+  const headerCells = table.querySelectorAll("thead th");
+  if (!headerCells.length) return;
+
+  const offsets = [];
+  let left = 0;
+  for (let i = 0; i < META_COLUMN_COUNT && i < headerCells.length; i++) {
+    offsets.push(left);
+    left += headerCells[i].getBoundingClientRect().width;
+  }
+
+  table.querySelectorAll("tr").forEach((tr) => {
+    offsets.forEach((offsetLeft, i) => {
+      const cell = tr.children[i];
+      if (!cell) return;
+      cell.classList.add("merge-table-frozen");
+      cell.classList.toggle("merge-table-frozen-edge", i === offsets.length - 1);
+      cell.style.left = `${offsetLeft}px`;
+    });
+  });
 }
 
 // Builds/mounts a Merge Card's floating DOM node onto an existing entry —
@@ -408,7 +472,13 @@ export function mountMergeCardElement(entry, memberRecords) {
   attachScoutResize(cardEl, entry);
 
   closeBtn.addEventListener("click", () => closeMergeCardFloating(entry.id));
-  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
+  // onUnfold recomputes sticky-column offsets: if membership changed via the
+  // Edit popup while this card sat folded (merge-table-wrap display:none),
+  // applyStickyMetaColumns() would have measured zero-width columns — this
+  // catches it back up the moment the body becomes visible again.
+  foldBtn.addEventListener("click", () =>
+    toggleCardFold(cardEl, entry, () => applyStickyMetaColumns(cardEl.querySelector(".merge-table")))
+  );
   dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
   dragHandle.addEventListener("pointermove", onScoutDragMove);
   dragHandle.addEventListener("pointerup", endScoutDrag);

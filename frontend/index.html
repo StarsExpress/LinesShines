@@ -234,19 +234,29 @@
         <div class="pcs-column">
           <div class="pcs-column-header">
             <h3 class="pcs-column-title">Single Cards</h3>
+            <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
+                 v1.2.0 §4) — a plot click no longer adds here, it only opens
+                 the floating card (see viewFloatingCard() in app.js). Same
+                 fuzzy-match input/dropdown style as the Players filter, reused
+                 wholesale via .merge-edit-input/.merge-edit-dropdown. Sits in
+                 the header row alongside the title, mirroring the Merged
+                 Cards column's title+Create layout. -->
+            <div class="merge-edit-add pcs-add-wrap">
+              <input type="text" id="pcs-add-input" class="merge-edit-input"
+                     placeholder="Search…" autocomplete="off" />
+              <div class="merge-edit-dropdown" id="pcs-add-dropdown" hidden></div>
+            </div>
           </div>
-          <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
-               v1.2.0 §4) — a plot click no longer adds here, it only opens
-               the floating card (see viewFloatingCard() in app.js). Same
-               fuzzy-match input/dropdown style as the Players filter, reused
-               wholesale via .merge-edit-input/.merge-edit-dropdown. -->
-          <div class="merge-edit-add pcs-add-wrap">
-            <input type="text" id="pcs-add-input" class="merge-edit-input"
-                   placeholder="Type a player's name to add a card..." autocomplete="off" />
-            <div class="merge-edit-dropdown" id="pcs-add-dropdown" hidden></div>
-          </div>
+          <!-- The input's own placeholder is too short at its Create-button-
+               matched width to carry the instruction anymore — this static
+               line stands in for it, in the same row position as the Merged
+               Cards column's own hint ("Click Create...", #pcs-merged-empty)
+               below its header. -->
+          <p class="pcs-empty">Type a player's name to add a card.</p>
           <div class="pcs-list" id="pcs-singles-list"></div>
         </div>
+
+        <div class="pcs-columns-divider" aria-hidden="true"></div>
 
         <div class="pcs-column">
           <div class="pcs-column-header">

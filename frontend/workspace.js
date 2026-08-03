@@ -261,7 +261,7 @@ export function renderMergedList() {
 
     const name = document.createElement("span");
     name.className = "pcs-row-name";
-    name.textContent = `Merged — ${names.join(" · ")}`;
+    name.textContent = names.join(" · ");
     row.appendChild(name);
 
     const editBtn = document.createElement("button");

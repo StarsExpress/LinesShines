@@ -1,6 +1,6 @@
-"""Guards against the data/ and frontend/ layouts silently drifting.
+"""Guards against data/ and frontend/ layouts silently drifting.
 
-These are the two paths that broke before: the /logos mount pointed at a
+These are two paths that broke before: /logos mount pointed at a
 folder that didn't exist, and data/ was flat with descriptive filenames
 that preprocessing/db_ingestion had to reproduce exactly by hand.
 
