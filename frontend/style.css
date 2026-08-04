@@ -1587,6 +1587,8 @@ body {
   font-size: 10px;
 }
 .merge-table td { color: var(--chalk); }
+.merge-metric-cell { cursor: help; }
+.merge-metric-cell:hover { color: var(--flag-gold); }
 .merge-table .merge-table-name,
 .merge-table th:first-child {
   text-align: left;
@@ -1666,11 +1668,24 @@ thead .merge-table-frozen { z-index: 3; }
   padding-bottom: 8px;
   border-bottom: 1px dashed var(--turf-600);
 }
+.linemate-row-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .linemate-row-name {
   font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--chalk);
+}
+.linemate-row-hint {
+  color: var(--chalk-dim);
+  font-size: 10px;
+  cursor: help;
+}
+.linemate-row-name-wrap:hover .linemate-row-hint {
+  color: var(--flag-gold);
 }
 .linemate-row-cells {
   display: flex;

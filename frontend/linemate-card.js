@@ -194,10 +194,26 @@ export function renderLinemateRoster(entry, roster, listEl) {
     const row = document.createElement("div");
     row.className = "linemate-row";
 
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "linemate-row-name-wrap";
+
     const name = document.createElement("span");
     name.className = "linemate-row-name";
     name.textContent = `${t.position} — ${t.abbr_name || t.player}`;
-    row.appendChild(name);
+    nameWrap.appendChild(name);
+
+    // Same fa-circle-info + attachAppTooltip pattern as the card title hint
+    // and the summary table's RSWA header hint — not the CSS-only
+    // .info-hint::after popup the Players filter uses, since that would get
+    // clipped by this list's own scrolling ancestor.
+    const snapsHint = document.createElement("i");
+    snapsHint.className = "fa-solid fa-circle-info linemate-row-hint";
+    const snapsText = `${t[cat.threshold_field]} ${thresholdFieldLabel(cat)}.`;
+    snapsHint.setAttribute("aria-label", snapsText);
+    attachAppTooltip(snapsHint, snapsText);
+    nameWrap.appendChild(snapsHint);
+
+    row.appendChild(nameWrap);
 
     const cellsWrap = document.createElement("div");
     cellsWrap.className = "linemate-row-cells";

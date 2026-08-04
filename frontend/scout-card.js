@@ -24,6 +24,7 @@ import {
   updateScoutEmptyHint,
 } from "./cards-base.js";
 import { toggleLinemateCard } from "./linemate-card.js";
+import { DISPLAY_DECIMALS } from "./config.js";
 
 // Live floating Player Cards, one per currently-open card, keyed by the same
 // full "player" string selectedPlayers/prunePlayerSelections use elsewhere —
@@ -35,10 +36,13 @@ import { toggleLinemateCard } from "./linemate-card.js";
 // see workspaceSingles above.
 export const scoutCards = new Map();
 
+// Rounds to DISPLAY_DECIMALS for display only — the underlying record (and
+// everything plotted from it) keeps its full DB precision untouched.
 export function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
-  return `${value}${unit}`;
+  const rounded = typeof value === "number" ? value.toFixed(DISPLAY_DECIMALS) : value;
+  return `${rounded}${unit}`;
 }
 
 // Builds/rebuilds a Player Card's stat rows (value + rank/percentile) — used

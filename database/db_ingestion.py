@@ -10,12 +10,12 @@ rows for that slice, then bulk-inserts fresh ones — cleaner than
 per-row upsert and dialect-agnostic (works on both SQLite and Postgres).
 
 Usage:
-1. Must always go from repo root.
+1. Must always go from project root.
 2. After running two preprocessing scripts.
 3. python -m database.db_ingestion
 
 For Railway, set DATABASE_URL to Postgres URL Railway assigns.
-Point LINESHINES_REPO_ROOT at LinesShines repo root so scripts can
+Point LINESHINES_REPO_ROOT at LinesShines project root so scripts can
 locate xlsx files under $LINESHINES_REPO_ROOT/data/.
 """
 
@@ -37,14 +37,14 @@ FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
 
 
-def _find_repo_root() -> Path:
-    """Walk up from this file until we find a marker that identifies the repo root."""
+def _find_project_root() -> Path:
+    """Walk up from this file until we find a marker that identifies project root."""
     here = Path(__file__).resolve().parent
     for candidate in [here, *here.parents]:
         if (candidate / ".gitignore").exists():
             return candidate  # Root is found.
 
-    raise RuntimeError("could not locate repo root from " + str(here))
+    raise RuntimeError("could not locate project root from " + str(here))
 
 
 def _repo_root() -> Path:
@@ -64,7 +64,7 @@ def _repo_root() -> Path:
     if env_root:
         return Path(env_root) / "data"
 
-    return _find_repo_root() / "data"
+    return _find_project_root() / "data"
 
 
 def _safe_int(val):
@@ -238,7 +238,7 @@ def main() -> None:
         pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
 
     print(
-        f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
+        f"\nBulk-inserted {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
     )
 
 

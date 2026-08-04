@@ -51,7 +51,7 @@ import {
   updateScoutEmptyHint,
   withTrailingPeriod,
 } from "./cards-base.js";
-import { toggleLinemateCard, closeLinemateCard } from "./linemate-card.js";
+import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 
 // Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
@@ -401,7 +401,12 @@ export function renderMergeCardBody(cardEl, memberRecords) {
       const meta = cat.metrics[key];
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
       const td = document.createElement("td");
+      td.className = "merge-metric-cell";
       td.textContent = rank ? ordinal(rank.percentile) : "—";
+      // Displayed text stays percentile-only (BLUEPRINT.md §1.2); the exact
+      // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
+      // Cards' percentile cells.
+      attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[record.position] || record.position}` : key);
       tr.appendChild(td);
     });
 

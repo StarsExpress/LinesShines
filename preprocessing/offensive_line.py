@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from config import DATA_FOLDER_PATH, OL_NAMES, ROUNDING_DIGITS
+from config import DATA_FOLDER_PATH, OL_NAMES, ROUNDING_DECIMALS
 from utils.renamers import rename_pass_block_columns, shorten_first_name
 
 
@@ -25,7 +25,7 @@ def preprocess_offensive_line(season: int) -> None:
 
         positional_df["Havoc %"].fillna(inplace=True, value=0)
         positional_df["Havoc %"] *= 100
-        positional_df["Havoc %"] = positional_df["Havoc %"].round(ROUNDING_DIGITS)
+        positional_df["Havoc %"] = positional_df["Havoc %"].round(ROUNDING_DECIMALS)
 
         positional_df["Pressure %"] = (
             positional_df["Pressures"] / positional_df["Non Spike PB Snaps"]
@@ -33,7 +33,7 @@ def preprocess_offensive_line(season: int) -> None:
 
         positional_df["Pressure %"].fillna(inplace=True, value=0)
         positional_df["Pressure %"] *= 100
-        positional_df["Pressure %"] = positional_df["Pressure %"].round(ROUNDING_DIGITS)
+        positional_df["Pressure %"] = positional_df["Pressure %"].round(ROUNDING_DECIMALS)
 
         positional_df["TPS Havoc"] = (
             positional_df["TPS Sacks"] + positional_df["TPS Hits"]
@@ -46,7 +46,7 @@ def preprocess_offensive_line(season: int) -> None:
         positional_df["TPS Havoc %"].fillna(inplace=True, value=0)
         positional_df["TPS Havoc %"] *= 100
         positional_df["TPS Havoc %"] = positional_df["TPS Havoc %"].round(
-            ROUNDING_DIGITS
+            ROUNDING_DECIMALS
         )
 
         positional_df["TPS Pressure %"] = (
@@ -56,7 +56,7 @@ def preprocess_offensive_line(season: int) -> None:
         positional_df["TPS Pressure %"].fillna(inplace=True, value=0)
         positional_df["TPS Pressure %"] *= 100
         positional_df["TPS Pressure %"] = positional_df["TPS Pressure %"].round(
-            ROUNDING_DIGITS
+            ROUNDING_DECIMALS
         )
 
         positional_df.rename(

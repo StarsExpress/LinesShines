@@ -5,7 +5,8 @@ import os
 NFL_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER_PATH = os.path.join(NFL_BASE_PATH, "data")
 
-ROUNDING_DIGITS = 1
+ROUNDING_DECIMALS = 3  # Better precision alleviates overlaps in plots.
+DISPLAY_DECIMALS = 1  # For UI displays only.
 
 FRONT_7_NAMES = {"DI": "Defensive Interior", "ED": "Edge", "LB": "Linebacker"}
 OL_NAMES = {"T": "Offensive Tackles", "G": "Guards", "C": "Centers"}
