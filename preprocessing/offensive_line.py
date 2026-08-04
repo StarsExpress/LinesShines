@@ -33,7 +33,9 @@ def preprocess_offensive_line(season: int) -> None:
 
         positional_df["Pressure %"].fillna(inplace=True, value=0)
         positional_df["Pressure %"] *= 100
-        positional_df["Pressure %"] = positional_df["Pressure %"].round(ROUNDING_DECIMALS)
+        positional_df["Pressure %"] = positional_df["Pressure %"].round(
+            ROUNDING_DECIMALS
+        )
 
         positional_df["TPS Havoc"] = (
             positional_df["TPS Sacks"] + positional_df["TPS Hits"]

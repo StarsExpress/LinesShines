@@ -19,14 +19,18 @@ def preprocess_front_7(season: int) -> None:
         positional_df = pass_rush_df[pass_rush_df["Position"] == position]
 
         positional_df["Avg PR Opp"] = positional_df["PR Opp"] / positional_df["Games"]
-        positional_df["Avg PR Opp"] = positional_df["Avg PR Opp"].round(ROUNDING_DECIMALS)
+        positional_df["Avg PR Opp"] = positional_df["Avg PR Opp"].round(
+            ROUNDING_DECIMALS
+        )
 
         positional_df["Havoc"] = positional_df["Sacks"] + positional_df["Hits"]
         positional_df["Havoc Rate"] = positional_df["Havoc"] / positional_df["PR Opp"]
 
         positional_df["Havoc Rate"].fillna(inplace=True, value=0)
         positional_df["Havoc Rate"] *= 100
-        positional_df["Havoc Rate"] = positional_df["Havoc Rate"].round(ROUNDING_DECIMALS)
+        positional_df["Havoc Rate"] = positional_df["Havoc Rate"].round(
+            ROUNDING_DECIMALS
+        )
 
         positional_df["Pressure Rate"] = (
             positional_df["Pressures"] / positional_df["PR Opp"]
