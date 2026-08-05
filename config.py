@@ -5,7 +5,8 @@ import os
 NFL_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER_PATH = os.path.join(NFL_BASE_PATH, "data")
 
-ROUNDING_DIGITS = 1
+ROUNDING_DECIMALS = 3  # Better precision alleviates overlaps in plots.
+DISPLAY_DECIMALS = 1  # For UI displays only.
 
 FRONT_7_NAMES = {"DI": "Defensive Interior", "ED": "Edge", "LB": "Linebacker"}
 OL_NAMES = {"T": "Offensive Tackles", "G": "Guards", "C": "Centers"}
@@ -15,7 +16,7 @@ ALLOWED_HAVOC_RATE_NOTE = (
     "Allowed Havoc Rate = (Sacks + QB Hits) / Non Spike Pass Block Snaps."
 )
 
-# Default thresholds applied on page load.
+# Default "historical seasons'" thresholds applied on page load.
 DEFAULT_THRESHOLDS = {
     "pass_rush": 230,  # Min PR Opp for pass rush filter.
     "pass_block": 300,  # Min Non Spike PB Snaps for pass block filter.

@@ -35,10 +35,11 @@
 
 #### ② Frontend
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Plotly](https://img.shields.io/badge/Plotly-0d1117?style=for-the-badge&logo=plotly&logoColor=3F4F75)
 ![CSS](https://img.shields.io/badge/CSS-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 ![HTML](https://img.shields.io/badge/HTML-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 
-- JavaScript + CSS + HTML — visualize plotly graphs and interactive components.
+- JavaScript + Plotly + CSS + HTML — visualize plotly graphs and interactive components.
 
 #### ③ CI/CD
 ![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
@@ -48,3 +49,13 @@
 - Pytest — unit & API tests.
 - GitHub — CI/CD pipeline triggers.
 - Railway — exploration platform deployment.
+
+#### [④ Special Image Exporter: html2canvas](https://html2canvas.hertzen.com)
+
+Is the card-export engine since LinesShines v1.3.0~~
+
+I truly recommend [html2canvas](https://github.com/niklasvh/html2canvas) for:
+
+- DOM-to-image conversion without needing a server-side rendering step.
+- ignoreElements support — let UI controls (close buttons, resize handles) stay out of exported images.
+- MIT-licensed, which is cleanly preserved in vendored files.

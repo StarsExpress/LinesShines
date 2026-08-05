@@ -1110,6 +1110,40 @@ body {
 }
 .scout-card.is-active .scout-fold { display: flex; }
 
+/* Save-as-PNG (card-export.js) — third button in the same top-right row as
+   Fold/Close, shared by all three card types. Sits outside .scout-card-panel
+   like its siblings, so it survives folding (a folded card can still be
+   captured — see attachCardSave()'s ignoreElements list, which excludes this
+   button itself along with .scout-close/.scout-fold/.scout-resize-handle). */
+.card-save-btn {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 70px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.card-save-btn:hover,
+.card-save-btn:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.card-save-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.scout-card.is-active .card-save-btn { display: flex; }
+
 /* A cloned card is only ever in the DOM while its player is pinned, so
    unlike the old single static card, the body never needs its own
    hidden/empty toggle — it's always the live content. */
@@ -1260,11 +1294,6 @@ body {
   color: var(--chalk);
   font-weight: 600;
 }
-.scout-stats dd.scout-stat-value.is-highlighted {
-  color: var(--flag-gold-bright);
-}
-/* Left un-highlighted even on gold rows so it stays legible as a quieter
-   third column next to the bright value. */
 .scout-stats dd.scout-stat-rank {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -1280,15 +1309,16 @@ body {
    to be unfolded to pull up its linemates. Merge selection moved to this
    player's Single Cards row in the Pinned Players (see .pcs-row-merge
    below) — BLUEPRINT_PinnedPlayers.md §4 — so this row now holds just the
-   one action; flex-end keeps it from stretching across the full width the
-   old two-item space-between layout needed. */
+   one action; flex-start keeps the button snug against the left edge
+   (rather than the old two-item space-between layout's flex-end) and the
+   tightened padding keeps a single-button row from reading as an
+   oversized gap between the header and the stats table. */
 .scout-card-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  padding-bottom: 12px;
-  margin-bottom: 2px;
+  padding-bottom: 6px;
   border-bottom: 1px dashed var(--turf-600);
 }
 .card-linemate-toggle,
@@ -1392,11 +1422,19 @@ body {
 
 .pcs-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+}
+/* Central rule splitting Single Cards from Merged Cards — a plain 1px grid
+   track rather than a border on either column, so it stays centered in the
+   gutter regardless of which column's content is taller. */
+.pcs-columns-divider {
+  width: 1px;
+  background: var(--turf-600);
 }
 @media (max-width: 860px) {
   .pcs-columns { grid-template-columns: 1fr; }
+  .pcs-columns-divider { display: none; }
 }
 
 .pcs-column-title {
@@ -1415,13 +1453,34 @@ body {
   min-height: 37px; /* matches .merge-btn's rendered height, so Single/Merged Cards titles land on the same line */
   margin-bottom: 8px;
 }
-.pcs-column-header .pcs-column-title { margin: 0; }
+.pcs-column-header .pcs-column-title { margin: 0; flex: none; }
 
 /* Single Cards' add-search box (BLUEPRINT_PinnedPlayers.md v1.2.0 §4) —
    .merge-edit-add/.merge-edit-input/.merge-edit-dropdown are reused wholesale
    here (same fuzzy-match look as the Players filter and the Create/Edit
-   merge popups); this just adds the spacing before the list below it. */
-.pcs-add-wrap { margin-bottom: 10px; }
+   merge popups). Lives in the column header row now, alongside the title
+   (mirroring the Merged Cards column's title+Create row) rather than its own
+   full-width row above the list — sized to match .merge-btn's min-width so
+   it reads as the same size as the Create button next to it, rather than
+   stretching across the row; space-between on .pcs-column-header still pins
+   it to the header's right edge. Unlike the Create/Edit popups' own
+   .merge-edit-dropdown (which is fine growing in normal flow inside an
+   already-floating modal), this one sits in the persistent Pinned Players
+   panel, so it's floated absolute instead — same reasoning as .players-panel
+   — so a search here doesn't shove the rest of the panel/board down the
+   page the way the Players filter never does either. (The full instruction
+   that no longer fits in this box at this width lives on its own static
+   line below instead, reusing .pcs-empty — see index.html.) */
+.pcs-add-wrap { flex: none; width: 120px; margin-bottom: 0; }
+.pcs-add-wrap .merge-edit-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 260px;
+  margin-top: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
 
 .pcs-list {
   display: flex;
@@ -1541,7 +1600,8 @@ body {
   gap: 4px;
 }
 .merge-card-pool,
-.merge-card-scroll-hint {
+.merge-card-scroll-hint,
+.scout-card-pool {
   margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
@@ -1570,15 +1630,56 @@ body {
   font-size: 10px;
 }
 .merge-table td { color: var(--chalk); }
+.merge-metric-cell { cursor: help; }
+.merge-metric-cell:hover { color: var(--flag-gold); }
 .merge-table .merge-table-name,
 .merge-table th:first-child {
   text-align: left;
   font-family: var(--font-body);
   font-weight: 600;
 }
+.merge-table .merge-table-team,
+.merge-table th:nth-child(2) { text-align: left; }
+.merge-table-team-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--chalk-dim);
+}
+.merge-table-team-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+/* Player/Team/Linemates columns freeze in place while Games/PR Opp and the
+   metric columns scroll underneath — Excel frozen-pane style. Left offsets
+   are set inline per column by applyStickyMetaColumns() (merge-card.js),
+   since they depend on each column's actual rendered width. Opaque
+   background is required for sticky cells to mask scrolled-under content;
+   .merge-table-wrap's ancestor (.scout-card-panel) uses a translucent
+   gradient, so a flat, close-enough turf tone stands in here rather than
+   trying to replicate the gradient per cell (which would seam at the
+   column boundaries). */
+.merge-table-frozen {
+  position: sticky;
+  z-index: 2;
+  background: var(--turf-800);
+}
+thead .merge-table-frozen { z-index: 3; }
+.merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
 
 /* --- Linemate Association Card --- roster rows + 3M/RSWA summary
-   (BLUEPRINT.md §2). */
+   (BLUEPRINT.md §2). Header now mirrors the Player Card's two-row layout
+   (.scout-card-top logo+name+meta, then a second dashed-border row) — see
+   openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
+   second row's own modifier on .scout-card-actions, swapping its single-
+   button flex-start layout for a stacked column of the two disclaimer
+   lines that used to sit under the title. */
 .linemate-card-title-hint {
   margin-left: 6px;
   font-size: 13px;
@@ -1588,15 +1689,20 @@ body {
 .linemate-card-title:hover .linemate-card-title-hint {
   color: var(--flag-gold);
 }
+.linemate-card-notes {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
 .linemate-card-note {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
   color: var(--flag-gold);
 }
 .linemate-card-hint {
-  margin: 2px 0 0;
+  margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
@@ -1615,11 +1721,24 @@ body {
   padding-bottom: 8px;
   border-bottom: 1px dashed var(--turf-600);
 }
+.linemate-row-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .linemate-row-name {
   font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--chalk);
+}
+.linemate-row-hint {
+  color: var(--chalk-dim);
+  font-size: 10px;
+  cursor: help;
+}
+.linemate-row-name-wrap:hover .linemate-row-hint {
+  color: var(--flag-gold);
 }
 .linemate-row-cells {
   display: flex;

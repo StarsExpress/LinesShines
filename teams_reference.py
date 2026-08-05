@@ -2,12 +2,12 @@
 
 Kept in one place so `ingest_to_db.py` doesn't drift,
 and so `main.py`'s /api/metadata payload can serve
-these values to the frontend (rather than the frontend hard-coding them,
-which was the case in the earlier static-JSON version).
+these values to frontend (rather than frontend hard-coding them,
+which was the case in earlier static-JSON version).
 """
 
 # Team code → (full name, primary brand color hex).
-# Codes match the abbreviations used by the LinesShines repo's PFF
+# Codes match abbreviations used by LinesShines repo's PFF
 # exports and /logos/ folder (e.g. ARZ, BLT, CLV, HST — PFF's spellings).
 TEAMS: dict[str, tuple[str, str]] = {
     "ARZ": ("Arizona Cardinals", "#97233F"),

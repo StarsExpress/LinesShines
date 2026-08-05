@@ -2,12 +2,14 @@
   "name": "game-of-trenches",
   "version": "1.0.0",
   "private": true,
-  "description": "Dev-only tooling to fetch a local Plotly bundle for frontend/vendor/plotly.min.js. Railway does not run npm install for the frontend; the built file is committed.",
+  "description": "Dev-only tooling to fetch local Plotly/html2canvas bundles for frontend/vendor/. Railway does not run npm install for the frontend; the built files are committed.",
   "scripts": {
-    "vendor:plotly": "cp node_modules/plotly.js-dist-min/plotly.min.js frontend/vendor/plotly.min.js"
+    "vendor:plotly": "cp node_modules/plotly.js-dist-min/plotly.min.js frontend/vendor/plotly.min.js",
+    "vendor:html2canvas": "cp node_modules/html2canvas/dist/html2canvas.min.js frontend/vendor/html2canvas.min.js"
   },
   "license": "ISC",
   "devDependencies": {
+    "html2canvas": "^1.4.1",
     "plotly.js-dist-min": "^3.7.0"
   }
 }
