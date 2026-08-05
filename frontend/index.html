@@ -219,7 +219,7 @@
        place) — there's no separate close control inside the panel itself. -->
   <section class="player-cards-space" id="player-cards-space" hidden>
     <div class="pcs-bar">
-      <span class="pcs-quota" id="pcs-quota-label">Pinned Players: 0 / 8 Distinct Players.</span>
+      <span class="pcs-quota" id="pcs-quota-label">📍PINNED: 0 / 8 Distinct Players.</span>
       <button type="button" id="pcs-inspect-btn" class="pcs-inspect-btn"
               aria-haspopup="true" aria-expanded="false" aria-controls="pcs-panel">
         Manage
@@ -296,6 +296,9 @@
 
     <template id="scout-card-template">
       <aside class="scout-card">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
         <button type="button" class="scout-fold" aria-label="Fold card">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -324,6 +327,7 @@
                 <i class="fa-solid fa-people-group"></i> Linemates
               </button>
             </div>
+            <p class="scout-card-pool"></p>
             <dl class="scout-stats"></dl>
           </div>
         </div>
@@ -334,6 +338,9 @@
          cells (BLUEPRINT.md §1.2) — filled in by openMergeCard() in app.js. -->
     <template id="merge-card-template">
       <aside class="scout-card scout-card--merge">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
         <button type="button" class="scout-fold" aria-label="Fold card">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -361,10 +368,18 @@
 
     <!-- Roster (percentiles only, own-position pool) + the 3M/RSWA summary
          table (BLUEPRINT.md §2) — filled in by openLinemateCard() in app.js.
-         No linemate toggle anywhere on this card: the recursion guard from
-         §2.3 is enforced by simply never rendering one here. -->
+         Header row now mirrors the Player Card's (.scout-logo-wrap +
+         .scout-id/.scout-name/.scout-meta) rather than a bare title — see
+         openLinemateCard()/renderLinemateCardBody(). No linemate toggle
+         anywhere on this card: the recursion guard from §2.3 is enforced by
+         simply never rendering one here — the second header row
+         (.scout-card-actions) that holds a Linemates toggle on a Player Card
+         holds the "All numbers..."/"Tooltip each..." disclaimer here instead. -->
     <template id="linemate-card-template">
       <aside class="scout-card scout-card--linemate">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
         <button type="button" class="scout-fold" aria-label="Fold card">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -373,11 +388,18 @@
         <div class="scout-card-panel">
           <div class="scout-card-body">
             <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-logo-wrap">
+                <img class="scout-logo" alt="" />
+                <div class="scout-badge" hidden></div>
+              </div>
               <div class="scout-id">
                 <div class="scout-name linemate-card-title"></div>
-                <p class="linemate-card-note">All numbers are a player's percentiles among his position.</p>
-                <p class="linemate-card-hint">Tooltip each percentile for more info.</p>
+                <div class="scout-meta linemate-card-meta"></div>
               </div>
+            </div>
+            <div class="scout-card-actions linemate-card-notes">
+              <p class="linemate-card-note">All numbers are a player's percentiles among his position.</p>
+              <p class="linemate-card-hint">Tooltip each percentile for more info.</p>
             </div>
             <div class="linemate-roster"></div>
             <button type="button" class="linemate-see-more" hidden>See more</button>
@@ -478,6 +500,7 @@
 </div>
 
 <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
+<script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
 <script type="module" src="main.js?v={{VERSION}}"></script>
 </body>
 </html>

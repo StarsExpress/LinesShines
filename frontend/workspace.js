@@ -176,7 +176,7 @@ export function renderPlayerCardsSpace() {
   if (!visible) return;
 
   const distinct = distinctWorkspacePlayers();
-  els.pcsQuotaLabel.textContent = `Pinned Players: ${distinct.size} / ${MERGE_QUOTA} Distinct Players.`;
+  els.pcsQuotaLabel.textContent = `📍PINNED: ${distinct.size} / ${MERGE_QUOTA} Distinct Players.`;
 
   renderSinglesList();
   renderMergedList();

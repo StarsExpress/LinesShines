@@ -1110,6 +1110,40 @@ body {
 }
 .scout-card.is-active .scout-fold { display: flex; }
 
+/* Save-as-PNG (card-export.js) — third button in the same top-right row as
+   Fold/Close, shared by all three card types. Sits outside .scout-card-panel
+   like its siblings, so it survives folding (a folded card can still be
+   captured — see attachCardSave()'s ignoreElements list, which excludes this
+   button itself along with .scout-close/.scout-fold/.scout-resize-handle). */
+.card-save-btn {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 70px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.card-save-btn:hover,
+.card-save-btn:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.card-save-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.scout-card.is-active .card-save-btn { display: flex; }
+
 /* A cloned card is only ever in the DOM while its player is pinned, so
    unlike the old single static card, the body never needs its own
    hidden/empty toggle — it's always the live content. */
@@ -1260,11 +1294,6 @@ body {
   color: var(--chalk);
   font-weight: 600;
 }
-.scout-stats dd.scout-stat-value.is-highlighted {
-  color: var(--flag-gold-bright);
-}
-/* Left un-highlighted even on gold rows so it stays legible as a quieter
-   third column next to the bright value. */
 .scout-stats dd.scout-stat-rank {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -1434,11 +1463,24 @@ body {
    full-width row above the list — sized to match .merge-btn's min-width so
    it reads as the same size as the Create button next to it, rather than
    stretching across the row; space-between on .pcs-column-header still pins
-   it to the header's right edge. The dropdown still opens in normal flow
-   below it, growing the header row same as it always has. (The full
-   instruction that no longer fits in this box at this width lives on its
-   own static line below instead, reusing .pcs-empty — see index.html.) */
+   it to the header's right edge. Unlike the Create/Edit popups' own
+   .merge-edit-dropdown (which is fine growing in normal flow inside an
+   already-floating modal), this one sits in the persistent Pinned Players
+   panel, so it's floated absolute instead — same reasoning as .players-panel
+   — so a search here doesn't shove the rest of the panel/board down the
+   page the way the Players filter never does either. (The full instruction
+   that no longer fits in this box at this width lives on its own static
+   line below instead, reusing .pcs-empty — see index.html.) */
 .pcs-add-wrap { flex: none; width: 120px; margin-bottom: 0; }
+.pcs-add-wrap .merge-edit-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 260px;
+  margin-top: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
 
 .pcs-list {
   display: flex;
@@ -1558,7 +1600,8 @@ body {
   gap: 4px;
 }
 .merge-card-pool,
-.merge-card-scroll-hint {
+.merge-card-scroll-hint,
+.scout-card-pool {
   margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
@@ -1631,7 +1674,12 @@ thead .merge-table-frozen { z-index: 3; }
 .merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
 
 /* --- Linemate Association Card --- roster rows + 3M/RSWA summary
-   (BLUEPRINT.md §2). */
+   (BLUEPRINT.md §2). Header now mirrors the Player Card's two-row layout
+   (.scout-card-top logo+name+meta, then a second dashed-border row) — see
+   openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
+   second row's own modifier on .scout-card-actions, swapping its single-
+   button flex-start layout for a stacked column of the two disclaimer
+   lines that used to sit under the title. */
 .linemate-card-title-hint {
   margin-left: 6px;
   font-size: 13px;
@@ -1641,15 +1689,20 @@ thead .merge-table-frozen { z-index: 3; }
 .linemate-card-title:hover .linemate-card-title-hint {
   color: var(--flag-gold);
 }
+.linemate-card-notes {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
 .linemate-card-note {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
   color: var(--flag-gold);
 }
 .linemate-card-hint {
-  margin: 2px 0 0;
+  margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;

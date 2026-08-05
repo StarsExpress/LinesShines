@@ -17,6 +17,9 @@ import {
   rankAndPercentile,
   median,
   thresholdFieldLabel,
+  logoSrc,
+  teamColor,
+  teamName,
 } from "./data.js";
 import { LINEMATE_POSITIONS, LINEMATE_CAP, LINEMATE_VISIBLE_DEFAULT } from "./config.js";
 import {
@@ -32,6 +35,7 @@ import {
   endScoutDrag,
   updateScoutEmptyHint,
 } from "./cards-base.js";
+import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
 // per anchor regardless of whether the toggle that opened it lives on a
@@ -252,7 +256,7 @@ export function renderLinemateCardBody(entry) {
   entry.roster = computeLinemateRoster(entry.anchorRecord);
   const roster = entry.roster;
 
-  titleEl.textContent = `${entry.anchorRecord.player} Linemates`;
+  titleEl.textContent = `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
   // The roster-size/threshold sentence used to sit on its own line under the
   // title; it's now a tooltip on this icon instead, freeing that line for
   // the "All numbers are..." disclaimer and the "Tooltip each percentile..."
@@ -343,6 +347,27 @@ export function openLinemateCard(anchorRecord) {
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
   const listEl = cardEl.querySelector(".linemate-roster");
   const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
+  const logoImg = cardEl.querySelector(".scout-logo");
+  const badge = cardEl.querySelector(".scout-badge");
+  const metaEl = cardEl.querySelector(".linemate-card-meta");
+
+  // Team/season are fixed for this card's lifetime (a season/category/
+  // position change dissolves every Linemate Card — see clearLinemateCards()
+  // — so unlike the title, this never needs to be re-set by
+  // renderLinemateCardBody()'s refresh path). Mirrors openScoutCard()'s own
+  // logo/badge wiring.
+  const color = teamColor(anchorRecord.team);
+  logoImg.src = logoSrc(anchorRecord.team);
+  logoImg.alt = `${anchorRecord.team} logo`;
+  logoImg.hidden = false;
+  badge.hidden = true;
+  logoImg.onerror = () => {
+    logoImg.hidden = true;
+    badge.hidden = false;
+    badge.textContent = anchorRecord.team;
+    badge.style.background = color;
+  };
+  metaEl.textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
 
   const id = nextCardId();
   const entry = {
@@ -388,6 +413,20 @@ export function openLinemateCard(anchorRecord) {
   dragHandle.addEventListener("pointerup", endScoutDrag);
   dragHandle.addEventListener("pointercancel", endScoutDrag);
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+  attachCardSave(
+    cardEl,
+    () => `LinesShines_${sanitizeForFilename(anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+    // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
+    // in the first place (see renderLinemateRoster) — a collapsed roster's
+    // hidden rows don't exist for html2canvas to reveal via CSS. Re-render
+    // straight into the clone's own roster element with seeMore forced on,
+    // same entry.roster the live card already computed, so the export always
+    // shows the full capped roster regardless of the on-screen toggle state.
+    (clone) => {
+      const cloneListEl = clone.querySelector(".linemate-roster");
+      if (cloneListEl) renderLinemateRoster({ seeMore: true }, entry.roster, cloneListEl);
+    }
+  );
 
   linemateCards.set(anchorRecord.player, entry);
   updateScoutEmptyHint();

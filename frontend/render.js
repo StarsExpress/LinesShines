@@ -55,6 +55,83 @@ export const EXPORT_FOOTER_PADDING_X = 16; // logical px, pre-scale
 export const EXPORT_FOOTER_BG = "#16301f"; // matches --turf-800, same swap render() does for export bg
 export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, muted so it doesn't compete with the plot
 
+// Composites the credit-line footer onto a canvas already sized to include
+// the extra footerPx strip beneath sourceHeight — split out of
+// exportChartPngWithFooter so card-export.js's html2canvas-based exports can
+// draw the exact same footer without duplicating this, keeping every PNG the
+// app produces (chart or card) on one shared brand footer.
+export function drawExportFooter(ctx, canvasWidth, sourceHeight, footerPx, scale) {
+  ctx.fillStyle = EXPORT_FOOTER_COLOR;
+  ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    EXPORT_FOOTER_TEXT,
+    canvasWidth - Math.round(EXPORT_FOOTER_PADDING_X * scale),
+    sourceHeight + footerPx / 2
+  );
+}
+
+// EXPORT_FOOTER_TEXT's own rendered width, at a given export scale — used
+// by compositeFooterCanvas below to guarantee the canvas is wide enough to
+// hold it. A throwaway canvas 2d context is the standard way to measure text
+// without touching the DOM; harmless to create one per export click.
+function measureFooterTextWidth(scale) {
+  const ctx = document.createElement("canvas").getContext("2d");
+  ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
+  return ctx.measureText(EXPORT_FOOTER_TEXT).width;
+}
+
+// Returns a new canvas: `sourceCanvas` with EXPORT_FOOTER_BG behind it (so
+// any transparent source pixels don't fall back to white) and the credit
+// line drawn into the extra strip below. The main chart export is always
+// comfortably wider than the footer text needs, but a narrower per-card
+// export (card-export.js — a Player Card in particular, ~380px wide) can be
+// narrower than the footer's own rendered width, silently clipping its left
+// edge off the canvas entirely. Widening the canvas to at least fit the
+// footer (with the source image centered in the extra room, rather than
+// left-aligned with a lopsided gap on the right) fixes that for every card
+// type/width at once instead of hardcoding a wider minimum per card type.
+export function compositeFooterCanvas(sourceCanvas, scale) {
+  const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
+  const paddingPx = Math.round(EXPORT_FOOTER_PADDING_X * scale);
+  // +4px/scale safety margin: measureText's result depends on Inter having
+  // actually finished loading by click time — a fallback-font measurement
+  // fractionally narrower than the real render shouldn't reintroduce a
+  // hairline clip.
+  const minWidthForFooter = Math.ceil(measureFooterTextWidth(scale)) + paddingPx * 2 + Math.round(4 * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(sourceCanvas.width, minWidthForFooter);
+  canvas.height = sourceCanvas.height + footerPx;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = EXPORT_FOOTER_BG;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, Math.round((canvas.width - sourceCanvas.width) / 2), 0);
+  drawExportFooter(ctx, canvas.width, sourceCanvas.height, footerPx, scale);
+  return canvas;
+}
+
+export function downloadCanvasAsPng(canvas, filename) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("canvas.toBlob returned null"));
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${filename}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      resolve();
+    }, "image/png");
+  });
+}
+
 // Renders the chart to a PNG via Plotly.toImage, then composites a footer
 // strip onto a taller canvas before triggering the download — keeps the
 // credit line out of the on-screen/exported-without-footer chart state.
@@ -64,41 +141,11 @@ export function exportChartPngWithFooter(chartDiv, { width, height, scale, filen
       new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-          const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height + footerPx;
-
-          const ctx = canvas.getContext("2d");
-          ctx.fillStyle = EXPORT_FOOTER_BG;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-
-          ctx.fillStyle = EXPORT_FOOTER_COLOR;
-          ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
-          ctx.textAlign = "right";
-          ctx.textBaseline = "middle";
-          ctx.fillText(
-            EXPORT_FOOTER_TEXT,
-            canvas.width - Math.round(EXPORT_FOOTER_PADDING_X * scale),
-            img.height + footerPx / 2
-          );
-
-          canvas.toBlob((blob) => {
-            if (!blob) {
-              reject(new Error("canvas.toBlob returned null"));
-              return;
-            }
-            const url = URL.createObjectURL(blob);
-            const anchor = document.createElement("a");
-            anchor.href = url;
-            anchor.download = `${filename}.png`;
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            URL.revokeObjectURL(url);
-            resolve();
-          }, "image/png");
+          const sourceCanvas = document.createElement("canvas");
+          sourceCanvas.width = img.width;
+          sourceCanvas.height = img.height;
+          sourceCanvas.getContext("2d").drawImage(img, 0, 0);
+          downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale), filename).then(resolve, reject);
         };
         img.onerror = () => reject(new Error("Failed to load rendered chart image"));
         img.src = dataUrl;

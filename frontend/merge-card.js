@@ -30,6 +30,7 @@
 import { els } from "./dom.js";
 import {
   appliedCategoryMeta,
+  appliedFilters,
   positionPool,
   rankAndPercentile,
   logoSrc,
@@ -53,6 +54,7 @@ import {
 } from "./cards-base.js";
 import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
+import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 
 // Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
 // persistent Single Cards list, keyed by the same full "player" string as
@@ -354,7 +356,7 @@ export function renderMergeCardBody(cardEl, memberRecords) {
   const poolEl = cardEl.querySelector(".merge-card-pool");
   const table = cardEl.querySelector(".merge-table");
 
-  titleEl.textContent = `Merge Card · ${memberRecords.length} Players`;
+  titleEl.textContent = `Merged Card · ${appliedFilters.season}`;
   subtitleEl.textContent = memberRecords.map((r) => r.abbr_name || r.player).join(" + ");
 
   const pools = memberRecords.map((record) => ({ record, pool: positionPool(record.position) }));
@@ -489,6 +491,14 @@ export function mountMergeCardElement(entry, memberRecords) {
   dragHandle.addEventListener("pointerup", endScoutDrag);
   dragHandle.addEventListener("pointercancel", endScoutDrag);
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
+  // Reads entry.memberKeys fresh on every click (not the memberRecords this
+  // mount call closed over), so an Edit-popup add/remove after this card was
+  // first mounted is still reflected in the filename — same "read the live
+  // entry" reasoning as the fold listener's applyStickyMetaColumns() above.
+  attachCardSave(
+    cardEl,
+    () => `LinesShines_MergedCard_${entry.memberKeys.map(sanitizeForFilename).join("_")}_${appliedFilters.season}`
+  );
 
   updateScoutEmptyHint();
 }

@@ -24,6 +24,7 @@ import {
   updateScoutEmptyHint,
 } from "./cards-base.js";
 import { toggleLinemateCard } from "./linemate-card.js";
+import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { DISPLAY_DECIMALS } from "./config.js";
 
 // Live floating Player Cards, one per currently-open card, keyed by the same
@@ -56,21 +57,20 @@ export function renderScoutCardStats(cardEl, record) {
   const statsEl = cardEl.querySelector(".scout-stats");
   statsEl.innerHTML = "";
 
-  const xKey = appliedFilters.xMetric;
-  const yKey = appliedFilters.yMetric;
+  const poolEl = cardEl.querySelector(".scout-card-pool");
+  poolEl.textContent = `Percentiles calculated among ${currentFiltered.length} ${record.position}.`;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
   // children when it has no rank would shift every following row's columns.
   // Games / the threshold field get an empty rank cell for exactly this
   // reason, not because rank text was omitted by accident.
-  const addRow = (label, value, highlighted, rankText) => {
+  const addRow = (label, value, rankText) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
     dd.className = "scout-stat-value";
     dd.textContent = value;
-    if (highlighted) dd.classList.add("is-highlighted");
     const rankDd = document.createElement("dd");
     rankDd.className = "scout-stat-rank";
     rankDd.textContent = rankText || "—";
@@ -87,7 +87,7 @@ export function renderScoutCardStats(cardEl, record) {
   Object.entries(cat.metrics).forEach(([key, meta]) => {
     const rank = rankAndPercentile(currentFiltered, key, meta.higher_is_better, record[key]);
     const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
-    addRow(key, formatValue(record[key], meta), key === xKey || key === yKey, rankText);
+    addRow(key, formatValue(record[key], meta), rankText);
   });
 }
 
@@ -127,7 +127,7 @@ export function openScoutCard(record) {
   };
 
   nameEl.textContent = record.player;
-  metaEl.textContent = `${teamName(record.team)} · ${record.position}`;
+  metaEl.textContent = `${teamName(record.team)} · ${record.position} · ${appliedFilters.season}`;
 
   renderScoutCardStats(cardEl, record);
 
@@ -149,6 +149,7 @@ export function openScoutCard(record) {
   // overlapped card's stats brings it to front too.
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
   linemateBtn.addEventListener("click", () => toggleLinemateCard(record));
+  attachCardSave(cardEl, () => `LinesShines_${sanitizeForFilename(record.player)}_${appliedFilters.season}`);
 
   scoutCards.set(record.player, entry);
   updateScoutEmptyHint();

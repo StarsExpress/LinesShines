@@ -480,10 +480,11 @@ export async function applyFilters() {
   closeFiltersDrawer();
   render();
   // Refreshes whatever Player/Linemate Cards are still open against the
-  // filters just applied — covers both the threshold-only case above and an
-  // axes-only Apply (a card's X/Y-highlighted stat row was similarly never
-  // rebuilt after open before this). No-ops cleanly if sliceChanged already
-  // closed everything.
+  // filters just applied — covers the threshold-only case above (ranks are
+  // computed against currentFiltered, which a threshold change moves).
+  // No-ops cleanly if sliceChanged already closed everything, and on a pure
+  // axes-only Apply too, since a Player Card's stat rows don't depend on
+  // which metrics are currently plotted.
   refreshOpenScoutCards();
   refreshOpenLinemateCards();
   updatePendingState();
