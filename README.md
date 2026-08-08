@@ -52,7 +52,7 @@
 
 #### [④ Special Image Exporter: html2canvas](https://html2canvas.hertzen.com)
 
-Is the card-export engine since LinesShines v1.3.0~~
+Is the card-export engine since [LinesShines v1.3.0](https://github.com/StarsExpress/LinesShines/releases/tag/v1.3.0)~~
 
 I truly recommend [html2canvas](https://github.com/niklasvh/html2canvas) for:
 

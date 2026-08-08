@@ -358,6 +358,27 @@ function mergeSortValue({ record, pool }, label, cat) {
   return null;
 }
 
+// Merge Card-only percentile color coding (six bins) — same bins/colors as
+// Player Card's percentileChipClass() (scout-card.js), reimplemented locally
+// per this file's own header comment on staying a leaf. Renders as an inset
+// chip (span) inside .merge-metric-cell, same visual language as Player
+// Card's .scout-pct-chip, NOT a full edge-to-edge cell fill — an earlier
+// pass applied the bin class straight to the <td>, which both looked wrong
+// for this dense grid (no cell/divider visible around the color) and had a
+// real bug: .merge-table td's own `color: var(--chalk)` rule is MORE
+// specific than a single class like .merge-pct-yellow, so it silently won
+// over the intended dark text on light backgrounds. Setting color on the
+// chip span instead sidesteps that entirely — a span is never itself a
+// `.merge-table td`, so the two rules never compete on the same element.
+function percentileFillClass(percentile) {
+  if (percentile < 35) return "merge-pct-red";
+  if (percentile < 50) return "merge-pct-orange";
+  if (percentile < 65) return "merge-pct-yellow";
+  if (percentile < 75) return "merge-pct-lightblue";
+  if (percentile < 90) return "merge-pct-darkblue";
+  return "merge-pct-violet";
+}
+
 // One row per player, one column per metric, percentile-only cells
 // (BLUEPRINT.md §1.2) — never the raw value, never #rank/N. Every column is
 // sortable (table-sort.js, Excel-style click-to-sort) except Linemates,
@@ -433,7 +454,14 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
       const td = document.createElement("td");
       td.className = "merge-metric-cell";
-      td.textContent = rank ? ordinal(rank.percentile) : "—";
+      if (rank) {
+        const chip = document.createElement("span");
+        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+        chip.textContent = ordinal(rank.percentile);
+        td.appendChild(chip);
+      } else {
+        td.textContent = "—";
+      }
       // Displayed text stays percentile-only (BLUEPRINT.md §1.2); the exact
       // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
       // Cards' percentile cells.
@@ -534,7 +562,19 @@ export function mountMergeCardElement(entry, memberRecords) {
   // entry" reasoning as the fold listener's applyStickyMetaColumns() above.
   attachCardSave(
     cardEl,
-    () => `LinesShines_MergedCard_${entry.memberKeys.map(sanitizeForFilename).join("_")}_${appliedFilters.season}`
+    // abbr_name shortens each member's first name to an initial, keeping the
+    // last name intact (e.g. "D. Hall") — same convention already shown on
+    // every card title/table cell, just applied to the downloaded filename
+    // too. Falls back to the raw key (a full player-name string) in the
+    // unexpected case a member's record can't be found, same fallback
+    // pattern as this file's other findRecordByPlayer() call sites.
+    () =>
+      `LinesShines_MergedCard_${entry.memberKeys
+        .map((key) => {
+          const record = findRecordByPlayer(key);
+          return sanitizeForFilename((record && (record.abbr_name || record.player)) || key);
+        })
+        .join("_")}_${appliedFilters.season}`
   );
 
   updateScoutEmptyHint();

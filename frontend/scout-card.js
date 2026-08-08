@@ -46,6 +46,20 @@ export function formatValue(value, meta) {
   return `${rounded}${unit}`;
 }
 
+// Player Card-only percentile color coding (six bins) for the rank/percentile
+// chip in .scout-stat-rank — scoped here rather than in a shared module since
+// Linemate/Merge Card rank cells (and the Line Summary table) don't get this
+// treatment. Bin edges are half-open on the low end, closed on the high end
+// at 100, matching how rankAndPercentile()'s ordinal percentile is computed.
+function percentileChipClass(percentile) {
+  if (percentile < 35) return "scout-pct-red";
+  if (percentile < 50) return "scout-pct-orange";
+  if (percentile < 65) return "scout-pct-yellow";
+  if (percentile < 75) return "scout-pct-lightblue";
+  if (percentile < 90) return "scout-pct-darkblue";
+  return "scout-pct-violet";
+}
+
 // Builds/rebuilds a Player Card's stat rows (value + rank/percentile) — used
 // both at open time and to refresh an already-open card after Apply, since
 // currentFiltered/appliedFilters.xMetric/yMetric can all change without the
@@ -64,8 +78,11 @@ export function renderScoutCardStats(cardEl, record) {
   // row-major auto-placement stays aligned — a row that only emitted two
   // children when it has no rank would shift every following row's columns.
   // Games / the threshold field get an empty rank cell for exactly this
-  // reason, not because rank text was omitted by accident.
-  const addRow = (label, value, rankText) => {
+  // reason, not because rank text was omitted by accident. `percentile`
+  // is only passed for metric rows (Games/threshold field have none) — when
+  // present, the whole "#rank/N · Nth pct" string renders inside a colored
+  // chip span rather than as plain text.
+  const addRow = (label, value, rankText, percentile) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
@@ -73,7 +90,14 @@ export function renderScoutCardStats(cardEl, record) {
     dd.textContent = value;
     const rankDd = document.createElement("dd");
     rankDd.className = "scout-stat-rank";
-    rankDd.textContent = rankText || "—";
+    if (rankText && percentile != null) {
+      const chip = document.createElement("span");
+      chip.className = `scout-pct-chip ${percentileChipClass(percentile)}`;
+      chip.textContent = rankText;
+      rankDd.appendChild(chip);
+    } else {
+      rankDd.textContent = rankText || "—";
+    }
     statsEl.appendChild(dt);
     statsEl.appendChild(dd);
     statsEl.appendChild(rankDd);
@@ -87,7 +111,7 @@ export function renderScoutCardStats(cardEl, record) {
   Object.entries(cat.metrics).forEach(([key, meta]) => {
     const rank = rankAndPercentile(currentFiltered, key, meta.higher_is_better, record[key]);
     const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
-    addRow(key, formatValue(record[key], meta), rankText);
+    addRow(key, formatValue(record[key], meta), rankText, rank ? rank.percentile : null);
   });
 }
 
@@ -149,7 +173,10 @@ export function openScoutCard(record) {
   // overlapped card's stats brings it to front too.
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
   linemateBtn.addEventListener("click", () => toggleLinemateCard(record));
-  attachCardSave(cardEl, () => `LinesShines_${sanitizeForFilename(record.player)}_${appliedFilters.season}`);
+  // abbr_name shortens the first name to an initial, keeping the last name
+  // intact (e.g. "D. Hall") — same convention already shown on every card
+  // title/table cell, just applied to the downloaded filename too.
+  attachCardSave(cardEl, () => `LinesShines_${sanitizeForFilename(record.abbr_name || record.player)}_${appliedFilters.season}`);
 
   scoutCards.set(record.player, entry);
   updateScoutEmptyHint();

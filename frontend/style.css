@@ -1348,6 +1348,29 @@ body {
   color: var(--chalk-dim);
   min-width: 64px;
 }
+/* Player Card-only percentile color coding (six bins, see
+   percentileChipClass() in scout-card.js) — the whole "#rank/N · Nth pct"
+   string sits on a solid background chip rather than just tinting the text,
+   so the color reads at a glance without needing to parse the string first.
+   Minimal 3px radius matches the app's neubrutalist language elsewhere
+   (not a rounded pill); text color per bin is contrast-matched against its
+   background rather than a single color for all six. Games/the threshold
+   field have no percentile and so render as plain .scout-stat-rank text,
+   never a chip — see renderScoutCardStats()'s addRow(). Scoped to Player
+   Card only: Linemate/Merge Card rank cells and the Line Summary table
+   don't get this treatment. */
+.scout-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.scout-pct-red { background: #e74c3c; color: #f0ede4; }
+.scout-pct-orange { background: #e67e22; color: #f0ede4; }
+.scout-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.scout-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.scout-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.scout-pct-violet { background: #a569bd; color: #f0ede4; }
 
 /* --- Player Card actions: linemate toggle (BLUEPRINT.md §2) ---
    Sits between the header and the stats table, always visible — including
@@ -1564,6 +1587,14 @@ body {
    that no longer fits in this box at this width lives on its own static
    line below instead, reusing .pcs-empty — see index.html.) */
 .pcs-add-wrap { flex: none; width: 120px; margin-bottom: 0; }
+/* Glassmorphism reverted here (was rgba(255,255,255,0.07)/blur(10px)/
+   rgba(255,255,255,0.18), matching .pcs-panel above) — the blurred chart
+   title text bleeding through the dropdown clashed with the player-name
+   list underneath it, hurting readability. Solid background instead, same
+   #16281c as the rest of the workspace panel, with the v1.4.0 neubrutalist
+   2px #f0ede4 border (matching the search input above it) rather than the
+   glass border. .pcs-panel itself keeps its own glass treatment — this
+   revert is scoped to just this floating suggestion list. */
 .pcs-add-wrap .merge-edit-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -1571,6 +1602,8 @@ body {
   z-index: 50;
   width: 260px;
   margin-top: 0;
+  background: #16281c;
+  border: 2px solid #f0ede4;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 /* .merge-edit-input/.player-option(-name/-team) are reused wholesale here
@@ -1583,6 +1616,15 @@ body {
 #player-cards-space .player-option,
 #player-cards-space .player-option-team {
   font-family: var(--font-oswald);
+}
+/* v1.4.0 neubrutalism, extended to the Single Cards add-search box — same
+   2px solid #f0ede4/minimal-radius language as .apply-btn/.pcs-row-remove
+   above, scoped here rather than on the shared base .merge-edit-input rule
+   since that rule is also the Create/Edit merge popups' own input, which
+   this pass doesn't touch. */
+#player-cards-space .merge-edit-input {
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
 }
 
 .pcs-list {
@@ -1636,16 +1678,21 @@ body {
   letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
+/* v1.4.0 neubrutalism, extended: same 2px solid #f0ede4/minimal-radius
+   language as .apply-btn/.scout-card-panel, but transparent (outline) rather
+   than filled — these are row-level secondary actions, so they shouldn't
+   carry the same visual weight as a filled primary action like Create/Apply
+   even once bordered the same way. */
 .pcs-row-remove,
 .pcs-row-edit,
 .pcs-row-dismiss {
   appearance: none;
   -webkit-appearance: none;
   flex: none;
-  background: var(--turf-700);
+  background: transparent;
   color: var(--chalk-dim);
-  border: 1px solid var(--turf-600);
-  border-radius: 5px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   padding: 4px 8px;
   font-family: var(--font-oswald);
   font-size: 10.5px;
@@ -1664,14 +1711,17 @@ body {
 /* Same size, and now same typography (Oswald/600), as .png-btn (Save Plot)
    — black, the secondary-action treatment, gold reserved for Manage/Apply.
    min-width matches .pcs-inspect-btn's so Manage and Create render as the
-   exact same size. */
+   exact same size. v1.4.0 neubrutalism: 2px solid #f0ede4/4px radius, same
+   border weight as .pcs-row-remove/-edit/-dismiss above — the solid black
+   fill (vs. their transparent outline) is what marks this as the primary
+   action, not a heavier border. */
 .merge-btn {
   flex: none;
   min-width: 120px;
   background: #000;
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
-  border-radius: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   padding: 9px 20px;
   font-family: var(--font-oswald);
   font-size: 13px;
@@ -1698,20 +1748,41 @@ body {
    column dropped from the table below, see renderMergeCardBody() — falls
    back to listing each member's own pool if the card mixes positions), then
    the scroll hint. One flex child of .scout-card-body so the two lines sit
-   close together instead of each taking the body's full 16px gap. */
+   close together instead of each taking the body's full 16px gap. Rendered
+   as a bulleted list (.merge-card-note-list), same treatment as Linemate
+   Card's own two-line disclaimer (.linemate-card-note-list) — gold/italic
+   bullets rather than plain stacked paragraphs. */
 .merge-card-notes {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.merge-card-pool,
-.merge-card-scroll-hint,
-.scout-card-pool {
+.merge-card-note-list {
   margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.merge-card-note {
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
-  color: var(--chalk-dim);
+  color: var(--flag-gold);
+}
+/* Player Card's own single-line pool sentence — same bulleted, gold/italic
+   treatment as .merge-card-note-list/.linemate-card-note-list above, rather
+   than the plain dim paragraph it used to be. Still just one <li>; the list
+   wrapper exists so a single line reads identically to the two-line notes
+   on Merge/Linemate Cards instead of looking like a different component. */
+.scout-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.scout-card-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
 }
 /* Excel-style click-to-sort headers (table-sort.js) — shared by Merge
    Card's table, Linemate Card's roster table, and its Line Summary table.
@@ -1778,6 +1849,35 @@ body {
 .merge-table td { color: var(--chalk); }
 .merge-metric-cell { cursor: help; }
 .merge-metric-cell:hover { color: var(--flag-gold); }
+/* Percentile color coding — same six bins/colors/text-contrast rule as
+   Player Card's .scout-pct-chip (scout-card.js's percentileChipClass()),
+   reimplemented locally here (percentileFillClass() in merge-card.js) rather
+   than shared, matching this file's existing per-card-type styling
+   convention (e.g. .merge-table-frozen vs .linemate-table-frozen). An inset
+   chip span inside the <td> — same minimal-radius/small-padding language as
+   .scout-pct-chip — not a full edge-to-edge cell fill, so the cell's own
+   background and row divider stay visible around it. (An earlier pass
+   colored the <td> directly for an Excel-style full-cell fill; reverted —
+   besides looking wrong for this grid, .merge-table td's own `color:
+   var(--chalk)` rule is MORE specific than a single class like
+   .merge-pct-yellow and silently won on the td, breaking dark-on-light text
+   for the yellow/light-blue bins. Setting color on the chip span instead
+   sidesteps that: a span is never itself a `.merge-table td`, so the two
+   rules never compete on the same element.) Games/threshold-field columns
+   never get one of these classes (see renderMergeCardBody()), so they stay
+   uncolored. */
+.merge-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.merge-pct-red { background: #e74c3c; color: #f0ede4; }
+.merge-pct-orange { background: #e67e22; color: #f0ede4; }
+.merge-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.merge-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.merge-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.merge-pct-violet { background: #a569bd; color: #f0ede4; }
 .merge-table .merge-table-name,
 .merge-table th:first-child {
   text-align: left;
@@ -1969,8 +2069,19 @@ thead .linemate-table-frozen { z-index: 3; }
 }
 .linemate-summary-table th:first-child,
 .linemate-summary-table td:first-child {
-  width: 32%;
+  width: 40%;
   white-space: normal;
+}
+/* Min/Max hold the same short ordinal text as Median/RSWA ("41st", "95th")
+   but don't need as much room once Metric (above) claims more of the row
+   for its own long labels ("TPS Allowed Pressure %") — narrowed so that
+   extra width comes from here rather than shrinking Median/RSWA, which
+   still need to fit the RSWA header's InfoPopover trigger button. */
+.linemate-summary-table th:nth-child(2),
+.linemate-summary-table td:nth-child(2),
+.linemate-summary-table th:nth-child(5),
+.linemate-summary-table td:nth-child(5) {
+  width: 12%;
 }
 /* The RSWA header's InfoPopover trigger (BLUEPRINT.md §2.5's formula) —
    shared .info-popover-trigger component (info-popover.js), same one the

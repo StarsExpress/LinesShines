@@ -543,7 +543,10 @@ export function openLinemateCard(anchorRecord) {
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
   attachCardSave(
     cardEl,
-    () => `LinesShines_${sanitizeForFilename(anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+    // abbr_name shortens the first name to an initial, keeping the last name
+    // intact (e.g. "D. Hall") — same convention already shown on the card's
+    // own title, just applied to the downloaded filename too.
+    () => `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
     // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
     // in the first place (see renderLinemateRoster) — a collapsed roster's
     // hidden rows don't exist for html2canvas to reveal via CSS. Re-render
