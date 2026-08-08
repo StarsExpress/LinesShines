@@ -1005,7 +1005,7 @@ body {
 /* Merge/Linemate cards reuse every .scout-card rule above (position, drag,
    z-index, mobile stacking) via this base class, plus their own modifier
    below for anything that needs to differ. */
-.scout-card--merge { width: 460px; }
+.scout-card--merge { width: 640px; }
 .scout-card--linemate { width: 420px; }
 
 /* Positioned relative to .scout-card itself (not .scout-card-panel) so the
