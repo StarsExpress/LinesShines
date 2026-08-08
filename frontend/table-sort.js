@@ -43,12 +43,17 @@ export function sortRows(rows, state, valueFn) {
   });
 }
 
-// Builds one sortable <th>: label text + a ▲/▼ indicator that only appears
-// on the currently-sorted column. Click (or Enter/Space, for keyboard users)
-// toggles `state` via toggleSortState() and re-runs `onSort` — the owning
-// render function, which rebuilds the whole table from scratch, so every
-// header's indicator reflects the new state without this needing to touch
-// sibling headers itself.
+// Builds one sortable <th>: label text + a stacked ▲/▼ indicator that's
+// always present (not just on the active column) — text glyphs, never
+// emoji, since emoji ignore CSS `color` and so can't carry the
+// neutral/active-gold/active-dimmed states .sort-arrow's CSS relies on (see
+// style.css). The whole <th> is the click target (label AND arrows both
+// bubble up to its own listener below), not just the arrow glyphs — a user
+// shouldn't have to aim for two 8px triangles to sort a column. Click (or
+// Enter/Space, for keyboard users) toggles `state` via toggleSortState() and
+// re-runs `onSort` — the owning render function, which rebuilds the whole
+// table from scratch, so every header's arrows reflect the new state
+// without this needing to touch sibling headers itself.
 export function makeSortableHeader(label, key, state, onSort) {
   const th = document.createElement("th");
   th.classList.add("sortable-th");
@@ -60,13 +65,24 @@ export function makeSortableHeader(label, key, state, onSort) {
   labelSpan.textContent = label;
   th.appendChild(labelSpan);
 
-  if (state.key === key) {
-    const indicator = document.createElement("span");
-    indicator.className = "sort-indicator";
-    indicator.textContent = state.dir === "desc" ? "▼" : "▲";
-    th.appendChild(indicator);
-    th.classList.add("is-sorted");
-  }
+  const isActive = state.key === key;
+  if (isActive) th.classList.add("is-sorted");
+
+  const indicator = document.createElement("span");
+  indicator.className = "sort-indicator";
+  indicator.setAttribute("aria-hidden", "true");
+
+  const up = document.createElement("span");
+  up.className = "sort-arrow sort-arrow-up";
+  up.textContent = "▲";
+  const down = document.createElement("span");
+  down.className = "sort-arrow sort-arrow-down";
+  down.textContent = "▼";
+  if (isActive) (state.dir === "desc" ? down : up).classList.add("is-active");
+
+  indicator.appendChild(up);
+  indicator.appendChild(down);
+  th.appendChild(indicator);
 
   const activate = () => {
     toggleSortState(state, key);

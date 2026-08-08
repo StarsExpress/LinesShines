@@ -85,7 +85,8 @@ async function loadMetadata() {
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
-      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected."
+      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
+      { label: "Players", labelId: "players-label" }
     )
   );
 

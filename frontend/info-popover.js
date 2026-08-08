@@ -72,19 +72,34 @@ function openInfoPopover(triggerEl, text) {
   document.addEventListener("keydown", onDocKeyDown, true);
 }
 
-// Builds a labeled "i" button that toggles a click-dismissible popup showing
-// `text`. Returns the button for the caller to place wherever the trigger
-// belongs — a filter header, a table header cell, etc. Only one popover is
-// open at a time app-wide; opening a second (or re-clicking the open one's
-// own trigger) closes whatever's open first.
-export function createInfoPopover(text, { ariaLabel } = {}) {
+// Builds a button that toggles a click-dismissible popup showing `text`.
+// When `label` is given, that's the button's entire visible content — no "i"
+// icon — bordered the same as any other button in the row/header it sits in,
+// so it reads as a normal clickable label rather than needing a separate
+// icon to flag it as interactive. `labelId`, if given, is set on the label
+// span so an unrelated element elsewhere (e.g. the Players toggle button/
+// input) can still point at this text via aria-labelledby even though it now
+// lives inside this button rather than a standalone <label>. Returns the
+// button for the caller to place wherever the trigger belongs — a filter
+// header, a table header cell, etc. Only one popover is open at a time
+// app-wide; opening a second (or re-clicking the open one's own trigger)
+// closes whatever's open first.
+export function createInfoPopover(text, { ariaLabel, label, labelId } = {}) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "info-popover-trigger";
-  btn.textContent = "i";
   btn.setAttribute("aria-haspopup", "dialog");
   btn.setAttribute("aria-expanded", "false");
-  btn.setAttribute("aria-label", ariaLabel || text);
+  btn.setAttribute("aria-label", ariaLabel || (label ? `${label}: ${text}` : text));
+
+  if (label) {
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "info-popover-label";
+    if (labelId) labelSpan.id = labelId;
+    labelSpan.textContent = label;
+    btn.appendChild(labelSpan);
+  }
+
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     const reopening = openTrigger === btn;

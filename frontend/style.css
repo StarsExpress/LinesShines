@@ -548,46 +548,44 @@ body {
   gap: 6px;
 }
 
-/* Sits before the Players label to flag that Teams and Players aren't two
-   independent filters — see the isDimmed union in app.js's render() — a
-   selected team highlights all its players regardless of the Players list,
-   and vice versa. Populated at boot by createInfoPopover() (info-popover.js)
-   rather than static markup, so this slot and the RSWA column header below
-   share one component instead of two hand-rolled tooltip implementations. */
+/* Sits before the Players reset button to flag that Teams and Players
+   aren't two independent filters — see the isDimmed union in app.js's
+   render() — a selected team highlights all its players regardless of the
+   Players list, and vice versa. Populated at boot by createInfoPopover()
+   (info-popover.js) rather than static markup, so this slot and the RSWA
+   column header below share one component instead of two hand-rolled
+   tooltip implementations. The "Players" text itself now lives inside that
+   component (its .info-popover-label span, id="players-label") rather than
+   a sibling <label> — aria-labelledby on the players toggle button/input
+   still resolves to it by that same id. */
 .info-popover-slot { display: contents; }
 
 /* Shared InfoPopover trigger (info-popover.js) — click-toggled, not
    hover-only, since the Players filter row is desktop/tablet-only already
-   and a touch device has no hover to dwell on. Neubrutalist 2px #f0ede4
-   border matches the card-panel treatment elsewhere in the app (see
-   .scout-card-panel) rather than the softer 1px/circular dot the old
-   .info-hint used. A filled (not just outlined) badge at rest — design
-   review flagged the outline-only circle as reading like inert label
-   punctuation rather than a button, easy to overlook next to a bold column
-   header. Sized up from an earlier 16px pass for the same reason: bigger,
-   filled, and non-italic reads as "press me" at a glance instead of
-   needing a second look. */
+   and a touch device has no hover to dwell on. Just the label text inside
+   this <button> (.info-popover-label), no separate "i" icon — the border
+   wraps the whole clickable label rather than needing an icon to flag it as
+   interactive. */
 .info-popover-trigger {
   appearance: none;
   -webkit-appearance: none;
-  flex: none;
-  width: 20px;
-  height: 20px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-radius: 50%;
+  gap: 6px;
   border: 2px solid #f0ede4;
-  background: rgba(240, 237, 228, 0.14);
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: transparent;
   color: #f0ede4;
   font-family: var(--font-oswald);
   font-weight: 600;
-  font-style: normal;
   font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1;
   cursor: pointer;
 }
+.info-popover-label { white-space: nowrap; }
 .info-popover-trigger:hover,
 .info-popover-trigger:focus-visible,
 .info-popover-trigger[aria-expanded="true"] {
@@ -1717,11 +1715,14 @@ body {
 }
 /* Excel-style click-to-sort headers (table-sort.js) — shared by Merge
    Card's table, Linemate Card's roster table, and its Line Summary table.
-   `<th>` itself is the click target (not just its text), so the whole cell
-   needs to read as interactive; the ▲/▼ indicator only renders on whichever
-   column is currently sorted (see makeSortableHeader()'s JS). Kept as one
-   shared block near the top of the DataFrame-table styles below rather than
-   repeated per table, since all three use identical treatment. */
+   `<th>` itself is the click target (not just its text or the arrows), so
+   the whole cell needs to read as interactive. Every sortable column always
+   shows both a ▲ and a ▼ (stacked, text glyphs — not emoji, since emoji
+   ignore CSS `color` and can't carry the three states below), not just the
+   currently-sorted one, so a column's sortability is visible before it's
+   ever clicked. Kept as one shared block near the top of the DataFrame-table
+   styles below rather than repeated per table, since all three use
+   identical treatment. */
 .sortable-th {
   cursor: pointer;
   user-select: none;
@@ -1735,10 +1736,23 @@ body {
   outline-offset: -1px;
 }
 .sort-indicator {
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
   margin-left: 4px;
-  font-size: 8px;
+  vertical-align: middle;
+  line-height: 0.6;
 }
+/* Neutral (this column isn't the active sort): both arrows sit at the same
+   dim color. Active: makeSortableHeader() adds .is-active to whichever
+   arrow matches the current direction (gold); the other arrow drops to an
+   even dimmer shade via .is-sorted below rather than staying at the neutral
+   color, so the active direction reads unambiguously at a glance. */
+.sort-arrow {
+  font-size: 8px;
+  color: #5a6e5f;
+}
+.sort-arrow.is-active { color: #d4af5a; }
+.sortable-th.is-sorted .sort-arrow:not(.is-active) { color: #3f4f43; }
 
 .merge-table-wrap { overflow-x: auto; }
 .merge-table {
@@ -1960,10 +1974,16 @@ thead .linemate-table-frozen { z-index: 3; }
 }
 /* The RSWA header's InfoPopover trigger (BLUEPRINT.md §2.5's formula) —
    shared .info-popover-trigger component (info-popover.js), same one the
-   Players filter header uses. Just positioning within the th here; the
-   component's own look lives with its other rules above. */
+   Players filter header uses, standing in for that column's plain-text
+   label (see renderLinemateSummary()'s replaceChild). Sized down from the
+   component's own default padding/font-size here — this table's columns are
+   too narrow (see the 32%-first-column split above) for the full-size
+   button to fit without crowding the Min/Median/Max headers next to it. */
 .linemate-summary-table th .info-popover-trigger {
-  margin-left: 4px;
+  padding: 2px 6px;
+  gap: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
   vertical-align: middle;
 }
 

@@ -417,8 +417,18 @@ export function renderLinemateSummary(entry, roster, summaryTable) {
       // .linemate-summary-wrap's overflow-x:auto, unlike a hover popup which
       // would need to survive inside that scroll clip. stopPropagation()
       // inside info-popover.js's own click handler keeps this from also
-      // toggling the header's sort.
-      th.appendChild(createInfoPopover(RSWA_TOOLTIP, { ariaLabel: `RSWA: ${RSWA_TOOLTIP}` }));
+      // toggling the header's sort. Swaps out makeSortableHeader()'s plain
+      // "RSWA" text span for the InfoPopover trigger itself (label text +
+      // icon in one bordered button) rather than appending the trigger
+      // alongside it — a bare icon floating next to separately-styled plain
+      // text isn't one clickable unit. The sort-indicator arrow (added after
+      // this by makeSortableHeader when the column is the active sort) is
+      // untouched, so clicking it still sorts.
+      const plainLabel = th.querySelector("span:not(.sort-indicator)");
+      th.replaceChild(
+        createInfoPopover(RSWA_TOOLTIP, { ariaLabel: `RSWA: ${RSWA_TOOLTIP}`, label: "RSWA" }),
+        plainLabel
+      );
     }
     theadRow.appendChild(th);
   });
