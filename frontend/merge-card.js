@@ -55,6 +55,7 @@ import {
 import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
 // persistent Single Cards list, keyed by the same full "player" string as
@@ -340,16 +341,37 @@ export function makeLinemateCell(record) {
   return td;
 }
 
+// Value a member row sorts by for a given column label — Player/Team
+// compare case-insensitively, Games/threshold_field/metric columns
+// numerically. Metric columns sort by the same percentile shown on screen
+// (never the raw stat), same reasoning as Linemate Card's own sort value fn.
+function mergeSortValue({ record, pool }, label, cat) {
+  if (label === "Player") return (record.abbr_name || record.player).toLowerCase();
+  if (label === "Team") return record.team;
+  if (label === "Games") return record.games ?? null;
+  if (label === cat.threshold_field) return record[cat.threshold_field] ?? null;
+  const meta = cat.metrics[label];
+  if (meta) {
+    const rank = rankAndPercentile(pool, label, meta.higher_is_better, record[label]);
+    return rank ? rank.percentile : null;
+  }
+  return null;
+}
+
 // One row per player, one column per metric, percentile-only cells
-// (BLUEPRINT.md §1.2) — never the raw value, never #rank/N.
-// Builds/rebuilds a Merge Card's title, subtitle, and percentile table from
-// memberRecords — used both at creation (openMergeCard) and by the Edit
-// popup (rebuildMergeCardFromMembers, BLUEPRINT_PinnedPlayers.md §5) to
-// update an existing card in place after its membership changes, instead of
-// destroying/recreating the floating card. One row per player, one column
-// per metric, percentile-only cells (BLUEPRINT.md §1.2) — never the raw
-// value, never #rank/N.
-export function renderMergeCardBody(cardEl, memberRecords) {
+// (BLUEPRINT.md §1.2) — never the raw value, never #rank/N. Every column is
+// sortable (table-sort.js, Excel-style click-to-sort) except Linemates,
+// which holds a button, not data. Builds/rebuilds a Merge Card's title,
+// subtitle, and percentile table from memberRecords — used both at creation
+// (openMergeCard) and by the Edit popup (rebuildMergeCardFromMembers,
+// BLUEPRINT_PinnedPlayers.md §5) to update an existing card in place after
+// its membership changes, instead of destroying/recreating the floating
+// card. `sortState` is the entry's own persistent { key, dir } (see
+// openMergeCard()) — passed in explicitly rather than read off an `entry`
+// object because this function only ever receives `cardEl`, and on first
+// mount `entry.el` isn't set yet (mountMergeCardElement() assigns it only
+// after this call returns).
+export function renderMergeCardBody(cardEl, memberRecords, sortState) {
   const cat = appliedCategoryMeta();
   const titleEl = cardEl.querySelector(".merge-card-title");
   const subtitleEl = cardEl.querySelector(".merge-card-subtitle");
@@ -369,18 +391,25 @@ export function renderMergeCardBody(cardEl, memberRecords) {
         .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
         .join(", ")}.`;
 
+  const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
+
   const metricKeys = Object.keys(cat.metrics);
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
+  const rerender = () => renderMergeCardBody(cardEl, memberRecords, sortState);
   ["Player", "Team", "Linemates", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headRow.appendChild(th);
+    if (label === "Linemates") {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    } else {
+      headRow.appendChild(makeSortableHeader(label, label, sortState, rerender));
+    }
   });
   thead.appendChild(headRow);
 
   const tbody = document.createElement("tbody");
-  pools.forEach(({ record, pool }) => {
+  sortedPools.forEach(({ record, pool }) => {
     const tr = document.createElement("tr");
 
     const nameTd = document.createElement("td");
@@ -419,10 +448,18 @@ export function renderMergeCardBody(cardEl, memberRecords) {
   table.appendChild(thead);
   table.appendChild(tbody);
 
-  // Deferred a frame: on first build, table is still off-DOM here (the
-  // caller appends cardEl to els.scoutCards after this returns), so column
-  // widths aren't measurable yet. rAF fires after that append lands.
-  requestAnimationFrame(() => applyStickyMetaColumns(table));
+  // On first build, table is still off-DOM here (the caller appends cardEl
+  // to els.scoutCards after this returns) — column widths aren't measurable
+  // until a frame after that append lands. Every other caller (a sort click,
+  // an Edit-popup membership change) has table connected already, so
+  // measuring synchronously then matters for responsiveness — same
+  // connected-vs-not branch as Linemate Card's applyStickyLinemateColumns()
+  // call.
+  if (table.isConnected) {
+    applyStickyMetaColumns(table);
+  } else {
+    requestAnimationFrame(() => applyStickyMetaColumns(table));
+  }
 }
 
 // Freezes the Player/Team/Linemates columns (BLUEPRINT.md §1.2 extended) in
@@ -467,7 +504,7 @@ export function mountMergeCardElement(entry, memberRecords) {
   const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
 
-  renderMergeCardBody(cardEl, memberRecords);
+  renderMergeCardBody(cardEl, memberRecords, entry.sort);
 
   els.scoutCards.appendChild(cardEl);
   cascadeScoutCardPosition(cardEl); // reads openCardsCount(), so must run before entry.el is set below
@@ -506,7 +543,11 @@ export function mountMergeCardElement(entry, memberRecords) {
 export function openMergeCard(memberRecords) {
   const id = nextCardId();
   const memberKeys = memberRecords.map((r) => r.player);
-  const entry = { id, origin: "merge", memberKeys, el: null, folded: false };
+  // Excel-style click-to-sort state (table-sort.js) — persists across
+  // membership edits (addMergeMember()/removeMergeMember() both rebuild via
+  // rebuildMergeCardFromMembers(), which reuses this same object) and across
+  // a fold/unfold, since it's never reset anywhere but here.
+  const entry = { id, origin: "merge", memberKeys, el: null, folded: false, sort: { key: null, dir: "asc" } };
   mergeCards.set(id, entry);
   mountMergeCardElement(entry, memberRecords);
   renderPlayerCardsSpace();
@@ -715,7 +756,7 @@ export function runMergeEditSearch() {
 export function rebuildMergeCardFromMembers(entry) {
   if (!entry.el) return; // floating card closed (BLUEPRINT_PinnedPlayers.md §4-style) — nothing on screen to update
   const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
-  renderMergeCardBody(entry.el, memberRecords);
+  renderMergeCardBody(entry.el, memberRecords, entry.sort);
 }
 
 // §5 Edit popup rules: blocks + explains a duplicate add, a 6th member, the

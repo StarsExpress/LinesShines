@@ -37,6 +37,7 @@ import {
   applyFilters,
 } from "./filters.js";
 import { render, exportChartPngWithFooter, setLogoRelayoutGuard, sanitizeForFilename } from "./render.js";
+import { createInfoPopover } from "./info-popover.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
 import {
   openCreateMergePopup,
@@ -82,6 +83,12 @@ async function loadMetadata() {
 }
 
 function attachEvents() {
+  els.playersInfoSlot.appendChild(
+    createInfoPopover(
+      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected."
+    )
+  );
+
   // Category/season/position/axes are all pending-only for the chart: picking
   // a new value just updates the control itself (plus, for category, the
   // option lists that depend on it) and lights up Apply — nothing fetches or

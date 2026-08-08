@@ -99,9 +99,7 @@
            control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
       <div class="control control-players" id="players-control">
         <div class="players-label-row">
-          <span class="info-hint" tabindex="0"
-                title="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected."
-                data-tooltip="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.">i</span>
+          <span class="info-popover-slot" id="players-info-slot"></span>
           <label id="players-label" for="players-toggle-btn">Players</label>
           <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
         </div>
@@ -366,15 +364,17 @@
       </aside>
     </template>
 
-    <!-- Roster (percentiles only, own-position pool) + the 3M/RSWA summary
-         table (BLUEPRINT.md §2) — filled in by openLinemateCard() in app.js.
-         Header row now mirrors the Player Card's (.scout-logo-wrap +
-         .scout-id/.scout-name/.scout-meta) rather than a bare title — see
-         openLinemateCard()/renderLinemateCardBody(). No linemate toggle
-         anywhere on this card: the recursion guard from §2.3 is enforced by
-         simply never rendering one here — the second header row
-         (.scout-card-actions) that holds a Linemates toggle on a Player Card
-         holds the "All numbers..."/"Tooltip each..." disclaimer here instead. -->
+    <!-- Roster table (percentiles only, own-position pool, DataFrame-style
+         columns matching Merge Card's — see makeTeamCell()/renderMergeCardBody()
+         in merge-card.js) + the 3M/RSWA summary table (BLUEPRINT.md §2) —
+         filled in by openLinemateCard() in app.js. Header row mirrors the
+         Player Card's (.scout-logo-wrap + .scout-id/.scout-name/.scout-meta)
+         rather than a bare title — see openLinemateCard()/renderLinemateCardBody().
+         No linemate toggle anywhere on this card, roster table included: the
+         recursion guard from §2.3 is enforced by simply never rendering one
+         here — the second header row (.scout-card-actions) that holds a
+         Linemates toggle on a Player Card holds the "All numbers..."
+         disclaimer here instead. -->
     <template id="linemate-card-template">
       <aside class="scout-card scout-card--linemate">
         <button type="button" class="card-save-btn" aria-label="Save card as PNG">
@@ -398,10 +398,14 @@
               </div>
             </div>
             <div class="scout-card-actions linemate-card-notes">
-              <p class="linemate-card-note">All numbers are a player's percentiles among his position.</p>
-              <p class="linemate-card-hint">Tooltip each percentile for more info.</p>
+              <ul class="linemate-card-note-list">
+                <li class="linemate-card-note linemate-card-roster-note"></li>
+                <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
+              </ul>
             </div>
-            <div class="linemate-roster"></div>
+            <div class="linemate-table-wrap">
+              <table class="linemate-table"></table>
+            </div>
             <button type="button" class="linemate-see-more" hidden>See more</button>
             <div class="linemate-summary-wrap">
               <h4 class="linemate-summary-title">Line Summary</h4>

@@ -80,20 +80,21 @@ function buildExportClone(cardEl) {
   const panelEl = clone.querySelector(".scout-card-panel");
   if (panelEl) panelEl.style.cssText = "height: auto; max-height: none; overflow: visible;";
 
-  // Merge Card's frozen Player/Team/Linemates columns (BLUEPRINT.md's Excel
-  // frozen-pane treatment) are position:sticky — turns out that does NOT
-  // gracefully fall back to their normal flow position once their scroll
-  // container stops scrolling, at least not for this off-screen fixed-
-  // position clone: measured directly, they get shoved to sit near the far
-  // right edge of the widened row instead of staying put at the left,
-  // because a sticky element still hunts for a scrolling ancestor (falling
-  // back to the page itself, whose scroll position has nothing to do with
-  // this off-screen clone) and clamps to whatever position that leaves
-  // reachable within its own cell. Forcing position:static (clearing the
-  // sticky left offset with it) sidesteps that entirely — with nothing
-  // scrolling underneath them in the export, sticky was only ever pinning
-  // them to their own already-correct flow position anyway.
-  clone.querySelectorAll(".merge-table-frozen").forEach((cell) => {
+  // Merge Card's frozen Player/Team/Linemates columns and Linemate Card's
+  // frozen Player column (both BLUEPRINT.md's Excel frozen-pane treatment)
+  // are position:sticky — turns out that does NOT gracefully fall back to
+  // their normal flow position once their scroll container stops scrolling,
+  // at least not for this off-screen fixed-position clone: measured
+  // directly, they get shoved to sit near the far right edge of the widened
+  // row instead of staying put at the left, because a sticky element still
+  // hunts for a scrolling ancestor (falling back to the page itself, whose
+  // scroll position has nothing to do with this off-screen clone) and
+  // clamps to whatever position that leaves reachable within its own cell.
+  // Forcing position:static (clearing the sticky left offset with it)
+  // sidesteps that entirely — with nothing scrolling underneath them in the
+  // export, sticky was only ever pinning them to their own already-correct
+  // flow position anyway.
+  clone.querySelectorAll(".merge-table-frozen, .linemate-table-frozen").forEach((cell) => {
     cell.style.position = "static";
     cell.style.left = "";
   });
@@ -101,7 +102,7 @@ function buildExportClone(cardEl) {
   // Lays every column flat in one row instead of clipping to whatever was
   // scrolled into view, then widens the card itself to fit.
   let requiredWidth = 0;
-  clone.querySelectorAll(".merge-table-wrap, .linemate-summary-wrap").forEach((scrollEl) => {
+  clone.querySelectorAll(".merge-table-wrap, .linemate-table-wrap, .linemate-summary-wrap").forEach((scrollEl) => {
     scrollEl.style.overflow = "visible";
     requiredWidth = Math.max(requiredWidth, scrollEl.scrollWidth);
   });
