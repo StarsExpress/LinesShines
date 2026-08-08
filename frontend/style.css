@@ -819,11 +819,14 @@ body {
 }
 /* Lit up while any control (category/season/position/axes/threshold) holds
    a value that differs from what's actually drawn on the chart — the only
-   cue that pending selections are sitting unapplied. Two hard-edged rings
-   (no blur) rather than a soft glow, so the affordance stays flat/neubrutalist
-   rather than reading as a drop shadow. */
+   cue that pending selections are sitting unapplied. Swaps the resting
+   gold fill for burnt orange rather than adding a ring/shadow, so the
+   pending state reads as "this button now does something" instead of a
+   decoration on top of the gold button. */
 .apply-btn.pending {
-  box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright);
+  background: #d9622b;
+  border-color: #d9622b;
+  color: #f0ede4;
 }
 /* Secondary action next to Apply — black bg + chalk text, gold reserved for
    Apply since that's the primary action. Exports whatever's currently
@@ -1063,8 +1066,9 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   /* v1.4.0 neubrutalism: 2px solid, up from 1px — shared by all three card
-     types (Player/Linemate/Merge) via this one base rule. */
-  border: 2px solid var(--turf-600);
+     types (Player/Linemate/Merge) via this one base rule. Color matches the
+     card-title text (#f0ede4), not --turf-600. */
+  border: 2px solid #f0ede4;
   border-radius: 0 8px 8px 8px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
   transition: max-height 0.28s ease, opacity 0.22s ease;
@@ -1331,7 +1335,38 @@ body {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--turf-600);
 }
-.card-linemate-toggle,
+/* Player Card's own Linemates toggle: solid-gold, same button language as
+   .apply-btn/.pcs-inspect-btn, so it reads as the card's primary
+   call-to-action rather than a utility icon — distinct from the card's
+   structural #f0ede4 border and from the download/collapse/close icons in
+   the top-right corner. Deliberately its own rule, not shared with
+   .merge-row-linemate-toggle below: that one stays a small ghost/ouline
+   icon button scoped to a dense merge-table row, where a solid gold fill
+   per row would be too loud. */
+.card-linemate-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #d4af5a;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-oswald);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.card-linemate-toggle:hover,
+.card-linemate-toggle:focus-visible {
+  background: var(--flag-gold-bright);
+  outline: none;
+}
+
 .merge-row-linemate-toggle {
   appearance: none;
   -webkit-appearance: none;
@@ -1342,22 +1377,19 @@ body {
   color: var(--chalk-dim);
   border: 1px solid var(--turf-600);
   border-radius: 5px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
 }
-.card-linemate-toggle:hover,
-.card-linemate-toggle:focus-visible,
 .merge-row-linemate-toggle:hover,
 .merge-row-linemate-toggle:focus-visible {
   color: var(--flag-gold-bright);
   border-color: var(--flag-gold);
   outline: none;
 }
-.merge-row-linemate-toggle { padding: 3px 6px; font-size: 11px; }
 
 /* --- Pinned Players (BLUEPRINT_PinnedPlayers.md) ---
    Persistent Workspace management region — replaces the old merge-toolbar.

@@ -19,6 +19,7 @@ import {
   setResetThresholdOnNextRange,
   currentFilterState,
   populateCategoryDependentControls,
+  resetThresholdToCategoryDefault,
   populateTeamsChecklist,
   updateTeamsSummary,
   openTeamsDropdown,
@@ -92,6 +93,10 @@ function attachEvents() {
   els.category.addEventListener("change", () => {
     setResetThresholdOnNextRange(true);
     populateCategoryDependentControls();
+    // Snaps the slider + number input to the new category's default right
+    // away, rather than waiting for Apply — see resetThresholdToCategoryDefault()'s
+    // comment for why this can't wait like season/position changes do.
+    resetThresholdToCategoryDefault();
     updatePendingState();
     updatePlayerPool();
   });

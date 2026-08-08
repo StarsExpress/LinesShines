@@ -423,6 +423,33 @@ export function updateThresholdRange() {
   els.thresholdNumber.value = els.threshold.value;
 }
 
+// Fired immediately on a Category switch (main.js's attachEvents()), unlike
+// the season/position case in updateThresholdRange() above which only
+// clamps the user's existing value — the two threshold_field scales (PR Opp
+// vs Non Spike PB Snaps) aren't comparable, so leaving the outgoing
+// category's number on screen until Apply would be actively misleading.
+// Always snaps to the new category's configured default and never tries to
+// preserve whatever the user had set for the outgoing category. The
+// accurate slider max (which needs the new category's fetched data) still
+// gets recomputed at Apply time via loadCurrentSlice()/updateThresholdRange()
+// — this only fixes what's on screen immediately. Sets both the slider and
+// the number input together so they can never fall out of sync with each
+// other, same as every other place both controls change at once.
+export function resetThresholdToCategoryDefault() {
+  const cat = currentCategoryMeta();
+  const defaultValue = cat.default_threshold ?? 0;
+  // The outgoing category's slider max may be smaller than the incoming
+  // default (e.g. a narrow DL pool's max sitting below OL's 300 default) —
+  // extend it so the browser doesn't silently clamp the value we're about
+  // to set. loadCurrentSlice() overwrites this with the real max at Apply.
+  if (Number(els.threshold.max) < defaultValue) {
+    els.threshold.max = defaultValue;
+    els.thresholdNumber.max = defaultValue;
+  }
+  els.threshold.value = defaultValue;
+  els.thresholdNumber.value = defaultValue;
+}
+
 export function closeFiltersDrawer() {
   els.filtersDrawer.classList.remove("open");
   els.filtersToggle.setAttribute("aria-expanded", "false");
