@@ -240,6 +240,27 @@ function linemateSortValue(t, label, cat) {
   return null;
 }
 
+// Percentile color coding (six bins) for the roster table's metric cells —
+// same bins/colors/inset-chip treatment as Merge Card's percentileFillClass()
+// (merge-card.js), reimplemented locally per this file's own leaf-module
+// header comment rather than importing from merge-card.js. Reuses that same
+// file's .merge-pct-chip/.merge-pct-* CSS classes directly (not a parallel
+// linemate-prefixed copy) — same component, same visual language, only the
+// JS mapping function is duplicated, mirroring how .sortable-th/.sort-arrow
+// are already one shared CSS component across both card types. Deliberately
+// NOT used for the Line Summary table below (Min/Median/RSWA/Max are order
+// statistics across the roster, not an individual's performance grade — the
+// same bins would just encode Min's structural bias toward low values and
+// Max's toward high values, not real signal).
+function percentileFillClass(percentile) {
+  if (percentile < 35) return "merge-pct-red";
+  if (percentile < 50) return "merge-pct-orange";
+  if (percentile < 65) return "merge-pct-yellow";
+  if (percentile < 75) return "merge-pct-lightblue";
+  if (percentile < 90) return "merge-pct-darkblue";
+  return "merge-pct-violet";
+}
+
 // Renders the visible slice of the roster (first 5 by snap count, or all of
 // it once "See more" is toggled — the DEFAULT order and cap; sorting via a
 // header click, see sortRows()/makeSortableHeader() below, reorders the same
@@ -300,7 +321,14 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
       const td = document.createElement("td");
       td.className = "linemate-metric-cell";
-      td.textContent = rank ? ordinal(rank.percentile) : "—";
+      if (rank) {
+        const chip = document.createElement("span");
+        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+        chip.textContent = ordinal(rank.percentile);
+        td.appendChild(chip);
+      } else {
+        td.textContent = "—";
+      }
       // Displayed text stays percentile-only, same as Merge Card; the exact
       // #rank/N is still hover-only (attachAppTooltip), since the column
       // header already labels which metric this is — nothing left for a

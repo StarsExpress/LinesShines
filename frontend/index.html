@@ -38,7 +38,7 @@
         "No Line No Shine."<br><br>
         Infrastructure is the one that nearly always starts everything,
         but quite often gets ignored thanks to its unadorned hard works and grit & grind styles.<br><br>
-        For all these under-appreciated.
+        For all these under-appreciated. Let's explore 🗺️
       </p>
     </div>
   </div>
@@ -230,7 +230,7 @@
       <div class="pcs-columns">
         <div class="pcs-column">
           <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Single Cards</h3>
+            <h3 class="pcs-column-title">Player Profiles</h3>
             <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
                  v1.2.0 §4) — a plot click no longer adds here, it only opens
                  the floating card (see viewFloatingCard() in app.js). Same
@@ -257,7 +257,7 @@
 
         <div class="pcs-column">
           <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Merged Cards</h3>
+            <h3 class="pcs-column-title">Player Comparisons</h3>
             <button type="button" class="merge-btn" id="pcs-create-btn">Create</button>
           </div>
           <div class="pcs-list" id="pcs-merged-list"></div>
@@ -326,6 +326,7 @@
             </div>
             <ul class="scout-card-note-list">
               <li class="scout-card-note scout-card-pool"></li>
+              <li class="scout-card-note scout-card-threshold"></li>
             </ul>
             <dl class="scout-stats"></dl>
           </div>
@@ -443,7 +444,7 @@
   <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
     <p class="merge-confirm-title" id="merge-confirm-title">Clear your Pinned Players?</p>
     <p class="merge-confirm-body">
-      This filter change recomputes the player pool — every Single Card and Merged Card in your
+      This filter change recomputes the player pool — every Player Profile and Player Comparison in your
       Pinned Players, built against the old pool, will be dissolved (open Linemate Cards will
       refresh or close as needed). This can't be undone.
     </p>
@@ -462,7 +463,7 @@
      discards it untouched, no card created. -->
 <div class="merge-edit-overlay" id="merge-create-overlay" hidden>
   <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-create-title">
-    <p class="merge-edit-title" id="merge-create-title">Create Merged Card</p>
+    <p class="merge-edit-title" id="merge-create-title">Create Player Comparison</p>
 
     <div class="merge-edit-members" id="merge-create-members"></div>
 

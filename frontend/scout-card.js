@@ -10,6 +10,7 @@ import {
   teamColor,
   teamName,
   logoSrc,
+  thresholdFieldLabel,
 } from "./data.js";
 import {
   ordinal,
@@ -73,6 +74,9 @@ export function renderScoutCardStats(cardEl, record) {
 
   const poolEl = cardEl.querySelector(".scout-card-pool");
   poolEl.textContent = `Percentiles calculated among ${currentFiltered.length} ${record.position}.`;
+
+  const thresholdEl = cardEl.querySelector(".scout-card-threshold");
+  thresholdEl.textContent = `Threshold: ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two

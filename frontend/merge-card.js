@@ -36,6 +36,7 @@ import {
   logoSrc,
   teamSwatch,
   findRecordByPlayer,
+  thresholdFieldLabel,
 } from "./data.js";
 import { searchPlayersExcluding, pcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
@@ -399,18 +400,19 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
   const poolEl = cardEl.querySelector(".merge-card-pool");
   const table = cardEl.querySelector(".merge-table");
 
-  titleEl.textContent = `Merged Card · ${appliedFilters.season}`;
+  titleEl.textContent = `Player Comparison · ${appliedFilters.season}`;
   subtitleEl.textContent = memberRecords.map((r) => r.abbr_name || r.player).join(" + ");
 
   const pools = memberRecords.map((record) => ({ record, pool: positionPool(record.position) }));
   const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
     ? pools[0].record.position
     : null;
+  const thresholdClause = `with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}`;
   poolEl.textContent = sharedPosition
-    ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition}.`
+    ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition} ${thresholdClause}.`
     : `Percentiles calculated among ${pools
         .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
-        .join(", ")}.`;
+        .join(", ")} ${thresholdClause}.`;
 
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
 

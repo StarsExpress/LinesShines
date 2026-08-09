@@ -71,31 +71,46 @@ body {
   gap: 20px;
 }
 
+/* v1.4.0 neubrutalism: same 2px solid #f0ede4 border language as
+   .apply-btn/.scout-card-panel elsewhere, so the logo reads as part of the
+   same bordered system rather than floating bare — border-radius (and
+   everything else about the image) is untouched, since the artwork itself
+   already carries its own circular sunburst-badge composition; cropping the
+   `<img>` to an actual circle would clip the "LinesShines"/"Heroes In
+   Trenches" wordmark baked into the bottom of the asset. */
 .hero-logo {
   flex: none;
   height: 210px;
   width: auto;
+  border: 2px solid #f0ede4;
   border-radius: 10px;
 }
 
 .hero-text { min-width: 0; }
 
+/* Wrapped in the same bordered-container language as the rest of the
+   neubrutalist system (.pcs-row-remove/-edit/-dismiss: 2px solid #f0ede4,
+   minimal radius, transparent fill) rather than a bare floating icon. */
 .hero-github {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  right: 20px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   color: var(--chalk);
   opacity: 0.8;
-  transition: color 0.15s ease, opacity 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 .hero-github svg { width: 20px; height: 20px; display: block; }
 .hero-github:hover,
 .hero-github:focus-visible {
   color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
   opacity: 1;
 }
 
@@ -145,7 +160,7 @@ body {
   justify-content: center;
   row-gap: 4px;
   margin: 0;
-  padding: 10px 24px;
+  padding: 4px 24px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.03em;
@@ -166,7 +181,7 @@ body {
 @media (max-width: 480px) {
   .meta-band {
     font-size: 8px;
-    padding: 10px 10px;
+    padding: 4px 10px;
   }
 }
 
@@ -215,10 +230,9 @@ body {
 }
 
 /* --- control bar --- */
-/* No border-top: that edge used to sit right under the hero's own
-   border-bottom, bracketing the hero/filters gap with a second rule. The
-   .meta-band now living in that gap is the only divider — see its
-   comment above. */
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container (cards, the header logo badge, the
+   GitHub icon) — background and radius are unchanged. */
 .control-bar {
   display: flex;
   flex-wrap: wrap;
@@ -226,8 +240,7 @@ body {
   align-items: end;
   padding: 18px 20px;
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
-  border-top: none;
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   margin-bottom: 22px;
 }
@@ -935,7 +948,9 @@ body {
 
 .chart-panel {
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  /* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+     every other top-level container — background and radius unchanged. */
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   padding: 12px;
   min-height: 720px;
@@ -1455,6 +1470,11 @@ body {
 }
 .player-cards-space[hidden] { display: none; }
 
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container — applied to both of this bar's states
+   (collapsed .pcs-bar, expanded .pcs-panel below) so the frame stays
+   consistent regardless of which one is currently showing. Background and
+   radius are unchanged for both. */
 .pcs-bar {
   display: flex;
   align-items: center;
@@ -1462,13 +1482,13 @@ body {
   flex-wrap: wrap;
   padding: 10px 16px;
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  border: 2px solid #f0ede4;
   border-radius: 8px;
 }
 .pcs-quota {
   font-family: var(--font-oswald);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
@@ -1529,7 +1549,7 @@ body {
   background: rgba(255, 255, 255, 0.07);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 2px solid #f0ede4;
   border-radius: 8px;
   padding: 14px 16px;
 }
@@ -1850,22 +1870,29 @@ body {
 .merge-metric-cell { cursor: help; }
 .merge-metric-cell:hover { color: var(--flag-gold); }
 /* Percentile color coding — same six bins/colors/text-contrast rule as
-   Player Card's .scout-pct-chip (scout-card.js's percentileChipClass()),
-   reimplemented locally here (percentileFillClass() in merge-card.js) rather
-   than shared, matching this file's existing per-card-type styling
-   convention (e.g. .merge-table-frozen vs .linemate-table-frozen). An inset
-   chip span inside the <td> — same minimal-radius/small-padding language as
-   .scout-pct-chip — not a full edge-to-edge cell fill, so the cell's own
-   background and row divider stay visible around it. (An earlier pass
-   colored the <td> directly for an Excel-style full-cell fill; reverted —
-   besides looking wrong for this grid, .merge-table td's own `color:
-   var(--chalk)` rule is MORE specific than a single class like
+   Player Card's .scout-pct-chip (scout-card.js's percentileChipClass()).
+   The JS mapping function is reimplemented locally per file
+   (percentileFillClass() in both merge-card.js and linemate-card.js) rather
+   than shared, matching this codebase's existing per-card-type styling
+   convention (e.g. .merge-table-frozen vs .linemate-table-frozen) — but
+   these CSS classes themselves ARE the one shared component both files'
+   copies point at, same reasoning as .sortable-th/.sort-arrow above being
+   one shared block for Merge Card's table and Linemate Card's roster table.
+   Deliberately NOT used on Linemate Card's Line Summary table (Min/Median/
+   RSWA/Max are order statistics across the roster, not an individual's
+   performance grade — see linemate-card.js's percentileFillClass() comment).
+   An inset chip span inside the <td> — minimal-radius/small-padding, same
+   language as .scout-pct-chip — not a full edge-to-edge cell fill, so the
+   cell's own background and row divider stay visible around it. (An earlier
+   pass on Merge Card colored the <td> directly for an Excel-style full-cell
+   fill; reverted — besides looking wrong for this grid, .merge-table td's
+   own `color: var(--chalk)` rule is MORE specific than a single class like
    .merge-pct-yellow and silently won on the td, breaking dark-on-light text
    for the yellow/light-blue bins. Setting color on the chip span instead
-   sidesteps that: a span is never itself a `.merge-table td`, so the two
-   rules never compete on the same element.) Games/threshold-field columns
-   never get one of these classes (see renderMergeCardBody()), so they stay
-   uncolored. */
+   sidesteps that: a span is never itself a `.merge-table td`/`.linemate-
+   table td`, so the two rules never compete on the same element.) Games/
+   threshold-field columns never get one of these classes (see
+   renderMergeCardBody()/renderLinemateRoster()), so they stay uncolored. */
 .merge-pct-chip {
   display: inline-block;
   padding: 1px 6px;
