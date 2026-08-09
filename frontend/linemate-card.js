@@ -36,6 +36,8 @@ import {
   updateScoutEmptyHint,
 } from "./cards-base.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { createInfoPopover } from "./info-popover.js";
+import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
 // per anchor regardless of whether the toggle that opened it lives on a
@@ -60,9 +62,12 @@ export function clearLinemateCards() {
 // attribute isn't good enough — either the trigger is small (a percentile
 // badge, an info icon) so the browser's dwell-time-before-showing makes it
 // feel broken, or the trigger lives inside a scrolling ancestor
-// (.linemate-summary-wrap, .scout-card-panel) whose overflow would clip a
-// CSS ::after popup the way .info-hint uses elsewhere. Appending straight to
-// document.body sidesteps both: it paints immediately on hover/focus and no
+// (.scout-card-panel) whose overflow would clip a CSS ::after popup. This is
+// the hover/focus-only sibling of info-popover.js's click-toggled
+// InfoPopover (used by the RSWA header below and the Players filter) —
+// appropriate here since a per-row/per-cell hint doesn't need touch support
+// the way a header-level trigger does. Appending straight to document.body
+// sidesteps both problems above: it paints immediately on hover/focus and no
 // ancestor's overflow can clip it. `title` is still set alongside this as a
 // plain-text fallback for screen readers and no-hover touch devices.
 let appTooltipEl = null;
@@ -184,58 +189,179 @@ export function closeLinemateCard(anchorKey) {
   updateScoutEmptyHint();
 }
 
-// Renders the visible slice of the roster (first 5 by snap count, or all of
-// it once "See more" is toggled) into listEl — percentiles only, each
-// against the linemate's own position pool, with the pool denominator shown
-// per BLUEPRINT.md §2.4.
-export function renderLinemateRoster(entry, roster, listEl) {
-  const cat = appliedCategoryMeta();
-  listEl.innerHTML = "";
-  const visibleCount = entry.seeMore ? roster.length : Math.min(LINEMATE_VISIBLE_DEFAULT, roster.length);
+// Freezes the Player/Position columns (both metadata, BLUEPRINT.md's Excel
+// frozen-pane treatment) in place while Games/PR Opp and the metric columns
+// scroll underneath — same technique as Merge Card's applyStickyMetaColumns()
+// (merge-card.js), reimplemented locally rather than imported: this module
+// stays a pure leaf with no dependency on merge-card.js (see file header
+// comment). Measures each metadata column's actual rendered width off the
+// header row (uniform per column across every row in a <table>) so it holds
+// regardless of player-name length, same reasoning as Merge Card's version.
+const LINEMATE_META_COLUMN_COUNT = 2;
 
-  roster.slice(0, visibleCount).forEach((t) => {
+function applyStickyLinemateColumns(table) {
+  const headerCells = table.querySelectorAll("thead th");
+  if (!headerCells.length) return;
+
+  const offsets = [];
+  let left = 0;
+  for (let i = 0; i < LINEMATE_META_COLUMN_COUNT && i < headerCells.length; i++) {
+    offsets.push(left);
+    left += headerCells[i].getBoundingClientRect().width;
+  }
+
+  table.querySelectorAll("tr").forEach((tr) => {
+    offsets.forEach((offsetLeft, i) => {
+      const cell = tr.children[i];
+      if (!cell) return;
+      cell.classList.add("linemate-table-frozen");
+      cell.classList.toggle("linemate-table-frozen-edge", i === offsets.length - 1);
+      cell.style.left = `${offsetLeft}px`;
+    });
+  });
+}
+
+// Value a roster row sorts by for a given column label — text columns
+// compare case-insensitively, Games/threshold_field/metric columns
+// numerically. Metric columns sort by the same percentile shown on screen
+// (never the raw stat), computed fresh per row since a metric's pool/rank
+// depends on that row's own position.
+function linemateSortValue(t, label, cat) {
+  if (label === "Player") return (t.abbr_name || t.player).toLowerCase();
+  if (label === "Position") return t.position;
+  if (label === "Games") return t.games ?? null;
+  if (label === cat.threshold_field) return t[cat.threshold_field] ?? null;
+  const meta = cat.metrics[label];
+  if (meta) {
     const pool = positionPool(t.position);
-    const row = document.createElement("div");
-    row.className = "linemate-row";
+    const rank = rankAndPercentile(pool, label, meta.higher_is_better, t[label]);
+    return rank ? rank.percentile : null;
+  }
+  return null;
+}
 
-    const nameWrap = document.createElement("div");
-    nameWrap.className = "linemate-row-name-wrap";
+// Percentile color coding (six bins) for the roster table's metric cells —
+// same bins/colors/inset-chip treatment as Merge Card's percentileFillClass()
+// (merge-card.js), reimplemented locally per this file's own leaf-module
+// header comment rather than importing from merge-card.js. Reuses that same
+// file's .merge-pct-chip/.merge-pct-* CSS classes directly (not a parallel
+// linemate-prefixed copy) — same component, same visual language, only the
+// JS mapping function is duplicated, mirroring how .sortable-th/.sort-arrow
+// are already one shared CSS component across both card types. Deliberately
+// NOT used for the Line Summary table below (Min/Median/RSWA/Max are order
+// statistics across the roster, not an individual's performance grade — the
+// same bins would just encode Min's structural bias toward low values and
+// Max's toward high values, not real signal).
+function percentileFillClass(percentile) {
+  if (percentile < 35) return "merge-pct-red";
+  if (percentile < 50) return "merge-pct-orange";
+  if (percentile < 65) return "merge-pct-yellow";
+  if (percentile < 75) return "merge-pct-lightblue";
+  if (percentile < 90) return "merge-pct-darkblue";
+  return "merge-pct-violet";
+}
 
-    const name = document.createElement("span");
-    name.className = "linemate-row-name";
-    name.textContent = `${t.position} — ${t.abbr_name || t.player}`;
-    nameWrap.appendChild(name);
+// Renders the visible slice of the roster (first 5 by snap count, or all of
+// it once "See more" is toggled — the DEFAULT order and cap; sorting via a
+// header click, see sortRows()/makeSortableHeader() below, reorders the same
+// capped roster for display, it never re-qualifies/re-caps who's on it) into
+// tableEl as a DataFrame-style table — same column style/order as Merge
+// Card's (renderMergeCardBody() in merge-card.js), minus the NFL Team column
+// (redundant here — every roster row already shares the anchor's team by
+// construction, see computeLinemateRoster()) and minus a per-row Linemates
+// toggle (recursion guard, BLUEPRINT.md §2.3: this card never lets a row
+// drill into another Linemate Card). Position gets its own column instead of
+// NFL Team — a roster can mix positions (LINEMATE_POSITIONS) even though it
+// can't mix teams. Percentiles are each computed against the linemate's own
+// position pool.
+export function renderLinemateRoster(entry, roster, tableEl) {
+  const cat = appliedCategoryMeta();
+  tableEl.innerHTML = "";
+  const sortedRoster = sortRows(roster, entry.rosterSort, (t) => linemateSortValue(t, entry.rosterSort.key, cat));
+  const visibleCount = entry.seeMore ? sortedRoster.length : Math.min(LINEMATE_VISIBLE_DEFAULT, sortedRoster.length);
+  const metricKeys = Object.keys(cat.metrics);
 
-    // Same fa-circle-info + attachAppTooltip pattern as the card title hint
-    // and the summary table's RSWA header hint — not the CSS-only
-    // .info-hint::after popup the Players filter uses, since that would get
-    // clipped by this list's own scrolling ancestor.
-    const snapsHint = document.createElement("i");
-    snapsHint.className = "fa-solid fa-circle-info linemate-row-hint";
-    const snapsText = `${t[cat.threshold_field]} ${thresholdFieldLabel(cat)}.`;
-    snapsHint.setAttribute("aria-label", snapsText);
-    attachAppTooltip(snapsHint, snapsText);
-    nameWrap.appendChild(snapsHint);
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["Player", "Position", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
+    headRow.appendChild(
+      makeSortableHeader(label, label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
+    );
+  });
+  thead.appendChild(headRow);
 
-    row.appendChild(nameWrap);
+  const tbody = document.createElement("tbody");
+  sortedRoster.slice(0, visibleCount).forEach((t) => {
+    const pool = positionPool(t.position);
+    const tr = document.createElement("tr");
 
-    const cellsWrap = document.createElement("div");
-    cellsWrap.className = "linemate-row-cells";
-    Object.entries(cat.metrics).forEach(([key, meta]) => {
+    // Frozen status (both this cell and Position below) is applied after
+    // append, by applyStickyLinemateColumns() — see the rAF call at the
+    // bottom of this function.
+    const nameTd = document.createElement("td");
+    nameTd.className = "linemate-table-name";
+    nameTd.textContent = t.abbr_name || t.player;
+    tr.appendChild(nameTd);
+
+    const positionTd = document.createElement("td");
+    positionTd.className = "linemate-table-position";
+    positionTd.textContent = t.position;
+    tr.appendChild(positionTd);
+
+    const gamesTd = document.createElement("td");
+    gamesTd.textContent = t.games ?? "—";
+    tr.appendChild(gamesTd);
+
+    const snapsTd = document.createElement("td");
+    snapsTd.textContent = t[cat.threshold_field] ?? "—";
+    tr.appendChild(snapsTd);
+
+    metricKeys.forEach((key) => {
+      const meta = cat.metrics[key];
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
-      const cell = document.createElement("span");
-      cell.className = "linemate-cell";
-      cell.textContent = rank ? ordinal(rank.percentile) : "—";
+      const td = document.createElement("td");
+      td.className = "linemate-metric-cell";
+      if (rank) {
+        const chip = document.createElement("span");
+        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+        chip.textContent = ordinal(rank.percentile);
+        td.appendChild(chip);
+      } else {
+        td.textContent = "—";
+      }
+      // Displayed text stays percentile-only, same as Merge Card; the exact
+      // #rank/N is still hover-only (attachAppTooltip), since the column
+      // header already labels which metric this is — nothing left for a
+      // "tooltip each percentile" disclaimer to explain.
       attachAppTooltip(
-        cell,
+        td,
         rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key
       );
-      cellsWrap.appendChild(cell);
+      tr.appendChild(td);
     });
-    row.appendChild(cellsWrap);
 
-    listEl.appendChild(row);
+    tbody.appendChild(tr);
   });
+
+  tableEl.appendChild(thead);
+  tableEl.appendChild(tbody);
+
+  // On first build (openLinemateCard() calls this before appending cardEl to
+  // the DOM), tableEl isn't connected yet — column widths aren't measurable
+  // until a frame after that append lands, same reasoning as Merge Card's
+  // own deferred applyStickyMetaColumns() call. Every other caller (See
+  // more/unfold refreshes, and card-export.js's prepareClone rebuilding this
+  // table inside an *already-attached* off-screen export clone) has tableEl
+  // connected already, so measuring synchronously here — rather than always
+  // deferring — matters: card-export.js calls html2canvas right after
+  // prepareClone returns, with no frame in between for a deferred rAF to
+  // fire, so a rebuild that ran through the connected branch is the only way
+  // an export's roster table keeps its frozen columns.
+  if (tableEl.isConnected) {
+    applyStickyLinemateColumns(tableEl);
+  } else {
+    requestAnimationFrame(() => applyStickyLinemateColumns(tableEl));
+  }
 }
 
 // Fully rebuilds a Linemate Card's title tooltip, roster, and Line Summary
@@ -249,7 +375,7 @@ export function renderLinemateCardBody(entry) {
   const cat = appliedCategoryMeta();
   const cardEl = entry.el;
   const titleEl = cardEl.querySelector(".linemate-card-title");
-  const listEl = cardEl.querySelector(".linemate-roster");
+  const tableEl = cardEl.querySelector(".linemate-table");
   const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
   const summaryTable = cardEl.querySelector(".linemate-summary-table");
 
@@ -257,55 +383,80 @@ export function renderLinemateCardBody(entry) {
   const roster = entry.roster;
 
   titleEl.textContent = `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
-  // The roster-size/threshold sentence used to sit on its own line under the
-  // title; it's now a tooltip on this icon instead, freeing that line for
-  // the "All numbers are..." disclaimer and the "Tooltip each percentile..."
-  // hint below it.
-  const rosterSummary = `${roster.length} linemate${roster.length === 1 ? "" : "s"} ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
-  const titleHint = document.createElement("i");
-  titleHint.className = "fa-solid fa-circle-info linemate-card-title-hint";
-  titleHint.setAttribute("aria-label", rosterSummary);
-  attachAppTooltip(titleHint, rosterSummary);
-  titleEl.appendChild(titleHint);
+  // The roster-size/threshold sentence sits on its own line above the "All
+  // numbers are..." disclaimer, rather than behind a hover-only info icon.
+  const rosterNoteEl = cardEl.querySelector(".linemate-card-roster-note");
+  rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
 
   // A refresh that shrinks the roster to <= the default visible count
   // resets "See more" back to collapsed — there's nothing left to hide, so
   // a lingering "See less" state would just be confusing.
   if (roster.length <= LINEMATE_VISIBLE_DEFAULT) entry.seeMore = false;
-  renderLinemateRoster(entry, roster, listEl);
+  renderLinemateRoster(entry, roster, tableEl);
   seeMoreBtn.hidden = roster.length <= LINEMATE_VISIBLE_DEFAULT;
   seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
 
   // 3M + RSWA summary, computed over every qualifying (capped) linemate
   // regardless of "See more" state.
+  renderLinemateSummary(entry, roster, summaryTable);
+}
+
+// Value a Line Summary row sorts by for a given column label — "Metric"
+// compares case-insensitively on the metric's own name, the four stat
+// columns compare numerically on the same rounded percentile shown on
+// screen.
+function summarySortValue(row, label) {
+  if (label === "Metric") return row.key.toLowerCase();
+  if (label === "Min") return row.min;
+  if (label === "Median") return row.median;
+  if (label === "RSWA") return row.rswa;
+  if (label === "Max") return row.max;
+  return null;
+}
+
+// Renders the Line Summary table (Min/Median/RSWA/Max per metric) from
+// `roster` — always the full capped roster regardless of "See more" state,
+// see computeThreeMRSWA()'s own header comment. Extracted from
+// renderLinemateCardBody() so a header click can re-run just this table
+// (sortRows()/makeSortableHeader(), same pattern as renderLinemateRoster()
+// above) without recomputing the roster table too.
+export function renderLinemateSummary(entry, roster, summaryTable) {
+  const cat = appliedCategoryMeta();
   const summary = computeThreeMRSWA(roster, cat);
+  const summaryRows = Object.keys(cat.metrics).map((key) => ({ key, ...summary[key] }));
+  const sortedRows = sortRows(summaryRows, entry.summarySort, (row) =>
+    summarySortValue(row, entry.summarySort.key)
+  );
+
   summaryTable.innerHTML = "";
-  const theadRow = document.createElement("tr");
   const RSWA_TOOLTIP =
     "Relative Snaps Weighted Average — each linemate's percentile weighted by his own " +
     `share of roster's total ${thresholdFieldLabel(cat)} (weight = his snaps ÷ the filtered roster's ` +
     "total snaps), so a linemate who played more counts for more of line summary.";
-  [
-    { label: "Metric" },
-    { label: "Min" },
-    { label: "Median" },
-    { label: "RSWA", title: RSWA_TOOLTIP },
-    { label: "Max" },
-  ].forEach(({ label, title }) => {
-    const th = document.createElement("th");
-    th.appendChild(document.createTextNode(label));
-    if (title) {
-      // A plain `title` on the <th> alone is easy to miss — nothing next to
-      // the text signals it's hoverable. The icon is the visible affordance;
-      // attachAppTooltip() (not the native title's dwell-time popup, and not
-      // the app's usual .info-hint ::after) is what actually shows the
-      // explanation, since .linemate-summary-wrap scrolls with
-      // overflow-x:auto and would otherwise clip it.
-      const hint = document.createElement("i");
-      hint.className = "fa-solid fa-circle-info linemate-summary-hint";
-      hint.setAttribute("aria-label", title);
-      attachAppTooltip(hint, title);
-      th.appendChild(hint);
+  const theadRow = document.createElement("tr");
+  ["Metric", "Min", "Median", "RSWA", "Max"].forEach((label) => {
+    const th = makeSortableHeader(label, label, entry.summarySort, () =>
+      renderLinemateSummary(entry, roster, summaryTable)
+    );
+    if (label === "RSWA") {
+      // Shared InfoPopover (same component as the Players filter header) —
+      // click-toggled rather than attachAppTooltip's hover/focus, and its
+      // own click-outside handler dismisses it regardless of
+      // .linemate-summary-wrap's overflow-x:auto, unlike a hover popup which
+      // would need to survive inside that scroll clip. stopPropagation()
+      // inside info-popover.js's own click handler keeps this from also
+      // toggling the header's sort. Swaps out makeSortableHeader()'s plain
+      // "RSWA" text span for the InfoPopover trigger itself (label text +
+      // icon in one bordered button) rather than appending the trigger
+      // alongside it — a bare icon floating next to separately-styled plain
+      // text isn't one clickable unit. The sort-indicator arrow (added after
+      // this by makeSortableHeader when the column is the active sort) is
+      // untouched, so clicking it still sorts.
+      const plainLabel = th.querySelector("span:not(.sort-indicator)");
+      th.replaceChild(
+        createInfoPopover(RSWA_TOOLTIP, { ariaLabel: `RSWA: ${RSWA_TOOLTIP}`, label: "RSWA" }),
+        plainLabel
+      );
     }
     theadRow.appendChild(th);
   });
@@ -313,12 +464,11 @@ export function renderLinemateCardBody(entry) {
   thead.appendChild(theadRow);
 
   const tbody = document.createElement("tbody");
-  Object.keys(cat.metrics).forEach((key) => {
-    const row = summary[key];
+  sortedRows.forEach((row) => {
     const tr = document.createElement("tr");
     const labelTd = document.createElement("td");
     labelTd.className = "linemate-summary-metric";
-    labelTd.textContent = key;
+    labelTd.textContent = row.key;
     tr.appendChild(labelTd);
     [row.min, row.median, row.rswa, row.max].forEach((v) => {
       const td = document.createElement("td");
@@ -345,7 +495,7 @@ export function openLinemateCard(anchorRecord) {
   const closeBtn = cardEl.querySelector(".scout-close");
   const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
-  const listEl = cardEl.querySelector(".linemate-roster");
+  const tableEl = cardEl.querySelector(".linemate-table");
   const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
@@ -379,6 +529,12 @@ export function openLinemateCard(anchorRecord) {
     el: cardEl,
     folded: false,
     seeMore: false,
+    // Excel-style click-to-sort state for the roster and Line Summary
+    // tables (table-sort.js) — independent of each other and of seeMore,
+    // and persists across a threshold-only refresh the same way seeMore
+    // does (renderLinemateCardBody() never resets either).
+    rosterSort: { key: null, dir: "asc" },
+    summarySort: { key: null, dir: "asc" },
   };
 
   // Wired once — reads entry.roster/entry.seeMore fresh on every click, so
@@ -387,7 +543,7 @@ export function openLinemateCard(anchorRecord) {
   seeMoreBtn.addEventListener("click", () => {
     entry.seeMore = !entry.seeMore;
     seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
-    renderLinemateRoster(entry, entry.roster, listEl);
+    renderLinemateRoster(entry, entry.roster, tableEl);
   });
 
   renderLinemateCardBody(entry);
@@ -402,7 +558,7 @@ export function openLinemateCard(anchorRecord) {
   const onUnfold = () => {
     entry.seeMore = false;
     seeMoreBtn.textContent = "See more";
-    renderLinemateRoster(entry, entry.roster, listEl);
+    renderLinemateRoster(entry, entry.roster, tableEl);
   };
   attachScoutResize(cardEl, entry, onUnfold);
 
@@ -415,7 +571,10 @@ export function openLinemateCard(anchorRecord) {
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
   attachCardSave(
     cardEl,
-    () => `LinesShines_${sanitizeForFilename(anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+    // abbr_name shortens the first name to an initial, keeping the last name
+    // intact (e.g. "D. Hall") — same convention already shown on the card's
+    // own title, just applied to the downloaded filename too.
+    () => `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
     // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
     // in the first place (see renderLinemateRoster) — a collapsed roster's
     // hidden rows don't exist for html2canvas to reveal via CSS. Re-render
@@ -423,8 +582,24 @@ export function openLinemateCard(anchorRecord) {
     // same entry.roster the live card already computed, so the export always
     // shows the full capped roster regardless of the on-screen toggle state.
     (clone) => {
-      const cloneListEl = clone.querySelector(".linemate-roster");
-      if (cloneListEl) renderLinemateRoster({ seeMore: true }, entry.roster, cloneListEl);
+      const cloneTableEl = clone.querySelector(".linemate-table");
+      // Carries the live card's current sort along into the export (its own
+      // { key, dir } object, not a fresh one) rather than resetting it — the
+      // export should look exactly like what's on screen, just unfolded.
+      if (cloneTableEl) {
+        renderLinemateRoster({ seeMore: true, rosterSort: entry.rosterSort }, entry.roster, cloneTableEl);
+        // renderLinemateRoster() wipes and rebuilds every cell, which re-adds
+        // .linemate-table-frozen (position:sticky) via applyStickyLinemateColumns()
+        // — undoing buildExportClone()'s static-position fix, which only ever
+        // touched the pre-rebuild cells it can no longer see. Re-apply it here
+        // to the freshly built ones, or the Player/Position columns drift to
+        // the row's right edge in the exported PNG (same failure mode
+        // buildExportClone's own fix exists to prevent).
+        cloneTableEl.querySelectorAll(".linemate-table-frozen").forEach((cell) => {
+          cell.style.position = "static";
+          cell.style.left = "";
+        });
+      }
     }
   );
 

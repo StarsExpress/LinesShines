@@ -188,6 +188,7 @@ export function renderPlayerCardsSpace() {
 // not a per-row Merge action (v1.2.0 §4/§5 — see the Create popup instead).
 export function renderSinglesList() {
   const empty = workspaceSingles.size === 0;
+  els.pcsSinglesEmpty.hidden = !empty;
   els.pcsSinglesList.hidden = empty;
   els.pcsSinglesList.innerHTML = "";
   if (empty) return;

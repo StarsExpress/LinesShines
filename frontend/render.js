@@ -356,7 +356,14 @@ export function render() {
     textfont: {
       color: isDimmed.map((dim) => `rgba(241,236,221,${dim ? DIM_OPACITY.label : LABEL_ALPHA})`),
       size: 10,
-      family: "IBM Plex Mono, monospace",
+      // Plotly's textfont has no weight field. index.html's Google Fonts
+      // link now loads two Oswald instances (wght@450;600 — 600 is for the
+      // Pinned/Manage bar, see style.css .pcs-quota/.pcs-inspect-btn). This
+      // text sets no font-weight, so it resolves to CSS "normal" (400); per
+      // the CSS font-matching algorithm that picks 450 over 600 (nearest
+      // weight above 400, capped at 500), so these labels still render at
+      // 450 without needing an explicit weight here.
+      family: "Oswald, sans-serif",
     },
     marker: {
       color: colors,

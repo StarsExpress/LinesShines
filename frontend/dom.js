@@ -26,6 +26,7 @@ export const els = {
   teamsSelectAll: document.getElementById("teams-select-all"),
   teamsSelectNone: document.getElementById("teams-select-none"),
   playersControl: document.getElementById("players-control"),
+  playersInfoSlot: document.getElementById("players-info-slot"),
   playersResetBtn: document.getElementById("players-reset-btn"),
   playersBtn: document.getElementById("players-toggle-btn"),
   playersSummary: document.getElementById("players-select-summary"),
@@ -58,6 +59,7 @@ export const els = {
   pcsInspectBtn: document.getElementById("pcs-inspect-btn"),
   pcsPanel: document.getElementById("pcs-panel"),
   pcsSinglesList: document.getElementById("pcs-singles-list"),
+  pcsSinglesEmpty: document.getElementById("pcs-singles-empty"),
   pcsMergedList: document.getElementById("pcs-merged-list"),
   pcsMergedEmpty: document.getElementById("pcs-merged-empty"),
   // Single Cards add-search (v1.2.0 §4) — Pinned Players' only entry point.

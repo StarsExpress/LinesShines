@@ -20,6 +20,7 @@
   --font-display: "Anton", "Arial Narrow", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+  --font-oswald: "Oswald", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -70,31 +71,46 @@ body {
   gap: 20px;
 }
 
+/* v1.4.0 neubrutalism: same 2px solid #f0ede4 border language as
+   .apply-btn/.scout-card-panel elsewhere, so the logo reads as part of the
+   same bordered system rather than floating bare — border-radius (and
+   everything else about the image) is untouched, since the artwork itself
+   already carries its own circular sunburst-badge composition; cropping the
+   `<img>` to an actual circle would clip the "LinesShines"/"Heroes In
+   Trenches" wordmark baked into the bottom of the asset. */
 .hero-logo {
   flex: none;
   height: 210px;
   width: auto;
+  border: 2px solid #f0ede4;
   border-radius: 10px;
 }
 
 .hero-text { min-width: 0; }
 
+/* Wrapped in the same bordered-container language as the rest of the
+   neubrutalist system (.pcs-row-remove/-edit/-dismiss: 2px solid #f0ede4,
+   minimal radius, transparent fill) rather than a bare floating icon. */
 .hero-github {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  right: 20px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   color: var(--chalk);
   opacity: 0.8;
-  transition: color 0.15s ease, opacity 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 .hero-github svg { width: 20px; height: 20px; display: block; }
 .hero-github:hover,
 .hero-github:focus-visible {
   color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
   opacity: 1;
 }
 
@@ -144,7 +160,7 @@ body {
   justify-content: center;
   row-gap: 4px;
   margin: 0;
-  padding: 10px 24px;
+  padding: 4px 24px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.03em;
@@ -165,7 +181,7 @@ body {
 @media (max-width: 480px) {
   .meta-band {
     font-size: 8px;
-    padding: 10px 10px;
+    padding: 4px 10px;
   }
 }
 
@@ -214,10 +230,9 @@ body {
 }
 
 /* --- control bar --- */
-/* No border-top: that edge used to sit right under the hero's own
-   border-bottom, bracketing the hero/filters gap with a second rule. The
-   .meta-band now living in that gap is the only divider — see its
-   comment above. */
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container (cards, the header logo badge, the
+   GitHub icon) — background and radius are unchanged. */
 .control-bar {
   display: flex;
   flex-wrap: wrap;
@@ -225,8 +240,7 @@ body {
   align-items: end;
   padding: 18px 20px;
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
-  border-top: none;
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   margin-bottom: 22px;
 }
@@ -239,7 +253,8 @@ body {
 }
 
 .control label {
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -546,69 +561,101 @@ body {
   gap: 6px;
 }
 
-/* Sits before the Players label to flag that Teams and Players aren't two
-   independent filters — see the isDimmed union in app.js's render() — a
-   selected team highlights all its players regardless of the Players list,
-   and vice versa. Hover/focus reveals the explanation below; `title` is a
-   plain-text fallback for anything that doesn't run the CSS (screen
-   readers, no-hover touch devices long-pressing for the native tooltip). */
-.info-hint {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  display: flex;
+/* Sits before the Players reset button to flag that Teams and Players
+   aren't two independent filters — see the isDimmed union in app.js's
+   render() — a selected team highlights all its players regardless of the
+   Players list, and vice versa. Populated at boot by createInfoPopover()
+   (info-popover.js) rather than static markup, so this slot and the RSWA
+   column header below share one component instead of two hand-rolled
+   tooltip implementations. The "Players" text itself now lives inside that
+   component (its .info-popover-label span, id="players-label") rather than
+   a sibling <label> — aria-labelledby on the players toggle button/input
+   still resolves to it by that same id. */
+.info-popover-slot { display: contents; }
+
+/* Shared InfoPopover trigger (info-popover.js) — click-toggled, not
+   hover-only, since the Players filter row is desktop/tablet-only already
+   and a touch device has no hover to dwell on. Just the label text inside
+   this <button> (.info-popover-label), no separate "i" icon — the border
+   wraps the whole clickable label rather than needing an icon to flag it as
+   interactive. */
+.info-popover-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 1px solid var(--chalk-dim);
-  color: var(--chalk-dim);
-  font-family: var(--font-mono);
-  font-style: italic;
-  font-size: 10px;
+  gap: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  color: #f0ede4;
+  font-family: var(--font-oswald);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1;
-  cursor: help;
-  position: relative;
+  cursor: pointer;
 }
-.info-hint:hover,
-.info-hint:focus-visible {
+.info-popover-label { white-space: nowrap; }
+.info-popover-trigger:hover,
+.info-popover-trigger:focus-visible,
+.info-popover-trigger[aria-expanded="true"] {
   border-color: var(--flag-gold);
+  background: rgba(211, 167, 61, 0.18);
   color: var(--flag-gold);
   outline: none;
 }
-.info-hint::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+
+/* The popup itself — appended to document.body by info-popover.js, not a
+   CSS ::after, so it can't be clipped by a scrolling ancestor
+   (.linemate-summary-wrap) the way the old .info-hint::after would've been
+   had it been reused there. Same 2px #f0ede4 neubrutalist border as the
+   trigger; body copy is IBM Plex Mono per the shared component's spec. */
+.info-popover-content {
+  position: fixed;
+  z-index: 200;
   width: 240px;
+  max-width: calc(100vw - 16px);
   background: var(--turf-800);
-  color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid #f0ede4;
   border-radius: 6px;
-  padding: 8px 10px;
-  font-family: var(--font-body);
-  font-style: normal;
-  font-size: 12px;
-  line-height: 1.4;
-  letter-spacing: normal;
-  text-transform: none;
+  padding: 10px 26px 10px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  z-index: 60;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease;
-  pointer-events: none;
 }
-.info-hint:hover::after,
-.info-hint:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
+.info-popover-text {
+  margin: 0;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.info-popover-close {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+}
+.info-popover-close:hover,
+.info-popover-close:focus-visible {
+  color: var(--flag-gold);
+  outline: none;
 }
 
 /* Body-appended tooltip (attachAppTooltip()/showAppTooltip() in app.js) for
-   triggers where .info-hint's own ::after popup would get clipped by a
-   scrolling ancestor (.linemate-summary-wrap, .scout-card-panel) — living
-   outside the card's DOM subtree means no ancestor's overflow can touch it.
+   the app's other, hover/focus-only info triggers (linemate row snap counts,
+   percentile cells, the Linemate Card title hint) — distinct from
+   .info-popover-content above, which is click-toggled. Living outside the
+   card's DOM subtree means no ancestor's overflow can clip either one.
    Positioned via inline left/top computed from the trigger's own rect. */
 .app-tooltip {
   position: fixed;
@@ -793,14 +840,17 @@ body {
    all sit "pending" in their own inputs until this is clicked), so it's
    styled as the form's one primary action rather than tucked next to the
    threshold slider like the old threshold-only Set button was. */
+/* v1.4.0 neubrutalism: 2px solid border (up from 1px) and a minimal 4px
+   radius, matching the flat 2px card border language in .scout-card-panel
+   above — no shadows/gradients on the resting button. */
 .apply-btn {
   flex: none;
   background: var(--flag-gold);
   color: var(--turf-950);
-  border: 1px solid var(--flag-gold);
-  border-radius: 6px;
+  border: 2px solid var(--flag-gold);
+  border-radius: 4px;
   padding: 9px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -814,9 +864,14 @@ body {
 }
 /* Lit up while any control (category/season/position/axes/threshold) holds
    a value that differs from what's actually drawn on the chart — the only
-   cue that pending selections are sitting unapplied. */
+   cue that pending selections are sitting unapplied. Swaps the resting
+   gold fill for burnt orange rather than adding a ring/shadow, so the
+   pending state reads as "this button now does something" instead of a
+   decoration on top of the gold button. */
 .apply-btn.pending {
-  box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright), 0 0 10px rgba(232, 193, 94, 0.55);
+  background: #d9622b;
+  border-color: #d9622b;
+  color: #f0ede4;
 }
 /* Secondary action next to Apply — black bg + chalk text, gold reserved for
    Apply since that's the primary action. Exports whatever's currently
@@ -829,10 +884,10 @@ body {
   gap: 6px;
   background: #000;
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
-  border-radius: 6px;
+  border: 2px solid var(--turf-600);
+  border-radius: 4px;
   padding: 9px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -871,7 +926,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-body);
+  font-family: var(--font-oswald);
+  font-weight: 600;
   font-size: 13px;
   color: var(--chalk-dim);
   text-transform: none;
@@ -892,7 +948,9 @@ body {
 
 .chart-panel {
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  /* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+     every other top-level container — background and radius unchanged. */
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   padding: 12px;
   min-height: 720px;
@@ -997,7 +1055,7 @@ body {
 /* Merge/Linemate cards reuse every .scout-card rule above (position, drag,
    z-index, mobile stacking) via this base class, plus their own modifier
    below for anything that needs to differ. */
-.scout-card--merge { width: 460px; }
+.scout-card--merge { width: 640px; }
 .scout-card--linemate { width: 420px; }
 
 /* Positioned relative to .scout-card itself (not .scout-card-panel) so the
@@ -1054,7 +1112,10 @@ body {
   background: linear-gradient(165deg, rgba(30, 61, 40, 0.9), rgba(22, 48, 31, 0.94));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--turf-600);
+  /* v1.4.0 neubrutalism: 2px solid, up from 1px — shared by all three card
+     types (Player/Linemate/Merge) via this one base rule. Color matches the
+     card-title text (#f0ede4), not --turf-600. */
+  border: 2px solid #f0ede4;
   border-radius: 0 8px 8px 8px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
   transition: max-height 0.28s ease, opacity 0.22s ease;
@@ -1080,7 +1141,7 @@ body {
    mid-row clip. */
 .scout-card.is-folded .scout-stats,
 .scout-card.is-folded .merge-table-wrap,
-.scout-card.is-folded .linemate-roster,
+.scout-card.is-folded .linemate-table-wrap,
 .scout-card.is-folded .linemate-see-more,
 .scout-card.is-folded .linemate-summary-wrap {
   display: none;
@@ -1162,7 +1223,7 @@ body {
   align-items: center;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 1px dashed var(--turf-600);
+  border-bottom: 1px solid var(--turf-600);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -1302,6 +1363,29 @@ body {
   color: var(--chalk-dim);
   min-width: 64px;
 }
+/* Player Card-only percentile color coding (six bins, see
+   percentileChipClass() in scout-card.js) — the whole "#rank/N · Nth pct"
+   string sits on a solid background chip rather than just tinting the text,
+   so the color reads at a glance without needing to parse the string first.
+   Minimal 3px radius matches the app's neubrutalist language elsewhere
+   (not a rounded pill); text color per bin is contrast-matched against its
+   background rather than a single color for all six. Games/the threshold
+   field have no percentile and so render as plain .scout-stat-rank text,
+   never a chip — see renderScoutCardStats()'s addRow(). Scoped to Player
+   Card only: Linemate/Merge Card rank cells and the Line Summary table
+   don't get this treatment. */
+.scout-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.scout-pct-red { background: #e74c3c; color: #f0ede4; }
+.scout-pct-orange { background: #e67e22; color: #f0ede4; }
+.scout-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.scout-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.scout-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.scout-pct-violet { background: #a569bd; color: #f0ede4; }
 
 /* --- Player Card actions: linemate toggle (BLUEPRINT.md §2) ---
    Sits between the header and the stats table, always visible — including
@@ -1319,9 +1403,40 @@ body {
   justify-content: flex-start;
   gap: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px dashed var(--turf-600);
+  border-bottom: 1px solid var(--turf-600);
 }
-.card-linemate-toggle,
+/* Player Card's own Linemates toggle: solid-gold, same button language as
+   .apply-btn/.pcs-inspect-btn, so it reads as the card's primary
+   call-to-action rather than a utility icon — distinct from the card's
+   structural #f0ede4 border and from the download/collapse/close icons in
+   the top-right corner. Deliberately its own rule, not shared with
+   .merge-row-linemate-toggle below: that one stays a small ghost/ouline
+   icon button scoped to a dense merge-table row, where a solid gold fill
+   per row would be too loud. */
+.card-linemate-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #d4af5a;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-oswald);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.card-linemate-toggle:hover,
+.card-linemate-toggle:focus-visible {
+  background: var(--flag-gold-bright);
+  outline: none;
+}
+
 .merge-row-linemate-toggle {
   appearance: none;
   -webkit-appearance: none;
@@ -1332,22 +1447,19 @@ body {
   color: var(--chalk-dim);
   border: 1px solid var(--turf-600);
   border-radius: 5px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
 }
-.card-linemate-toggle:hover,
-.card-linemate-toggle:focus-visible,
 .merge-row-linemate-toggle:hover,
 .merge-row-linemate-toggle:focus-visible {
   color: var(--flag-gold-bright);
   border-color: var(--flag-gold);
   outline: none;
 }
-.merge-row-linemate-toggle { padding: 3px 6px; font-size: 11px; }
 
 /* --- Pinned Players (BLUEPRINT_PinnedPlayers.md) ---
    Persistent Workspace management region — replaces the old merge-toolbar.
@@ -1358,6 +1470,11 @@ body {
 }
 .player-cards-space[hidden] { display: none; }
 
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container — applied to both of this bar's states
+   (collapsed .pcs-bar, expanded .pcs-panel below) so the frame stays
+   consistent regardless of which one is currently showing. Background and
+   radius are unchanged for both. */
 .pcs-bar {
   display: flex;
   align-items: center;
@@ -1365,18 +1482,21 @@ body {
   flex-wrap: wrap;
   padding: 10px 16px;
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  border: 2px solid #f0ede4;
   border-radius: 8px;
 }
 .pcs-quota {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-oswald);
+  font-weight: 600;
+  font-size: 14px;
   letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
-/* Same size/typography as .apply-btn (Apply) — an expand/collapse panel
-   toggle (§2: not a native select), but visually the row's primary action,
-   same gold treatment Apply gets in the filter bar. */
+/* Same size, gold treatment, and now typography (Oswald/600) as .apply-btn
+   in the filter bar — an expand/collapse panel toggle (§2: not a native
+   select), visually the row's primary action. The scatter-plot label font
+   is Oswald too, but stays at its own lighter 450 weight, not this bar's
+   600. */
 .pcs-inspect-btn {
   appearance: none;
   -webkit-appearance: none;
@@ -1392,7 +1512,7 @@ body {
   border: 1px solid var(--flag-gold);
   border-radius: 6px;
   padding: 9px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -1411,10 +1531,25 @@ body {
 }
 .pcs-inspect-btn[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
+/* Glass treatment (v1.4.0) — scoped to this one floating panel on purpose,
+   not the Player/Linemate/Merge Card bodies: those are data-dense stat
+   tables where a blurred background would hurt legibility. -webkit- prefix
+   is required for the iPad/WeChat in-app-browser (WKWebView) case this app
+   already targets. */
 .pcs-panel {
+  /* backdrop-filter establishes a new stacking context, which otherwise
+     traps the Single Cards search dropdown's z-index:50 (below) inside it
+     — .board (the chart) sits later in the DOM at its own position:relative/
+     z-index:auto, so without an explicit z-index here .board would win that
+     comparison and paint over the dropdown. position+z-index below let this
+     whole panel (dropdown included) stack above .board again. */
+  position: relative;
+  z-index: 10;
   margin-top: 8px;
-  background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 2px solid #f0ede4;
   border-radius: 8px;
   padding: 14px 16px;
 }
@@ -1439,7 +1574,7 @@ body {
 
 .pcs-column-title {
   margin: 0 0 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1472,6 +1607,14 @@ body {
    that no longer fits in this box at this width lives on its own static
    line below instead, reusing .pcs-empty — see index.html.) */
 .pcs-add-wrap { flex: none; width: 120px; margin-bottom: 0; }
+/* Glassmorphism reverted here (was rgba(255,255,255,0.07)/blur(10px)/
+   rgba(255,255,255,0.18), matching .pcs-panel above) — the blurred chart
+   title text bleeding through the dropdown clashed with the player-name
+   list underneath it, hurting readability. Solid background instead, same
+   #16281c as the rest of the workspace panel, with the v1.4.0 neubrutalist
+   2px #f0ede4 border (matching the search input above it) rather than the
+   glass border. .pcs-panel itself keeps its own glass treatment — this
+   revert is scoped to just this floating suggestion list. */
 .pcs-add-wrap .merge-edit-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -1479,7 +1622,29 @@ body {
   z-index: 50;
   width: 260px;
   margin-top: 0;
+  background: #16281c;
+  border: 2px solid #f0ede4;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+/* .merge-edit-input/.player-option(-name/-team) are reused wholesale here
+   (see comment above) but the base rules for those classes stay Inter/mono
+   — they're shared with the Players filter and the Create/Edit merge
+   popups, which this Oswald pass doesn't touch. Scope the override to just
+   the copy rendered inside Pinned Players instead of touching the shared
+   base rule. */
+#player-cards-space .merge-edit-input,
+#player-cards-space .player-option,
+#player-cards-space .player-option-team {
+  font-family: var(--font-oswald);
+}
+/* v1.4.0 neubrutalism, extended to the Single Cards add-search box — same
+   2px solid #f0ede4/minimal-radius language as .apply-btn/.pcs-row-remove
+   above, scoped here rather than on the shared base .merge-edit-input rule
+   since that rule is also the Create/Edit merge popups' own input, which
+   this pass doesn't touch. */
+#player-cards-space .merge-edit-input {
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
 }
 
 .pcs-list {
@@ -1491,6 +1656,7 @@ body {
 }
 .pcs-empty {
   margin: 0;
+  font-family: var(--font-oswald);
   font-size: 12.5px;
   color: var(--chalk-dim);
   font-style: italic;
@@ -1516,6 +1682,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-oswald);
   font-size: 13px;
   color: var(--chalk);
 }
@@ -1526,23 +1693,28 @@ body {
 .pcs-row-spacer { flex: 1 1 auto; }
 .pcs-row-meta {
   flex: none;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 10.5px;
   letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
+/* v1.4.0 neubrutalism, extended: same 2px solid #f0ede4/minimal-radius
+   language as .apply-btn/.scout-card-panel, but transparent (outline) rather
+   than filled — these are row-level secondary actions, so they shouldn't
+   carry the same visual weight as a filled primary action like Create/Apply
+   even once bordered the same way. */
 .pcs-row-remove,
 .pcs-row-edit,
 .pcs-row-dismiss {
   appearance: none;
   -webkit-appearance: none;
   flex: none;
-  background: var(--turf-700);
+  background: transparent;
   color: var(--chalk-dim);
-  border: 1px solid var(--turf-600);
-  border-radius: 5px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   padding: 4px 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 10.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1556,19 +1728,22 @@ body {
   outline: none;
 }
 
-/* Same size/typography as .png-btn (Save Plot) — black, the secondary-action
-   treatment, gold reserved for Manage/Apply. min-width matches
-   .pcs-inspect-btn's so Manage and Create render as the exact same size,
-   not just the same padding/font. */
+/* Same size, and now same typography (Oswald/600), as .png-btn (Save Plot)
+   — black, the secondary-action treatment, gold reserved for Manage/Apply.
+   min-width matches .pcs-inspect-btn's so Manage and Create render as the
+   exact same size. v1.4.0 neubrutalism: 2px solid #f0ede4/4px radius, same
+   border weight as .pcs-row-remove/-edit/-dismiss above — the solid black
+   fill (vs. their transparent outline) is what marks this as the primary
+   action, not a heavier border. */
 .merge-btn {
   flex: none;
   min-width: 120px;
   background: #000;
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
-  border-radius: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   padding: 9px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -1589,25 +1764,87 @@ body {
 
 /* --- Merge Card table --- one row per player, one column per metric,
    percentile-only cells (BLUEPRINT.md §1.2). */
-/* Below the dashed .scout-card-top divider: the shared-pool sentence (Pool
+/* Below the .scout-card-top divider: the shared-pool sentence (Pool
    column dropped from the table below, see renderMergeCardBody() — falls
    back to listing each member's own pool if the card mixes positions), then
    the scroll hint. One flex child of .scout-card-body so the two lines sit
-   close together instead of each taking the body's full 16px gap. */
+   close together instead of each taking the body's full 16px gap. Rendered
+   as a bulleted list (.merge-card-note-list), same treatment as Linemate
+   Card's own two-line disclaimer (.linemate-card-note-list) — gold/italic
+   bullets rather than plain stacked paragraphs. */
 .merge-card-notes {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.merge-card-pool,
-.merge-card-scroll-hint,
-.scout-card-pool {
+.merge-card-note-list {
   margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.merge-card-note {
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
-  color: var(--chalk-dim);
+  color: var(--flag-gold);
 }
+/* Player Card's own single-line pool sentence — same bulleted, gold/italic
+   treatment as .merge-card-note-list/.linemate-card-note-list above, rather
+   than the plain dim paragraph it used to be. Still just one <li>; the list
+   wrapper exists so a single line reads identically to the two-line notes
+   on Merge/Linemate Cards instead of looking like a different component. */
+.scout-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.scout-card-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
+}
+/* Excel-style click-to-sort headers (table-sort.js) — shared by Merge
+   Card's table, Linemate Card's roster table, and its Line Summary table.
+   `<th>` itself is the click target (not just its text or the arrows), so
+   the whole cell needs to read as interactive. Every sortable column always
+   shows both a ▲ and a ▼ (stacked, text glyphs — not emoji, since emoji
+   ignore CSS `color` and can't carry the three states below), not just the
+   currently-sorted one, so a column's sortability is visible before it's
+   ever clicked. Kept as one shared block near the top of the DataFrame-table
+   styles below rather than repeated per table, since all three use
+   identical treatment. */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-th:hover,
+.sortable-th.is-sorted {
+  color: var(--flag-gold);
+}
+.sortable-th:focus-visible {
+  outline: 1px solid var(--flag-gold);
+  outline-offset: -1px;
+}
+.sort-indicator {
+  display: inline-flex;
+  flex-direction: column;
+  margin-left: 4px;
+  vertical-align: middle;
+  line-height: 0.6;
+}
+/* Neutral (this column isn't the active sort): both arrows sit at the same
+   dim color. Active: makeSortableHeader() adds .is-active to whichever
+   arrow matches the current direction (gold); the other arrow drops to an
+   even dimmer shade via .is-sorted below rather than staying at the neutral
+   color, so the active direction reads unambiguously at a glance. */
+.sort-arrow {
+  font-size: 8px;
+  color: #5a6e5f;
+}
+.sort-arrow.is-active { color: #d4af5a; }
+.sortable-th.is-sorted .sort-arrow:not(.is-active) { color: #3f4f43; }
+
 .merge-table-wrap { overflow-x: auto; }
 .merge-table {
   width: 100%;
@@ -1632,6 +1869,42 @@ body {
 .merge-table td { color: var(--chalk); }
 .merge-metric-cell { cursor: help; }
 .merge-metric-cell:hover { color: var(--flag-gold); }
+/* Percentile color coding — same six bins/colors/text-contrast rule as
+   Player Card's .scout-pct-chip (scout-card.js's percentileChipClass()).
+   The JS mapping function is reimplemented locally per file
+   (percentileFillClass() in both merge-card.js and linemate-card.js) rather
+   than shared, matching this codebase's existing per-card-type styling
+   convention (e.g. .merge-table-frozen vs .linemate-table-frozen) — but
+   these CSS classes themselves ARE the one shared component both files'
+   copies point at, same reasoning as .sortable-th/.sort-arrow above being
+   one shared block for Merge Card's table and Linemate Card's roster table.
+   Deliberately NOT used on Linemate Card's Line Summary table (Min/Median/
+   RSWA/Max are order statistics across the roster, not an individual's
+   performance grade — see linemate-card.js's percentileFillClass() comment).
+   An inset chip span inside the <td> — minimal-radius/small-padding, same
+   language as .scout-pct-chip — not a full edge-to-edge cell fill, so the
+   cell's own background and row divider stay visible around it. (An earlier
+   pass on Merge Card colored the <td> directly for an Excel-style full-cell
+   fill; reverted — besides looking wrong for this grid, .merge-table td's
+   own `color: var(--chalk)` rule is MORE specific than a single class like
+   .merge-pct-yellow and silently won on the td, breaking dark-on-light text
+   for the yellow/light-blue bins. Setting color on the chip span instead
+   sidesteps that: a span is never itself a `.merge-table td`/`.linemate-
+   table td`, so the two rules never compete on the same element.) Games/
+   threshold-field columns never get one of these classes (see
+   renderMergeCardBody()/renderLinemateRoster()), so they stay uncolored. */
+.merge-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.merge-pct-red { background: #e74c3c; color: #f0ede4; }
+.merge-pct-orange { background: #e67e22; color: #f0ede4; }
+.merge-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.merge-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.merge-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.merge-pct-violet { background: #a569bd; color: #f0ede4; }
 .merge-table .merge-table-name,
 .merge-table th:first-child {
   text-align: left;
@@ -1673,87 +1946,86 @@ body {
 thead .merge-table-frozen { z-index: 3; }
 .merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
 
-/* --- Linemate Association Card --- roster rows + 3M/RSWA summary
+/* --- Linemate Association Card --- roster table + 3M/RSWA summary
    (BLUEPRINT.md §2). Header now mirrors the Player Card's two-row layout
-   (.scout-card-top logo+name+meta, then a second dashed-border row) — see
+   (.scout-card-top logo+name+meta, then a second bordered row) — see
    openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
    second row's own modifier on .scout-card-actions, swapping its single-
-   button flex-start layout for a stacked column of the two disclaimer
-   lines that used to sit under the title. */
-.linemate-card-title-hint {
-  margin-left: 6px;
-  font-size: 13px;
-  color: var(--chalk-dim);
-  cursor: help;
-}
-.linemate-card-title:hover .linemate-card-title-hint {
-  color: var(--flag-gold);
-}
+   button flex-start layout for the two disclaimer lines (roster size/
+   threshold, then the percentile note) that used to sit under the title. */
 .linemate-card-notes {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
 }
+.linemate-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
 .linemate-card-note {
-  margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
   color: var(--flag-gold);
 }
-.linemate-card-hint {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-style: italic;
-  color: var(--chalk-dim);
-}
-.linemate-roster {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.linemate-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed var(--turf-600);
-}
-.linemate-row-name-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.linemate-row-name {
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--chalk);
-}
-.linemate-row-hint {
-  color: var(--chalk-dim);
-  font-size: 10px;
-  cursor: help;
-}
-.linemate-row-name-wrap:hover .linemate-row-hint {
-  color: var(--flag-gold);
-}
-.linemate-row-cells {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.linemate-cell {
+/* Roster table — same DataFrame column style as Merge Card's .merge-table
+   (BLUEPRINT.md §2.1/§1.2: one row per teammate, one column per metric,
+   percentile-only cells), just without its Team column (redundant here —
+   every row already shares the anchor's team, see computeLinemateRoster())
+   or its Linemates-toggle column (no per-row drill-down on this card type,
+   BLUEPRINT.md §2.3's recursion guard). */
+.linemate-table-wrap { overflow-x: auto; margin-bottom: 10px; }
+.linemate-table {
+  width: 100%;
+  border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--chalk-dim);
-  background: rgba(241, 236, 221, 0.06);
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: help;
+  font-size: 11.5px;
 }
+.linemate-table th,
+.linemate-table td {
+  padding: 6px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.linemate-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.linemate-table td { color: var(--chalk); }
+.linemate-metric-cell { cursor: help; }
+.linemate-metric-cell:hover { color: var(--flag-gold); }
+.linemate-table .linemate-table-name,
+.linemate-table th:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+/* Position — same left-align treatment as Merge Card's Team column
+   (.merge-table .merge-table-team, .merge-table th:nth-child(2)), just
+   plain text instead of a logo since there's no per-row team to show. */
+.linemate-table .linemate-table-position,
+.linemate-table th:nth-child(2) { text-align: left; }
+/* Freeze Panes, scoped to the Player + Position columns — both metadata,
+   same as Merge Card's own Player/Team/Linemates freeze. Left offsets are
+   set inline per column by applyStickyLinemateColumns() (linemate-card.js),
+   since they depend on Player's actual rendered width, not just Position's
+   fixed slot at 0. Opaque background masks the Games/PR Opp/metric columns
+   scrolling underneath, same reasoning as .merge-table-frozen — including
+   the real class (not just :first-child) card-export.js's buildExportClone()
+   needs to force these back to position:static, same reason it does for
+   .merge-table-frozen (see its comment there). */
+.linemate-table-frozen {
+  position: sticky;
+  z-index: 2;
+  background: var(--turf-800);
+}
+thead .linemate-table-frozen { z-index: 3; }
+.linemate-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
 .linemate-see-more {
   appearance: none;
   -webkit-appearance: none;
@@ -1824,20 +2096,33 @@ thead .merge-table-frozen { z-index: 3; }
 }
 .linemate-summary-table th:first-child,
 .linemate-summary-table td:first-child {
-  width: 46%;
+  width: 40%;
   white-space: normal;
 }
-/* The RSWA header's info icon (BLUEPRINT.md §2.5's formula) — a native
-   `title` tooltip, not the app's usual .info-hint ::after popup, since a
-   popup here would get clipped by .linemate-summary-wrap's overflow-x:auto. */
-.linemate-summary-hint {
-  margin-left: 4px;
-  color: var(--chalk-dim);
-  font-size: 10px;
-  cursor: help;
+/* Min/Max hold the same short ordinal text as Median/RSWA ("41st", "95th")
+   but don't need as much room once Metric (above) claims more of the row
+   for its own long labels ("TPS Allowed Pressure %") — narrowed so that
+   extra width comes from here rather than shrinking Median/RSWA, which
+   still need to fit the RSWA header's InfoPopover trigger button. */
+.linemate-summary-table th:nth-child(2),
+.linemate-summary-table td:nth-child(2),
+.linemate-summary-table th:nth-child(5),
+.linemate-summary-table td:nth-child(5) {
+  width: 12%;
 }
-.linemate-summary-table th:hover .linemate-summary-hint {
-  color: var(--flag-gold);
+/* The RSWA header's InfoPopover trigger (BLUEPRINT.md §2.5's formula) —
+   shared .info-popover-trigger component (info-popover.js), same one the
+   Players filter header uses, standing in for that column's plain-text
+   label (see renderLinemateSummary()'s replaceChild). Sized down from the
+   component's own default padding/font-size here — this table's columns are
+   too narrow (see the 32%-first-column split above) for the full-size
+   button to fit without crowding the Min/Median/Max headers next to it. */
+.linemate-summary-table th .info-popover-trigger {
+  padding: 2px 6px;
+  gap: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
 }
 
 /* --- Workspace quota/cap notice popup --- same modal-overlay pattern as

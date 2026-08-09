@@ -8,7 +8,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Oswald:wght@450;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="style.css?v={{VERSION}}" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
@@ -38,7 +38,7 @@
         "No Line No Shine."<br><br>
         Infrastructure is the one that nearly always starts everything,
         but quite often gets ignored thanks to its unadorned hard works and grit & grind styles.<br><br>
-        For all these under-appreciated.
+        For all these under-appreciated. Let's explore 🗺️
       </p>
     </div>
   </div>
@@ -99,10 +99,7 @@
            control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
       <div class="control control-players" id="players-control">
         <div class="players-label-row">
-          <span class="info-hint" tabindex="0"
-                title="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected."
-                data-tooltip="Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.">i</span>
-          <label id="players-label" for="players-toggle-btn">Players</label>
+          <span class="info-popover-slot" id="players-info-slot"></span>
           <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
         </div>
         <div class="players-select">
@@ -233,7 +230,7 @@
       <div class="pcs-columns">
         <div class="pcs-column">
           <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Single Cards</h3>
+            <h3 class="pcs-column-title">Player Profiles</h3>
             <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
                  v1.2.0 §4) — a plot click no longer adds here, it only opens
                  the floating card (see viewFloatingCard() in app.js). Same
@@ -252,7 +249,7 @@
                line stands in for it, in the same row position as the Merged
                Cards column's own hint ("Click Create...", #pcs-merged-empty)
                below its header. -->
-          <p class="pcs-empty">Type a player's name to add a card.</p>
+          <p class="pcs-empty" id="pcs-singles-empty">Type a player's name to add a card.</p>
           <div class="pcs-list" id="pcs-singles-list"></div>
         </div>
 
@@ -260,7 +257,7 @@
 
         <div class="pcs-column">
           <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Merged Cards</h3>
+            <h3 class="pcs-column-title">Player Comparisons</h3>
             <button type="button" class="merge-btn" id="pcs-create-btn">Create</button>
           </div>
           <div class="pcs-list" id="pcs-merged-list"></div>
@@ -327,7 +324,10 @@
                 <i class="fa-solid fa-people-group"></i> Linemates
               </button>
             </div>
-            <p class="scout-card-pool"></p>
+            <ul class="scout-card-note-list">
+              <li class="scout-card-note scout-card-pool"></li>
+              <li class="scout-card-note scout-card-threshold"></li>
+            </ul>
             <dl class="scout-stats"></dl>
           </div>
         </div>
@@ -355,8 +355,10 @@
               </div>
             </div>
             <div class="merge-card-notes">
-              <p class="merge-card-pool"></p>
-              <p class="merge-card-scroll-hint">Please scroll right for more metrics.</p>
+              <ul class="merge-card-note-list">
+                <li class="merge-card-note merge-card-pool"></li>
+                <li class="merge-card-note merge-card-scroll-hint">Please scroll right for more metrics.</li>
+              </ul>
             </div>
             <div class="merge-table-wrap">
               <table class="merge-table"></table>
@@ -366,15 +368,17 @@
       </aside>
     </template>
 
-    <!-- Roster (percentiles only, own-position pool) + the 3M/RSWA summary
-         table (BLUEPRINT.md §2) — filled in by openLinemateCard() in app.js.
-         Header row now mirrors the Player Card's (.scout-logo-wrap +
-         .scout-id/.scout-name/.scout-meta) rather than a bare title — see
-         openLinemateCard()/renderLinemateCardBody(). No linemate toggle
-         anywhere on this card: the recursion guard from §2.3 is enforced by
-         simply never rendering one here — the second header row
-         (.scout-card-actions) that holds a Linemates toggle on a Player Card
-         holds the "All numbers..."/"Tooltip each..." disclaimer here instead. -->
+    <!-- Roster table (percentiles only, own-position pool, DataFrame-style
+         columns matching Merge Card's — see makeTeamCell()/renderMergeCardBody()
+         in merge-card.js) + the 3M/RSWA summary table (BLUEPRINT.md §2) —
+         filled in by openLinemateCard() in app.js. Header row mirrors the
+         Player Card's (.scout-logo-wrap + .scout-id/.scout-name/.scout-meta)
+         rather than a bare title — see openLinemateCard()/renderLinemateCardBody().
+         No linemate toggle anywhere on this card, roster table included: the
+         recursion guard from §2.3 is enforced by simply never rendering one
+         here — the second header row (.scout-card-actions) that holds a
+         Linemates toggle on a Player Card holds the "All numbers..."
+         disclaimer here instead. -->
     <template id="linemate-card-template">
       <aside class="scout-card scout-card--linemate">
         <button type="button" class="card-save-btn" aria-label="Save card as PNG">
@@ -398,10 +402,14 @@
               </div>
             </div>
             <div class="scout-card-actions linemate-card-notes">
-              <p class="linemate-card-note">All numbers are a player's percentiles among his position.</p>
-              <p class="linemate-card-hint">Tooltip each percentile for more info.</p>
+              <ul class="linemate-card-note-list">
+                <li class="linemate-card-note linemate-card-roster-note"></li>
+                <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
+              </ul>
             </div>
-            <div class="linemate-roster"></div>
+            <div class="linemate-table-wrap">
+              <table class="linemate-table"></table>
+            </div>
             <button type="button" class="linemate-see-more" hidden>See more</button>
             <div class="linemate-summary-wrap">
               <h4 class="linemate-summary-title">Line Summary</h4>
@@ -436,7 +444,7 @@
   <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
     <p class="merge-confirm-title" id="merge-confirm-title">Clear your Pinned Players?</p>
     <p class="merge-confirm-body">
-      This filter change recomputes the player pool — every Single Card and Merged Card in your
+      This filter change recomputes the player pool — every Player Profile and Player Comparison in your
       Pinned Players, built against the old pool, will be dissolved (open Linemate Cards will
       refresh or close as needed). This can't be undone.
     </p>
@@ -455,7 +463,7 @@
      discards it untouched, no card created. -->
 <div class="merge-edit-overlay" id="merge-create-overlay" hidden>
   <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-create-title">
-    <p class="merge-edit-title" id="merge-create-title">Create Merged Card</p>
+    <p class="merge-edit-title" id="merge-create-title">Create Player Comparison</p>
 
     <div class="merge-edit-members" id="merge-create-members"></div>
 
