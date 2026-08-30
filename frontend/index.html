@@ -507,6 +507,29 @@
   </div>
 </div>
 
+<!-- Below Threshold Matches popup — surfaces a Players-search name match
+     whose season snap count/opportunities fall under the current threshold,
+     rather than leaving that indistinguishable from "no such player".
+     Opened from the "Below Threshold Matches (N)" toggle rendered above the
+     first candidate in #players-dropdown (see renderPlayersDropdown() in
+     filters.js), never auto-popped. Same modal pattern as #merge-edit-overlay
+     above — single static instance, repopulated per open via
+     openBelowThresholdPopup(), closes only via its own Close button (no
+     outside-click dismissal). Each row's "Set Threshold" button sets the
+     threshold to that player's own value (the filter is inclusive, so no
+     off-by-one is needed) and closes the popup — leaving it open would show a
+     stale list, since the clicked player (and possibly others) no longer
+     belong in it. -->
+<div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
+  <div class="merge-edit-box below-threshold-box" role="dialog" aria-modal="true" aria-labelledby="below-threshold-title">
+    <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>
+    <div class="below-threshold-list" id="below-threshold-list"></div>
+    <div class="merge-edit-actions">
+      <button type="button" class="merge-edit-done" id="below-threshold-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
 <script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
 <script type="module" src="main.js?v={{VERSION}}"></script>

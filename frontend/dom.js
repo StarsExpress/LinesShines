@@ -35,6 +35,10 @@ export const els = {
   playersChips: document.getElementById("players-chips"),
   playersInput: document.getElementById("players-input"),
   playersDropdown: document.getElementById("players-dropdown"),
+  // Below-threshold-matches popup — see openBelowThresholdPopup() in filters.js.
+  belowThresholdOverlay: document.getElementById("below-threshold-overlay"),
+  belowThresholdList: document.getElementById("below-threshold-list"),
+  belowThresholdClose: document.getElementById("below-threshold-close"),
   chart: document.getElementById("chart"),
   chartPanel: document.querySelector(".chart-panel"),
   emptyState: document.getElementById("empty-state"),

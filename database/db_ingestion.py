@@ -23,10 +23,12 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from datetime import date
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
+from config import DYNAMIC_THRESHOLDS
 from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
@@ -240,6 +242,17 @@ def main() -> None:
     print(
         f"\nBulk-inserted {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
     )
+
+    # In-progress season's threshold is hand-eyeballed weekly, not
+    # auto-computed (see config.py's DYNAMIC_THRESHOLDS).
+    # Nudge rather than silently falling back if this week's ingestion covers
+    # the current season and nobody's touched it yet.
+    current_year = date.today().year
+    if current_year in args.seasons and current_year not in DYNAMIC_THRESHOLDS:
+        print(
+            f"Reminder: {current_year} has no entry in config.DYNAMIC_THRESHOLDS yet — "
+            "falling back to the static default thresholds until you set one."
+        )
 
 
 if __name__ == "__main__":
