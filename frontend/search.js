@@ -174,6 +174,18 @@ export function qualifyingPlayerPool() {
   );
 }
 
+// Same pool as qualifyingPlayerPool() but without the threshold cut — the
+// below-threshold-matches popup fuzzy-matches against this instead, so a
+// name that exists but falls under the current threshold can still be told
+// apart from a name that doesn't exist at all. Deliberately a separate pool
+// rather than threading a "skip the threshold check" flag through
+// qualifyingPlayerPool() itself, so the normal dropdown's
+// searchPlayers(query, qualifyingPlayerPool()) call site is untouched.
+export function fullPlayerPool() {
+  if (!playerPoolCategory) return [];
+  return playerPoolRecords.filter((r) => r.position === els.position.value);
+}
+
 // Top `topK` matches for `query` among `pool`, excluding any player key in
 // `excludeKeys`. Search runs against the full "player" field (e.g. "Will
 // Anderson Jr."), never "abbr_name" ("W. Anderson Jr.") — abbr_name exists

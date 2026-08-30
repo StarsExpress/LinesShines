@@ -29,6 +29,7 @@ import {
   closePlayersPanel,
   hidePlayersDropdown,
   runPlayersSearch,
+  closeBelowThresholdPopup,
   prunePlayerSelections,
   updatePendingState,
   updatePlayerPool,
@@ -386,6 +387,11 @@ function attachEvents() {
     }
   });
   els.mergeEditDone.addEventListener("click", closeMergeEditPopup);
+
+  // Below Threshold Matches popup — see openBelowThresholdPopup() in
+  // filters.js. Same "closes only via its own button" convention as the
+  // merge-edit overlays above.
+  els.belowThresholdClose.addEventListener("click", closeBelowThresholdPopup);
 
   // Deliberately no "click outside closes the card" handler here, unlike the
   // Teams/Players dropdowns and the filters drawer below. Those are

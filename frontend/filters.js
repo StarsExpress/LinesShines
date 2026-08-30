@@ -16,6 +16,8 @@
  */
 import { els } from "./dom.js";
 import {
+  metadata,
+  playerPoolCategory,
   appliedFilters,
   currentRecords,
   fetchSlice,
@@ -29,7 +31,7 @@ import {
   teamName,
   allTeamCodes,
 } from "./data.js";
-import { searchPlayersExcluding, qualifyingPlayerPool } from "./search.js";
+import { searchPlayersExcluding, qualifyingPlayerPool, fullPlayerPool } from "./search.js";
 import { CONFERENCES } from "./config.js";
 import { render } from "./render.js";
 import { refreshOpenScoutCards } from "./scout-card.js";
@@ -60,6 +62,15 @@ export function setResetThresholdOnNextRange(v) {
 // checklist — edited freely via chips, only takes effect on the chart once
 // Apply snapshots it into appliedFilters.players (see currentFilterState()).
 export const selectedPlayers = new Map();
+
+// Below-threshold-matches popup (surfaces a name match that exists but
+// doesn't clear the current threshold, rather than leaving that
+// indistinguishable from "no such player" — see runPlayersSearch()). A
+// generous cap since this is a scrollable popup, not the 8-item autocomplete
+// dropdown — just enough to keep a single-letter query from dumping the
+// whole pool into it.
+const BELOW_THRESHOLD_TOP_K = 20;
+let belowThresholdMatches = [];
 
 export function currentFilterState() {
   return {
@@ -237,9 +248,22 @@ export function hidePlayersDropdown() {
 
 export function renderPlayersDropdown(matches) {
   els.playersDropdown.innerHTML = "";
-  if (!matches.length) {
+  if (!matches.length && !belowThresholdMatches.length) {
     hidePlayersDropdown();
     return;
+  }
+
+  // Sits above the first normal candidate, not among them — it opens a
+  // popup rather than picking a player, so it's styled/behaves distinctly
+  // from a .player-option row. Renders only when there's at least one
+  // below-threshold match; N mirrors whatever runPlayersSearch() just found.
+  if (belowThresholdMatches.length > 0) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "below-threshold-toggle";
+    toggle.textContent = `Below Threshold Matches (${belowThresholdMatches.length})`;
+    toggle.addEventListener("click", () => openBelowThresholdPopup());
+    els.playersDropdown.appendChild(toggle);
   }
 
   matches.forEach((record) => {
@@ -293,10 +317,119 @@ export function renderPlayersDropdown(matches) {
 export function runPlayersSearch() {
   const query = els.playersInput.value.trim();
   if (!query) {
+    belowThresholdMatches = [];
     hidePlayersDropdown();
     return;
   }
+
+  // Two independent passes, not one filtered afterward — searchPlayers()
+  // over qualifyingPlayerPool() stays exactly as it was (the normal
+  // dropdown's ranking must not shift just because this feature exists, see
+  // fullPlayerPool()'s header comment). This second pass runs the same
+  // fuzzy matcher against the unfiltered pool and keeps only what didn't
+  // already clear the bar, so it can never overlap with the normal results.
+  if (playerPoolCategory) {
+    const cat = metadata[playerPoolCategory];
+    const minThreshold = Number(els.thresholdNumber.value);
+    const fullMatches = searchPlayers(query, fullPlayerPool(), BELOW_THRESHOLD_TOP_K);
+    belowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < minThreshold);
+  } else {
+    belowThresholdMatches = [];
+  }
+
   renderPlayersDropdown(searchPlayers(query, qualifyingPlayerPool()));
+}
+
+// Single static overlay, repopulated per open — same convention as
+// #merge-edit-overlay (see its header comment in index.html): no
+// outside-click dismissal, closes only via its own Close button (wired once
+// in main.js's attachEvents()). Reads the module-level belowThresholdMatches
+// captured by the runPlayersSearch() call that rendered the toggle button,
+// rather than taking a matches argument, since it can only ever be opened
+// from that button.
+export function openBelowThresholdPopup() {
+  const cat = metadata[playerPoolCategory];
+  els.belowThresholdList.innerHTML = "";
+
+  belowThresholdMatches.forEach((record) => {
+    const row = document.createElement("div");
+    row.className = "below-threshold-row";
+
+    const info = document.createElement("div");
+    info.className = "below-threshold-row-info";
+
+    const name = document.createElement("span");
+    name.className = "player-option-name";
+    name.textContent = record.player;
+
+    const team = document.createElement("span");
+    team.className = "player-option-team";
+    const logo = document.createElement("img");
+    logo.className = "player-option-logo";
+    logo.src = logoSrc(record.team);
+    logo.alt = "";
+    logo.loading = "lazy";
+    logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
+    const code = document.createElement("span");
+    code.textContent = record.team;
+    team.append(logo, code);
+
+    info.append(name, team);
+
+    const value = document.createElement("span");
+    value.className = "below-threshold-row-value";
+    value.textContent = `${record[cat.threshold_field]} ${cat.threshold_field}`;
+
+    const setBtn = document.createElement("button");
+    setBtn.type = "button";
+    setBtn.className = "below-threshold-row-btn";
+    setBtn.textContent = "Set Threshold";
+    setBtn.addEventListener("click", () => {
+      setThresholdTo(record[cat.threshold_field]);
+      closeBelowThresholdPopup();
+      // Query text is left untouched (see els.playersInput.value — nothing
+      // in this flow writes to it), so this re-run surfaces the
+      // just-qualified player in the normal dropdown immediately, same as
+      // if the user had retyped the query.
+      runPlayersSearch();
+    });
+
+    row.append(info, value, setBtn);
+    els.belowThresholdList.appendChild(row);
+  });
+
+  els.belowThresholdOverlay.hidden = false;
+}
+
+export function closeBelowThresholdPopup() {
+  els.belowThresholdOverlay.hidden = true;
+  els.belowThresholdList.innerHTML = "";
+}
+
+// Sets the threshold to exactly `value` — the filter is an inclusive `>=`
+// (see qualifyingPlayerPool()), so a candidate's own metric value is already
+// the minimum threshold that surfaces them, no off-by-one adjustment needed.
+// Mirrors the manual slider/number-input handlers in main.js's attachEvents()
+// (sync both controls, clamp to range, mark the value as an explicit
+// override, re-check selections) rather than reimplementing that logic here.
+// Deliberately does NOT call runPlayersSearch() itself — every existing
+// caller of this same clamp/sync/prune sequence (the manual handlers) leaves
+// that to whatever's calling it, since a threshold edit doesn't always
+// happen with the Players dropdown open.
+export function setThresholdTo(value) {
+  const min = Number(els.threshold.min);
+  const max = Number(els.threshold.max);
+  const step = Number(els.threshold.step) || 1;
+  const clamped = Math.min(Math.max(value, min), max);
+
+  els.thresholdNumber.value = clamped;
+  // Slider snaps to the nearest step just to keep the handle in sync
+  // visually — filtering itself reads thresholdNumber.value (the exact
+  // value), same split as the manual number-input handler in main.js.
+  els.threshold.value = min + Math.round((clamped - min) / step) * step;
+  setResetThresholdOnNextRange(false);
+  prunePlayerSelections();
+  updatePendingState();
 }
 
 // Called whenever the qualifying pool can have shrunk — live threshold

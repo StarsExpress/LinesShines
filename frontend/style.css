@@ -836,6 +836,102 @@ body {
   object-fit: contain;
 }
 
+/* Below Threshold Matches toggle — sits above the first .player-option in
+   #players-dropdown (see renderPlayersDropdown() in filters.js). Styled
+   distinctly from a candidate row (gold text, bottom divider) since it opens
+   a popup rather than picking a player. */
+.below-threshold-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--turf-600);
+  border-radius: 5px;
+  margin-bottom: 4px;
+  padding: 6px 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--flag-gold);
+  text-align: left;
+  cursor: pointer;
+}
+.below-threshold-toggle:hover,
+.below-threshold-toggle:focus-visible {
+  color: var(--flag-gold-bright);
+  outline: none;
+}
+
+/* Below Threshold Matches popup — .merge-edit-overlay/.merge-edit-box/
+   .merge-edit-title/.merge-edit-actions/.merge-edit-done are reused verbatim
+   for the modal shell (same convention as #merge-create-overlay/
+   #merge-edit-overlay sharing those classes); .below-threshold-box only
+   widens the shell since a row here carries more content (name, team,
+   value, action button) than a merge member row does. */
+.below-threshold-box {
+  max-width: 460px;
+}
+.below-threshold-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.below-threshold-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.below-threshold-row-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.below-threshold-row-info .player-option-name {
+  font-size: 13px;
+  color: var(--chalk);
+}
+.below-threshold-row-value {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--chalk-dim);
+}
+.below-threshold-row-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--flag-gold);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  cursor: pointer;
+}
+.below-threshold-row-btn:hover,
+.below-threshold-row-btn:focus-visible {
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  outline: none;
+}
+
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
    styled as the form's one primary action rather than tucked next to the
