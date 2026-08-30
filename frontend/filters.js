@@ -435,7 +435,7 @@ export function updateThresholdRange() {
   els.threshold.step = 5;
 
   if (resetThresholdOnNextRange) {
-    const defaultValue = cat.default_threshold ?? 0;
+    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
     els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
     resetThresholdOnNextRange = false;
   } else if (Number(els.threshold.value) > max) {
@@ -454,8 +454,10 @@ export function updateThresholdRange() {
 // clamps the user's existing value — the two threshold_field scales (PR Opp
 // vs Non Spike PB Snaps) aren't comparable, so leaving the outgoing
 // category's number on screen until Apply would be actively misleading.
-// Always snaps to the new category's configured default and never tries to
-// preserve whatever the user had set for the outgoing category. The
+// Always snaps to the new category's configured default for whatever season
+// is currently selected (see config.py's resolve_default_threshold — a
+// season may carry a static or dynamic default) and never tries to preserve
+// whatever the user had set for the outgoing category. The
 // accurate slider max (which needs the new category's fetched data) still
 // gets recomputed at Apply time via loadCurrentSlice()/updateThresholdRange()
 // — this only fixes what's on screen immediately. Sets both the slider and
@@ -463,7 +465,7 @@ export function updateThresholdRange() {
 // other, same as every other place both controls change at once.
 export function resetThresholdToCategoryDefault() {
   const cat = currentCategoryMeta();
-  const defaultValue = cat.default_threshold ?? 0;
+  const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
   // The outgoing category's slider max may be smaller than the incoming
   // default (e.g. a narrow DL pool's max sitting below OL's 300 default) —
   // extend it so the browser doesn't silently clamp the value we're about

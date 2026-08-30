@@ -17,9 +17,9 @@ def test_health_endpoint(client):
 
 def test_logos_mounted_at_expected_path():
     mounts = {r.path: r for r in main.app.routes if isinstance(r, Mount)}
-    assert (
-        "/logos" in mounts
-    ), "no /logos static mount registered — check the mount candidates in main.py"
+    assert "/logos" in mounts, (
+        "no /logos static mount registered — check the mount candidates in main.py"
+    )
 
 
 def test_logos_served_from_team_logos_dir(client):

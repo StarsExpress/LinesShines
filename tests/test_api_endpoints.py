@@ -1,6 +1,7 @@
 """API-level tests against a seeded in-memory-equivalent sqlite DB."""
 
 from __future__ import annotations
+from config import DEFAULT_THRESHOLDS
 
 
 def test_metadata_shape(client, seeded_db):
@@ -12,6 +13,18 @@ def test_metadata_shape(client, seeded_db):
     assert 2025 in body["pass_block"]["seasons"]
     assert "BUF" in body["teams"]
     assert body["teams"]["BUF"]["full_name"] == "Buffalo Bills"
+
+    # 2025 is a finalized season: safely in the past relative to any plausible "today".
+    # Should carry the static default, not a dynamic one. See config.py's resolve_default_threshold.
+    assert (
+        body["pass_rush"]["default_thresholds"]["2025"]
+        == DEFAULT_THRESHOLDS["pass_rush"]
+    )
+
+    assert (
+        body["pass_block"]["default_thresholds"]["2025"]
+        == DEFAULT_THRESHOLDS["pass_block"]
+    )
 
 
 def test_pass_rush_returns_seeded_row(client, seeded_db):

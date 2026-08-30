@@ -19,3 +19,7 @@ data/*.db-wal
 .vscode/
 
 node_modules/
+
+.claude/
+CLAUDE.md
+BLUEPRINT.md

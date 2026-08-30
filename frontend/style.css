@@ -542,13 +542,13 @@ body {
 /* No flex-grow (unlike .control-slider) — this used to grow to fill
    whatever space was left in the row, which was wide enough to push Y axis
    onto a second row even though there was nominally "one row" worth of
-   controls. Teams/Category/Position all settle at exactly 150px via their
-   select/button's min-width, with no explicit width needed, because their
-   content never exceeds it — but a bare <input> has its own UA intrinsic
-   width (~160px+) that isn't capped by flex-basis when this box's own
-   width is auto, which used to make Players noticeably wider than its
-   neighbors before the chip list moved into its own panel. Fixed at the
-   same 150px explicitly so the collapsed button can't inflate. */
+   controls. Teams/Category/Position all settle at exactly 150px via an
+   explicit width on their select/button (see .control select and
+   .teams-select-btn) — but a bare <input> has its own UA intrinsic
+   width (~160px+) that isn't capped by flex-basis alone, which used to make
+   Players noticeably wider than its neighbors before the chip list moved
+   into its own panel. Fixed at the same 150px explicitly so the collapsed
+   button can't inflate. */
 .control-players { position: relative; width: 150px; }
 
 /* Replaces the plain <label> that every other .control uses — Players is

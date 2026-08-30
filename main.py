@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from config import ALLOWED_HAVOC_RATE_NOTE, DEFAULT_THRESHOLDS, HAVOC_RATE_NOTE
+from config import ALLOWED_HAVOC_RATE_NOTE, HAVOC_RATE_NOTE, resolve_default_threshold
 from database.db_models import (
     Base,
     PassBlockStat,
@@ -179,14 +179,20 @@ def metadata() -> dict:
             "metrics": PASS_RUSH_METRICS,
             "threshold_field": "PR Opp",
             "seasons": pass_rush_seasons,
-            "default_threshold": DEFAULT_THRESHOLDS["pass_rush"],
+            "default_thresholds": {
+                season: resolve_default_threshold("pass_rush", season)
+                for season in pass_rush_seasons
+            },
         },
         "pass_block": {
             "positions": PASS_BLOCK_POSITIONS,
             "metrics": PASS_BLOCK_METRICS,
             "threshold_field": "Non Spike PB Snaps",
             "seasons": pass_block_seasons,
-            "default_threshold": DEFAULT_THRESHOLDS["pass_block"],
+            "default_thresholds": {
+                season: resolve_default_threshold("pass_block", season)
+                for season in pass_block_seasons
+            },
         },
         "teams": {
             team.code: {
