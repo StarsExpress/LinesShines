@@ -22,6 +22,7 @@ locate xlsx files under $LINESHINES_REPO_ROOT/data/.
 from __future__ import annotations
 import argparse
 import os
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -33,10 +34,10 @@ from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
-DEFAULT_SEASONS = [2022, 2023, 2024, 2025]
-
 FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
+
+SEASON_CATEGORY_DIRS = ("front_7_pass_rush", "ol_pass_block")
 
 
 def _find_project_root() -> Path:
@@ -53,10 +54,10 @@ def _repo_root() -> Path:
     """Where to find preprocessed xlsx files.
 
     Order of precedence:
-      1. --data-dir CLI flag
-      2. LINESHINES_DATA_DIR env var
-      3. $LINESHINES_REPO_ROOT/data
-      4. ../LinesShines/data (sibling checkout convention)
+      1. `--data-dir` CLI flag.
+      2. `LINESHINES_DATA_DIR` env var.
+      3. `LINESHINES_REPO_ROOT/data`.
+      4. `../LinesShines/data` (sibling checkout convention).
     """
     env_data = os.environ.get("LINESHINES_DATA_DIR")
     if env_data:
@@ -67,6 +68,31 @@ def _repo_root() -> Path:
         return Path(env_root) / "data"
 
     return _find_project_root() / "data"
+
+
+def _discover_seasons(data_dir: Path) -> list[int]:
+    """Union of seasons with a `{season}.xlsx` file under either category
+    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir`.
+
+    Union, not intersection — OL and DL are independent categories with no
+    joint table, so it's fine for one to have a season's file before the other does.
+
+    Only `.xlsx` files with a clean 4-digit-year stem count.
+    `.csv` (raw/intermediate) and any malformed filename are skipped rather than error raising.
+
+    A missing category subdir just yields no matches.
+    """
+    seasons = set()
+
+    for category_dir in SEASON_CATEGORY_DIRS:
+        for path in (data_dir / category_dir).glob("*.xlsx"):
+            if re.fullmatch(r"\d{4}", path.stem):
+                seasons.add(int(path.stem))
+
+    return list(seasons)
+
+
+DEFAULT_SEASONS = _discover_seasons(_repo_root())
 
 
 def _safe_int(val):

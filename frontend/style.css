@@ -271,7 +271,7 @@ body {
   height: 38px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 9px 10px;
   font-family: var(--font-body);
@@ -315,7 +315,7 @@ body {
   width: 70px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 6px 8px;
   font-family: var(--font-mono);
@@ -386,7 +386,7 @@ body {
   max-width: 150px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 9px 10px;
   font-family: var(--font-body);
@@ -939,16 +939,25 @@ body {
 /* v1.4.0 neubrutalism: 2px solid border (up from 1px) and a minimal 4px
    radius, matching the flat 2px card border language in .scout-card-panel
    above — no shadows/gradients on the resting button. */
+/* min-width/line-height/centered-flex mirror .png-btn (Save Plot) below so
+   the two render as the exact same size despite "Apply" being much shorter
+   than "Save Plot" + its icon — same min-width-matching convention as
+   .pcs-inspect-btn/.merge-btn (Manage/Create) further down this file. */
 .apply-btn {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 95px;
   background: var(--flag-gold);
   color: var(--turf-950);
-  border: 2px solid var(--flag-gold);
+  border: 2px solid #000;
   border-radius: 4px;
   padding: 9px 20px;
   font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -956,7 +965,7 @@ body {
 .apply-btn:hover,
 .apply-btn:focus-visible {
   background: var(--flag-gold-bright);
-  border-color: var(--flag-gold-bright);
+  border-color: #000;
 }
 /* Lit up while any control (category/season/position/axes/threshold) holds
    a value that differs from what's actually drawn on the chart — the only
@@ -972,20 +981,28 @@ body {
 /* Secondary action next to Apply — black bg + chalk text, gold reserved for
    Apply since that's the primary action. Exports whatever's currently
    rendered on the chart, so it's disabled whenever the chart itself is
-   empty (see the `< 2` check in render()). */
+   empty (see the `< 2` check in render()). min-width matches .apply-btn's
+   (see its comment above) so the pair renders at the exact same size. */
 .png-btn {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
+  min-width: 95px;
   background: #000;
   color: var(--chalk);
-  border: 2px solid var(--turf-600);
+  border: 2px solid #f0ede4;
   border-radius: 4px;
-  padding: 9px 20px;
+  /* Tighter horizontal padding than .apply-btn's 20px — "Save Plot" + its
+     icon is inherently wider content than "Apply", so matching padding left
+     too much dead space on either side; vertical padding stays 9px so
+     height still matches .apply-btn exactly. */
+  padding: 9px 10px;
   font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -1001,7 +1018,7 @@ body {
 }
 .png-btn:disabled:hover {
   background: #000;
-  border-color: var(--turf-600);
+  border-color: #f0ede4;
 }
 
 /* Mobile-only separator between the toggle controls and the Save Plot /
@@ -1561,25 +1578,26 @@ body {
    Persistent Workspace management region — replaces the old merge-toolbar.
    Lives outside .board (see the comment on #player-cards-space in
    index.html), styled after .apply-btn/.png-btn's conventions. */
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container. Owned here (not by .pcs-bar/.pcs-panel
+   below) so collapsed and expanded read as one continuous bordered block
+   rather than two independently-boxed sections stacked on top of each
+   other — .pcs-bar stays transparent and .pcs-panel gets a divider instead
+   of its own border, see both below. */
 .player-cards-space {
   margin: 18px 0;
+  background: var(--turf-800);
+  border: 2px solid #f0ede4;
+  border-radius: 8px;
 }
 .player-cards-space[hidden] { display: none; }
 
-/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
-   every other top-level container — applied to both of this bar's states
-   (collapsed .pcs-bar, expanded .pcs-panel below) so the frame stays
-   consistent regardless of which one is currently showing. Background and
-   radius are unchanged for both. */
 .pcs-bar {
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
   padding: 10px 16px;
-  background: var(--turf-800);
-  border: 2px solid #f0ede4;
-  border-radius: 8px;
 }
 .pcs-quota {
   font-family: var(--font-oswald);
@@ -1593,6 +1611,18 @@ body {
    select), visually the row's primary action. The scatter-plot label font
    is Oswald too, but stays at its own lighter 450 weight, not this bar's
    600. */
+/* Fixed width (not min-width) pinned to .apply-btn's own actual rendered
+   width (measured via getBoundingClientRect in a real browser: 95px) — a
+   min-width floor let Manage's chevron+longer label push it wider than
+   Apply despite the shared 95px value, since a floor only guarantees a
+   minimum, not equality. .merge-btn (Create) mirrors .png-btn (Save Plot)
+   the same way, see its own comment below. Padding tightened to 9px 10px
+   (from Apply's 20px) — at Apply's own padding there's no room left inside
+   95px for "Manage" + the chevron + their gap, and the flex row silently
+   shrinks the chevron to 0 width to compensate (verified via
+   getBoundingClientRect — it doesn't just look small, it's actually zero).
+   Tighter padding gives the icon real room without changing the outer
+   box's width. */
 .pcs-inspect-btn {
   appearance: none;
   -webkit-appearance: none;
@@ -1602,15 +1632,16 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-width: 120px;
+  width: 95px;
   background: var(--flag-gold);
   color: var(--turf-950);
-  border: 1px solid var(--flag-gold);
+  border: 2px solid var(--flag-gold);
   border-radius: 6px;
-  padding: 9px 20px;
+  padding: 9px 10px;
   font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -1641,12 +1672,19 @@ body {
      whole panel (dropdown included) stack above .board again. */
   position: relative;
   z-index: 10;
-  margin-top: 8px;
   background: rgba(255, 255, 255, 0.07);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 2px solid #f0ede4;
-  border-radius: 8px;
+  /* Divider off .pcs-bar above, same weight/color as .pcs-columns-divider's
+     own Player Profiles/Player Comparisons split below — not a border, so
+     .player-cards-space's own border reads as one continuous frame around
+     both. Bottom corners rounded to match that outer frame since .pcs-panel
+     is always its visible bottom edge when expanded; deliberately no
+     overflow:hidden on the wrapper to get this for free — that would clip
+     the Single Cards search dropdown (up to 220px tall, positioned near the
+     panel's top) whenever the panel is short. */
+  border-top: 1px solid var(--turf-600);
+  border-radius: 0 0 8px 8px;
   padding: 14px 16px;
 }
 .pcs-panel[hidden] { display: none; }
@@ -1691,18 +1729,21 @@ body {
    here (same fuzzy-match look as the Players filter and the Create/Edit
    merge popups). Lives in the column header row now, alongside the title
    (mirroring the Merged Cards column's title+Create row) rather than its own
-   full-width row above the list — sized to match .merge-btn's min-width so
-   it reads as the same size as the Create button next to it, rather than
-   stretching across the row; space-between on .pcs-column-header still pins
-   it to the header's right edge. Unlike the Create/Edit popups' own
-   .merge-edit-dropdown (which is fine growing in normal flow inside an
-   already-floating modal), this one sits in the persistent Pinned Players
-   panel, so it's floated absolute instead — same reasoning as .players-panel
-   — so a search here doesn't shove the rest of the panel/board down the
-   page the way the Players filter never does either. (The full instruction
-   that no longer fits in this box at this width lives on its own static
-   line below instead, reusing .pcs-empty — see index.html.) */
-.pcs-add-wrap { flex: none; width: 120px; margin-bottom: 0; }
+   full-width row above the list — sized to match the Filters bar's shared
+   150px non-Season control width (.control select/.teams-select-btn) so it
+   reads as the same control, not stretching across the row; space-between
+   on .pcs-column-header still pins it to the header's right edge. This is
+   no longer the same width as .merge-btn (Create) next to it in the other
+   column (104.53125px) — matching the Filters bar took priority over that
+   pairing. Unlike the Create/Edit popups' own .merge-edit-dropdown (which
+   is fine growing in normal flow inside an already-floating modal), this
+   one sits in the persistent Pinned Players panel, so it's floated absolute
+   instead — same reasoning as .players-panel — so a search here doesn't
+   shove the rest of the panel/board down the page the way the Players
+   filter never does either. (The full instruction that no longer fits in
+   this box at this width lives on its own static line below instead,
+   reusing .pcs-empty — see index.html.) */
+.pcs-add-wrap { flex: none; width: 150px; margin-bottom: 0; }
 /* Glassmorphism reverted here (was rgba(255,255,255,0.07)/blur(10px)/
    rgba(255,255,255,0.18), matching .pcs-panel above) — the blurred chart
    title text bleeding through the dropdown clashed with the player-name
@@ -1737,8 +1778,14 @@ body {
    2px solid #f0ede4/minimal-radius language as .apply-btn/.pcs-row-remove
    above, scoped here rather than on the shared base .merge-edit-input rule
    since that rule is also the Create/Edit merge popups' own input, which
-   this pass doesn't touch. */
+   this pass doesn't touch. height pinned explicitly to match the Players
+   filter box's own fixed height (.teams-select-btn: height: 38px) — the
+   base .merge-edit-input rule has no explicit height of its own (computed
+   from its 8px/10px padding + border + line-height instead), and that
+   computed value doesn't necessarily land on 38px once this rule's own 2px
+   border (vs. the base rule's 1px) is added on top. */
 #player-cards-space .merge-edit-input {
+  height: 38px;
   border: 2px solid #f0ede4;
   border-radius: 4px;
 }
@@ -1824,24 +1871,29 @@ body {
   outline: none;
 }
 
-/* Same size, and now same typography (Oswald/600), as .png-btn (Save Plot)
-   — black, the secondary-action treatment, gold reserved for Manage/Apply.
-   min-width matches .pcs-inspect-btn's so Manage and Create render as the
-   exact same size. v1.4.0 neubrutalism: 2px solid #f0ede4/4px radius, same
-   border weight as .pcs-row-remove/-edit/-dismiss above — the solid black
-   fill (vs. their transparent outline) is what marks this as the primary
-   action, not a heavier border. */
+/* Fixed width (not min-width) pinned to .png-btn's own actual rendered
+   width (measured via getBoundingClientRect in a real browser:
+   104.53125px) — see .pcs-inspect-btn's comment above for why min-width
+   isn't enough. gold stays reserved for Manage/Apply. v1.4.0 neubrutalism:
+   2px solid #f0ede4/4px radius, same border weight as
+   .pcs-row-remove/-edit/-dismiss above — the solid black fill (vs. their
+   transparent outline) is what marks this as the primary action, not a
+   heavier border. */
 .merge-btn {
   flex: none;
-  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 104.53125px;
   background: #000;
   color: var(--chalk);
   border: 2px solid #f0ede4;
   border-radius: 4px;
-  padding: 9px 20px;
+  padding: 9px 10px;
   font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;

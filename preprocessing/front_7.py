@@ -74,7 +74,3 @@ def preprocess_front_7(season: int) -> None:
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():
             sheet.to_excel(writer, sheet_name=position, index=False)
-
-
-if __name__ == "__main__":
-    preprocess_front_7(2025)
