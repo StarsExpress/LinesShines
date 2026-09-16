@@ -65,7 +65,6 @@ def test_ingest_pass_rush_reads_category_subdir(tmp_path):
 
     sess = _fresh_session()
     count = db_ingestion.ingest_pass_rush(sess, tmp_path, [2025])
-
     assert count == 1
 
 
@@ -75,7 +74,6 @@ def test_ingest_pass_block_reads_category_subdir(tmp_path):
 
     sess = _fresh_session()
     count = db_ingestion.ingest_pass_block(sess, tmp_path, [2025])
-
     assert count == 1
 
 
@@ -97,7 +95,6 @@ def test_ingest_does_not_fall_back_to_legacy_flat_filename(tmp_path):
 
     sess = _fresh_session()
     count = db_ingestion.ingest_pass_rush(sess, tmp_path, [2025])
-
     assert count == 0
 
 

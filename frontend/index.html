@@ -4,11 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive NFL OL & DL PFF metrics exploration platform." />
+<meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Oswald:wght@450;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="style.css?v={{VERSION}}" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
@@ -38,11 +38,17 @@
         "No Line No Shine."<br><br>
         Infrastructure is the one that nearly always starts everything,
         but quite often gets ignored thanks to its unadorned hard works and grit & grind styles.<br><br>
-        For all these under-appreciated.
+        For all these under-appreciated. Let's explore 🗺️
       </p>
     </div>
   </div>
 </header>
+
+<p class="meta-band">
+  <span class="meta-segment">Source: PFF Premium Stats</span>
+  <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Downloaded PFF data stays private</span>
+  <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Median lines are calculated according to current filter</span>
+</p>
 
 <main class="layout">
 
@@ -73,9 +79,46 @@
           <div class="teams-dropdown" id="teams-dropdown" hidden>
             <div class="teams-dropdown-actions">
               <button type="button" id="teams-select-all">All</button>
-              <button type="button" id="teams-select-none">None</button>
+              <button type="button" id="teams-select-none">Clear</button>
             </div>
             <div class="teams-checklist" id="teams-checklist"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop/tablet only — hidden entirely on mobile (see .control-players
+           in the @media (max-width: 860px) block of style.css). Players is a
+           second, dynamic highlight dimension alongside Teams: its searchable
+           pool depends on the live threshold value (see app.js's
+           qualifyingPlayerPool()), so it doesn't degrade cleanly to a touch
+           control the way the static 32-team checklist does.
+
+           Collapsed behind a summary button + click-to-open panel, same
+           mechanism as Teams above — otherwise a handful of chips would
+           make this box balloon past its neighbors' width/height (see
+           control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
+      <div class="control control-players" id="players-control">
+        <div class="players-label-row">
+          <span class="info-popover-slot" id="players-info-slot"></span>
+          <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
+        </div>
+        <div class="players-select">
+          <button type="button" id="players-toggle-btn" class="teams-select-btn"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-labelledby="players-label players-select-summary">
+            <span id="players-select-summary">No Players</span>
+            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="players-panel" id="players-panel" hidden>
+            <div class="players-field" id="players-field">
+              <div class="players-chips" id="players-chips"></div>
+              <input type="text" id="players-input" class="players-input"
+                     placeholder="Type to add player..." autocomplete="off"
+                     aria-labelledby="players-label" />
+            </div>
+            <div class="players-dropdown" id="players-dropdown" hidden></div>
           </div>
         </div>
       </div>
@@ -105,10 +148,10 @@
 
       <!-- Row-break elements force deterministic line wraps in the control
            bar (see .row-break in style.css) instead of leaving row grouping
-           to depend on exact viewport width. All six dropdowns (Season
-           through Y axis) share one row above this break; Threshold,
-           Player Names/Team Logos, Apply, and Save Plot share the row
-           below it. -->
+           to depend on exact viewport width. Season through Y axis (plus
+           Players, desktop/tablet only) share one row above this break;
+           Threshold, Player Names/Team Logos, Apply, and Save Plot share the
+           row below it. -->
       <div class="row-break" aria-hidden="true"></div>
 
       <div class="control control-slider">
@@ -140,8 +183,7 @@
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its
            position here in the DOM is irrelevant to the mobile visual order
            — that's driven by `order` in the @media (max-width: 860px) block
-           — but it's placed here for source locality next to the buttons it
-           separates. -->
+           — but it's placed here for source locality next to the buttons it separates. -->
       <div class="drawer-divider" aria-hidden="true"></div>
 
       <div class="control control-apply">
@@ -160,6 +202,71 @@
     </section>
   </div>
 
+  <!-- Pinned Players (BLUEPRINT_PinnedPlayers.md) — persistent
+       management region for the Workspace (Single Cards + Merged Cards) and
+       the shared 8-player quota, replacing the old merge-toolbar. Desktop/
+       tablet only, and unlike that old toolbar it's always visible there
+       (not gated on any card being open) — see isDesktopScoutLayout()/
+       renderPlayerCardsSpace() in app.js. Deliberately kept OUTSIDE .board:
+       cascadeScoutCardPosition()/beginScoutResize() etc. in app.js position
+       floating cards against .board assuming .chart-panel sits at its top —
+       inserting this as a .board grid child would break that math. Collapsed
+       by default; #pcs-inspect-btn both expands AND collapses #pcs-panel (§2:
+       NOT a native select/dropdown — a panel that expands/collapses in
+       place) — there's no separate close control inside the panel itself. -->
+  <section class="player-cards-space" id="player-cards-space" hidden>
+    <div class="pcs-bar">
+      <span class="pcs-quota" id="pcs-quota-label">📍PINNED: 0 / 8 Distinct Players.</span>
+      <button type="button" id="pcs-inspect-btn" class="pcs-inspect-btn"
+              aria-haspopup="true" aria-expanded="false" aria-controls="pcs-panel">
+        Manage
+        <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="pcs-panel" id="pcs-panel" hidden>
+      <div class="pcs-columns">
+        <div class="pcs-column">
+          <div class="pcs-column-header">
+            <h3 class="pcs-column-title">Player Profiles</h3>
+            <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
+                 v1.2.0 §4) — a plot click no longer adds here, it only opens
+                 the floating card (see viewFloatingCard() in app.js). Same
+                 fuzzy-match input/dropdown style as the Players filter, reused
+                 wholesale via .merge-edit-input/.merge-edit-dropdown. Sits in
+                 the header row alongside the title, mirroring the Merged
+                 Cards column's title+Create layout. -->
+            <div class="merge-edit-add pcs-add-wrap">
+              <input type="text" id="pcs-add-input" class="merge-edit-input"
+                     placeholder="Search…" autocomplete="off" />
+              <div class="merge-edit-dropdown" id="pcs-add-dropdown" hidden></div>
+            </div>
+          </div>
+          <!-- The input's own placeholder is too short at its Create-button-
+               matched width to carry the instruction anymore — this static
+               line stands in for it, in the same row position as the Merged
+               Cards column's own hint ("Click Create...", #pcs-merged-empty)
+               below its header. -->
+          <p class="pcs-empty" id="pcs-singles-empty">Type a player's name to add a card.</p>
+          <div class="pcs-list" id="pcs-singles-list"></div>
+        </div>
+
+        <div class="pcs-columns-divider" aria-hidden="true"></div>
+
+        <div class="pcs-column">
+          <div class="pcs-column-header">
+            <h3 class="pcs-column-title">Player Comparisons</h3>
+            <button type="button" class="merge-btn" id="pcs-create-btn">Create</button>
+          </div>
+          <div class="pcs-list" id="pcs-merged-list"></div>
+          <p class="pcs-empty" id="pcs-merged-empty" hidden>Click Create to build a merged card here.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="board">
     <div class="chart-panel">
       <div id="chart"></div>
@@ -172,38 +279,259 @@
       </p>
     </div>
 
-    <aside class="scout-card" id="scout-card" aria-live="polite">
-      <button type="button" class="scout-close" id="scout-close" aria-label="Close scouting card">&times;</button>
+    <!-- Live scouting cards are cloned from #scout-card-template (one per
+         pinned player), #merge-card-template, or #linemate-card-template
+         (see openScoutCard()/openMergeCard()/openLinemateCard() in app.js)
+         and appended here as siblings — each keeps its own position/z-index
+         so several can be open and dragged independently without stepping
+         on each other. -->
+    <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
 
-      <div class="scout-card-panel">
-        <div class="scout-card-empty" id="scout-card-empty">
-          <p>Click any player to see full stats.</p>
-        </div>
+    <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
+         the stacked layout instead, toggled via [hidden] in app.js. -->
+    <p class="scout-empty-hint" id="scout-empty-hint" hidden>Click any player to see full stats.</p>
 
-        <div class="scout-card-body" id="scout-card-body" hidden>
-          <div class="scout-card-top" id="scout-drag-handle" title="Drag to move">
-            <div class="scout-logo-wrap">
-              <img id="scout-logo" alt="" />
-              <div id="scout-badge" class="scout-badge" hidden></div>
+    <template id="scout-card-template">
+      <aside class="scout-card">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-logo-wrap">
+                <img class="scout-logo" alt="" />
+                <div class="scout-badge" hidden></div>
+              </div>
+              <div class="scout-id">
+                <div class="scout-name"></div>
+                <div class="scout-meta"></div>
+              </div>
             </div>
-            <div class="scout-id">
-              <div class="scout-name" id="scout-name"></div>
-              <div class="scout-meta" id="scout-meta"></div>
+            <!-- Lives in the header row (survives folding, see .is-folded in
+                 style.css), not the collapsible body below — a folded card
+                 should still be able to pull up its linemates without
+                 unfolding first. Merging happens through the Merged Cards
+                 column's Create popup now, not a checkbox here — see
+                 BLUEPRINT_PinnedPlayers.md v1.2.0 §5. -->
+            <div class="scout-card-actions">
+              <button type="button" class="card-linemate-toggle" aria-label="Show linemates">
+                <i class="fa-solid fa-people-group"></i> Linemates
+              </button>
+            </div>
+            <ul class="scout-card-note-list">
+              <li class="scout-card-note scout-card-pool"></li>
+              <li class="scout-card-note scout-card-threshold"></li>
+            </ul>
+            <dl class="scout-stats"></dl>
+          </div>
+        </div>
+      </aside>
+    </template>
+
+    <!-- One row per merged player, one column per metric, percentile-only
+         cells (BLUEPRINT.md §1.2) — filled in by openMergeCard() in app.js. -->
+    <template id="merge-card-template">
+      <aside class="scout-card scout-card--merge">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button type="button" class="scout-close" aria-label="Dissolve merge card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-id">
+                <div class="scout-name merge-card-title"></div>
+                <div class="scout-meta merge-card-subtitle"></div>
+              </div>
+            </div>
+            <div class="merge-card-notes">
+              <ul class="merge-card-note-list">
+                <li class="merge-card-note merge-card-pool"></li>
+                <li class="merge-card-note merge-card-scroll-hint">Please scroll right for more metrics.</li>
+              </ul>
+            </div>
+            <div class="merge-table-wrap">
+              <table class="merge-table"></table>
             </div>
           </div>
-          <dl class="scout-stats" id="scout-stats"></dl>
         </div>
-      </div>
-    </aside>
-  </section>
+      </aside>
+    </template>
 
-  <p class="footnote">
-    Source: PFF Premium Stats. Data is never published.
-    Median lines are calculated according to current filter.
-  </p>
+    <!-- Roster table (percentiles only, own-position pool, DataFrame-style
+         columns matching Merge Card's — see makeTeamCell()/renderMergeCardBody()
+         in merge-card.js) + the 3M/RSWA summary table (BLUEPRINT.md §2) —
+         filled in by openLinemateCard() in app.js. Header row mirrors the
+         Player Card's (.scout-logo-wrap + .scout-id/.scout-name/.scout-meta)
+         rather than a bare title — see openLinemateCard()/renderLinemateCardBody().
+         No linemate toggle anywhere on this card, roster table included: the
+         recursion guard from §2.3 is enforced by simply never rendering one
+         here — the second header row (.scout-card-actions) that holds a
+         Linemates toggle on a Player Card holds the "All numbers..."
+         disclaimer here instead. -->
+    <template id="linemate-card-template">
+      <aside class="scout-card scout-card--linemate">
+        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button type="button" class="scout-fold" aria-label="Fold card">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button type="button" class="scout-close" aria-label="Close linemate card">&times;</button>
+
+        <div class="scout-card-panel">
+          <div class="scout-card-body">
+            <div class="scout-card-top scout-drag-handle" title="Drag to move">
+              <div class="scout-logo-wrap">
+                <img class="scout-logo" alt="" />
+                <div class="scout-badge" hidden></div>
+              </div>
+              <div class="scout-id">
+                <div class="scout-name linemate-card-title"></div>
+                <div class="scout-meta linemate-card-meta"></div>
+              </div>
+            </div>
+            <div class="scout-card-actions linemate-card-notes">
+              <ul class="linemate-card-note-list">
+                <li class="linemate-card-note linemate-card-roster-note"></li>
+                <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
+              </ul>
+            </div>
+            <div class="linemate-table-wrap">
+              <table class="linemate-table"></table>
+            </div>
+            <button type="button" class="linemate-see-more" hidden>See more</button>
+            <div class="linemate-summary-wrap">
+              <h4 class="linemate-summary-title">Line Summary</h4>
+              <table class="linemate-summary-table"></table>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </template>
+  </section>
 </main>
 
+<!-- Quota/cap refusal reminder (Workspace full, Merge Card 5-member cap, Merge
+     8-player limit) — a popup instead of easy-to-miss inline text in the
+     Pinned Players' compact bar, so a refusal can't go unnoticed
+     regardless of which control triggered it. Single shared instance,
+     repopulated per call — see showWorkspaceNotice() in app.js. -->
+<div class="workspace-notice-overlay" id="workspace-notice-overlay" hidden>
+  <div class="workspace-notice-box" role="alertdialog" aria-modal="true" aria-labelledby="workspace-notice-body">
+    <p class="workspace-notice-body" id="workspace-notice-body"></p>
+    <div class="workspace-notice-actions">
+      <button type="button" class="workspace-notice-ok" id="workspace-notice-ok">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Warns before dissolving the Pinned Players Workspace (Single Cards +
+     Merged Cards) on a pool-changing Apply (BLUEPRINT_PinnedPlayers.md §9)
+     — only ever shown when the Workspace is non-empty, see
+     showMergeInvalidationConfirm() in app.js. -->
+<div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
+  <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
+    <p class="merge-confirm-title" id="merge-confirm-title">Clear your Pinned Players?</p>
+    <p class="merge-confirm-body">
+      This filter change recomputes the player pool — every Player Profile and Player Comparison in your
+      Pinned Players, built against the old pool, will be dissolved (open Linemate Cards will
+      refresh or close as needed). This can't be undone.
+    </p>
+    <div class="merge-confirm-actions">
+      <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
+      <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Clear &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Merged Card popup (BLUEPRINT_PinnedPlayers.md v1.2.0 §5) — the
+     ONLY way to build a NEW merged card, replacing the old per-row Merge
+     button + header Merge button flow. Same modal pattern and fuzzy-match
+     input/dropdown style as #merge-edit-overlay below, but membership is
+     staged locally (createSelection in app.js) until Submit — Cancel
+     discards it untouched, no card created. -->
+<div class="merge-edit-overlay" id="merge-create-overlay" hidden>
+  <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-create-title">
+    <p class="merge-edit-title" id="merge-create-title">Create Player Comparison</p>
+
+    <div class="merge-edit-members" id="merge-create-members"></div>
+
+    <div class="merge-edit-add">
+      <input type="text" id="merge-create-input" class="merge-edit-input"
+             placeholder="Type to add a player..." autocomplete="off" />
+      <div class="merge-edit-dropdown" id="merge-create-dropdown" hidden></div>
+    </div>
+
+    <p class="merge-edit-message" id="merge-create-message"></p>
+
+    <div class="merge-confirm-actions">
+      <button type="button" class="merge-confirm-cancel" id="merge-create-cancel">Cancel</button>
+      <button type="button" class="merge-edit-done" id="merge-create-submit">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Merge Card membership editor (BLUEPRINT_PinnedPlayers.md §5) — the
+     ONLY way to change an existing Merge Card's membership. Single static
+     instance, repopulated per open via openMergeEditPopup() in app.js;
+     closes only via its own Done button, same convention as
+     #merge-confirm-overlay above (no outside-click dismissal). -->
+<div class="merge-edit-overlay" id="merge-edit-overlay" hidden>
+  <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-edit-title">
+    <p class="merge-edit-title" id="merge-edit-title">Edit Merge Card</p>
+
+    <div class="merge-edit-members" id="merge-edit-members"></div>
+
+    <div class="merge-edit-add">
+      <input type="text" id="merge-edit-input" class="merge-edit-input"
+             placeholder="Type to add a player..." autocomplete="off" />
+      <div class="merge-edit-dropdown" id="merge-edit-dropdown" hidden></div>
+    </div>
+
+    <p class="merge-edit-message" id="merge-edit-message"></p>
+
+    <div class="merge-edit-actions">
+      <button type="button" class="merge-edit-done" id="merge-edit-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Below Threshold Matches popup — surfaces a Players-search name match
+     whose season snap count/opportunities fall under the current threshold,
+     rather than leaving that indistinguishable from "no such player".
+     Opened from the "Below Threshold Matches (N)" toggle rendered above the
+     first candidate in #players-dropdown (see renderPlayersDropdown() in
+     filters.js), never auto-popped. Same modal pattern as #merge-edit-overlay
+     above — single static instance, repopulated per open via
+     openBelowThresholdPopup(), closes only via its own Close button (no
+     outside-click dismissal). Each row's "Set Threshold" button sets the
+     threshold to that player's own value (the filter is inclusive, so no
+     off-by-one is needed) and closes the popup — leaving it open would show a
+     stale list, since the clicked player (and possibly others) no longer
+     belong in it. -->
+<div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
+  <div class="merge-edit-box below-threshold-box" role="dialog" aria-modal="true" aria-labelledby="below-threshold-title">
+    <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>
+    <div class="below-threshold-list" id="below-threshold-list"></div>
+    <div class="merge-edit-actions">
+      <button type="button" class="merge-edit-done" id="below-threshold-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
-<script src="app.js?v={{VERSION}}"></script>
+<script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
+<script type="module" src="main.js?v={{VERSION}}"></script>
 </body>
 </html>

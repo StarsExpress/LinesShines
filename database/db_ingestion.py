@@ -3,58 +3,61 @@
 Reads `front_7_pass_rush/{season}.xlsx` and
 `ol_pass_block/{season}.xlsx` files that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
-produce, and upserts them into `pass_rush_stats` / `pass_block_stats` tables.
+produce, and bulk-inserts them into `pass_rush_stats` / `pass_block_stats` tables.
 
 Idempotent: rerunning for same season/position first deletes existing
 rows for that slice, then bulk-inserts fresh ones — cleaner than
 per-row upsert and dialect-agnostic (works on both SQLite and Postgres).
 
 Usage:
-1. Must always go from repo root.
+1. Must always go from project root.
 2. After running two preprocessing scripts.
 3. python -m database.db_ingestion
 
 For Railway, set DATABASE_URL to Postgres URL Railway assigns.
-Point LINESHINES_REPO_ROOT at LinesShines repo root so scripts can
+Point LINESHINES_REPO_ROOT at LinesShines project root so scripts can
 locate xlsx files under $LINESHINES_REPO_ROOT/data/.
 """
 
 from __future__ import annotations
 import argparse
 import os
+import re
 import sys
+from datetime import date
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
+from config import DYNAMIC_THRESHOLDS
 from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
-DEFAULT_SEASONS = [2022, 2023, 2024, 2025]
-
 FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
 
+SEASON_CATEGORY_DIRS = ("front_7_pass_rush", "ol_pass_block")
 
-def _find_repo_root() -> Path:
-    """Walk up from this file until we find a marker that identifies the repo root."""
+
+def _find_project_root() -> Path:
+    """Walk up from this file until we find a marker that identifies project root."""
     here = Path(__file__).resolve().parent
     for candidate in [here, *here.parents]:
         if (candidate / ".gitignore").exists():
             return candidate  # Root is found.
 
-    raise RuntimeError("could not locate repo root from " + str(here))
+    raise RuntimeError("could not locate project root from " + str(here))
 
 
 def _repo_root() -> Path:
     """Where to find preprocessed xlsx files.
 
     Order of precedence:
-      1. --data-dir CLI flag
-      2. LINESHINES_DATA_DIR env var
-      3. $LINESHINES_REPO_ROOT/data
-      4. ../LinesShines/data (sibling checkout convention)
+      1. `--data-dir` CLI flag.
+      2. `LINESHINES_DATA_DIR` env var.
+      3. `LINESHINES_REPO_ROOT/data`.
+      4. `../LinesShines/data` (sibling checkout convention).
     """
     env_data = os.environ.get("LINESHINES_DATA_DIR")
     if env_data:
@@ -64,7 +67,32 @@ def _repo_root() -> Path:
     if env_root:
         return Path(env_root) / "data"
 
-    return _find_repo_root() / "data"
+    return _find_project_root() / "data"
+
+
+def _discover_seasons(data_dir: Path) -> list[int]:
+    """Union of seasons with a `{season}.xlsx` file under either category
+    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir`.
+
+    Union, not intersection — OL and DL are independent categories with no
+    joint table, so it's fine for one to have a season's file before the other does.
+
+    Only `.xlsx` files with a clean 4-digit-year stem count.
+    `.csv` (raw/intermediate) and any malformed filename are skipped rather than error raising.
+
+    A missing category subdir just yields no matches.
+    """
+    seasons = set()
+
+    for category_dir in SEASON_CATEGORY_DIRS:
+        for path in (data_dir / category_dir).glob("*.xlsx"):
+            if re.fullmatch(r"\d{4}", path.stem):
+                seasons.add(int(path.stem))
+
+    return list(seasons)
+
+
+DEFAULT_SEASONS = _discover_seasons(_repo_root())
 
 
 def _safe_int(val):
@@ -107,7 +135,7 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
 
             position_df.dropna(subset=["PR Opp"], inplace=True)
 
-            # Wipe slice before reinserting: simplest cross-dialect upsert.
+            # Wipe slice before re-insertion.
             sess.execute(
                 delete(PassRushStat).where(
                     PassRushStat.season == season,
@@ -238,8 +266,19 @@ def main() -> None:
         pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
 
     print(
-        f"\nIngested {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
+        f"\nBulk-inserted {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
     )
+
+    # In-progress season's threshold is hand-eyeballed weekly, not
+    # auto-computed (see config.py's DYNAMIC_THRESHOLDS).
+    # Nudge rather than silently falling back if this week's ingestion covers
+    # the current season and nobody's touched it yet.
+    current_year = date.today().year
+    if current_year in args.seasons and current_year not in DYNAMIC_THRESHOLDS:
+        print(
+            f"Reminder: {current_year} has no entry in config.DYNAMIC_THRESHOLDS yet — "
+            "falling back to the static default thresholds until you set one."
+        )
 
 
 if __name__ == "__main__":

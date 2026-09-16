@@ -15,9 +15,12 @@
   --flag-gold-bright: #e8c15e;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --instant-replay-blue: #4a90d9;
+  --instant-replay-blue-bright: #6fa8e6;
   --font-display: "Anton", "Arial Narrow", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+  --font-oswald: "Oswald", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -39,7 +42,7 @@ body {
   overflow-x: hidden;
 }
 
-/* subtle yard-line hash texture on the page background */
+/* Subtle yard-line hash texture on the page background. */
 .field-texture {
   position: fixed;
   inset: 0;
@@ -58,7 +61,6 @@ body {
 
 .hero {
   padding: 28px 24px 20px;
-  border-bottom: 1px solid var(--turf-600);
 }
 
 .hero-inner {
@@ -69,31 +71,46 @@ body {
   gap: 20px;
 }
 
+/* v1.4.0 neubrutalism: same 2px solid #f0ede4 border language as
+   .apply-btn/.scout-card-panel elsewhere, so the logo reads as part of the
+   same bordered system rather than floating bare — border-radius (and
+   everything else about the image) is untouched, since the artwork itself
+   already carries its own circular sunburst-badge composition; cropping the
+   `<img>` to an actual circle would clip the "LinesShines"/"Heroes In
+   Trenches" wordmark baked into the bottom of the asset. */
 .hero-logo {
   flex: none;
   height: 210px;
   width: auto;
+  border: 2px solid #f0ede4;
   border-radius: 10px;
 }
 
 .hero-text { min-width: 0; }
 
+/* Wrapped in the same bordered-container language as the rest of the
+   neubrutalist system (.pcs-row-remove/-edit/-dismiss: 2px solid #f0ede4,
+   minimal radius, transparent fill) rather than a bare floating icon. */
 .hero-github {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  right: 20px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
   color: var(--chalk);
   opacity: 0.8;
-  transition: color 0.15s ease, opacity 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 .hero-github svg { width: 20px; height: 20px; display: block; }
 .hero-github:hover,
 .hero-github:focus-visible {
   color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
   opacity: 1;
 }
 
@@ -125,13 +142,68 @@ body {
   margin: 0;
 }
 
+/* Sits in the gap between the hero and the filter panel — its own
+   presence (generous padding + no bordering <hr>s either side) reads as
+   the divider, rather than a rule bracketing empty space. Each segment is
+   its own nowrap flex item, with the following separator baked into the
+   segment's own text (see index.html) rather than a standalone item, so a
+   wrap always lands *before* a "· phrase" pair — never leaves a bare dot
+   stranded at the end of the previous line. Plain flex-wrap handles every
+   breakpoint in the spec (one line / two / three) with no explicit
+   per-breakpoint markup: each segment's rendered width decides whether it
+   still fits the current line. The one thing flex-wrap *can't* self-heal
+   is a single segment wider than the viewport itself — see the phone-only
+   font/padding override below for why that needs its own rule. */
+.meta-band {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+  margin: 0;
+  padding: 4px 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--chalk-dim);
+  text-align: center;
+}
+.meta-segment { white-space: nowrap; }
+
+/* The longest single segment ("· Median lines are calculated according to
+   current filter", ~416px at the 11px base size) is wider than most phone
+   viewports on its own. Once flex-wrap gives it its own line (see above),
+   centering an overflowing item spills it equally past both edges of the
+   container — and since body has overflow-x: hidden (top of this file),
+   the spilled-left half, dot included, would silently disappear instead
+   of scrolling. Shrinking font-size + padding here keeps every segment,
+   including that one, narrower than the viewport at any real phone width
+   so nothing ever gets clipped. */
+@media (max-width: 480px) {
+  .meta-band {
+    font-size: 8px;
+    padding: 4px 10px;
+  }
+}
+
 .layout {
   max-width: 1180px;
   margin: 0 auto;
   padding: 28px 24px 60px;
 }
+/* Laptop/tablet get a wider canvas than the 1180px baseline (sized back
+   when the control bar only held 6 dropdowns) — there's screen real estate
+   to spare, and the chart panel below scales with this since #chart is
+   width:100% of it. Mobile is unaffected: max-width is just an upper bound,
+   and the @media (max-width: 860px) block below fully overrides the
+   control bar into a drawer regardless. */
+@media (min-width: 861px) {
+  .layout { max-width: 1440px; }
+}
+@media (min-width: 1440px) {
+  .layout { max-width: 1680px; }
+}
 
-/* --- mobile filters drawer trigger ---
+/* --- Mobile filters drawer trigger. ---
    Hidden on desktop by default; the `@media (max-width: 860px)` block at
    the bottom of this file both reveals it and turns .filters-drawer into a
    fixed bottom sheet. On desktop .filters-drawer is just a plain wrapper
@@ -158,6 +230,9 @@ body {
 }
 
 /* --- control bar --- */
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container (cards, the header logo badge, the
+   GitHub icon) — background and radius are unchanged. */
 .control-bar {
   display: flex;
   flex-wrap: wrap;
@@ -165,7 +240,7 @@ body {
   align-items: end;
   padding: 18px 20px;
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   margin-bottom: 22px;
 }
@@ -178,7 +253,8 @@ body {
 }
 
 .control label {
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -195,12 +271,23 @@ body {
   height: 38px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 9px 10px;
   font-family: var(--font-body);
   font-size: 14px;
-  min-width: 150px;
+  /* Fixed, not min-: a native <select> auto-sizes to fit its *selected*
+     option's text, so a bare min-width still lets long option text (a
+     position label, a metric name) grow that one control past everyone
+     else's width and break the row's alignment. Pinning width and eliding
+     overflow keeps every plain select this same width regardless of which
+     option is picked — the full text is still one click away in the
+     native dropdown, so truncation here loses nothing. */
+  width: 150px;
+  max-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .control select:focus-visible,
 .control input:focus-visible {
@@ -228,7 +315,7 @@ body {
   width: 70px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 6px 8px;
   font-family: var(--font-mono);
@@ -264,12 +351,12 @@ body {
 }
 
 /* Season only ever holds a 4-digit year — the shared 150px .control select
-   min-width was sized for longer option text (metric names, position
-   labels) and left Season looking as wide as Category for no reason. */
+   width was sized for longer option text (metric names, position labels)
+   and left Season looking as wide as Category for no reason. */
 .control-season { min-width: auto; }
-.control-season select { width: 72px; min-width: 72px; padding-right: 4px; }
+.control-season select { width: 72px; min-width: 72px; max-width: 72px; padding-right: 4px; }
 
-/* --- Teams multi-select ---
+/* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
    <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
    discoverable and doesn't work at all on touch. Positioned/sized to sit
@@ -291,18 +378,32 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
+  /* Fixed, matching the plain .control select width (not the old
+     width: 100% + min-width: 150px, which let the summary text — "12
+     Teams", a long typed player name — grow this past every select's width
+     and break row alignment). The summary span below does the eliding. */
+  width: 150px;
+  max-width: 150px;
   background: var(--turf-950);
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
+  border: 2px solid var(--turf-600);
   border-radius: 6px;
   padding: 9px 10px;
   font-family: var(--font-body);
   font-size: 14px;
   line-height: normal;
-  min-width: 150px;
   cursor: pointer;
   text-align: left;
+}
+#teams-select-summary,
+#players-select-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Flex items default to min-width: auto, which floors them at their
+     content's intrinsic width and defeats text-overflow — this lets the
+     span actually shrink below "12 Teams" so the ellipsis can kick in. */
+  min-width: 0;
 }
 .teams-select-btn:hover,
 .teams-select-btn:focus-visible {
@@ -428,20 +529,435 @@ body {
   border-radius: 2px;
 }
 
+/* --- Players autocomplete + chip list. ---
+   Sits next to Teams in the control bar; desktop/tablet only (hidden in the
+   @media (max-width: 860px) block below — the pool this searches depends on
+   live threshold state that doesn't translate cleanly to a touch control,
+   see app.js's qualifyingPlayerPool()). Collapsed behind a summary button +
+   click-to-open .players-panel, the same button+panel mechanism as Teams
+   (.teams-select-btn is reused directly on the Players button, not
+   duplicated) — the chip list only has to fit inside the panel, not the
+   150px collapsed button, so it can grow to several chips deep without
+   ballooning the row past its neighbors. */
+/* No flex-grow (unlike .control-slider) — this used to grow to fill
+   whatever space was left in the row, which was wide enough to push Y axis
+   onto a second row even though there was nominally "one row" worth of
+   controls. Teams/Category/Position all settle at exactly 150px via an
+   explicit width on their select/button (see .control select and
+   .teams-select-btn) — but a bare <input> has its own UA intrinsic
+   width (~160px+) that isn't capped by flex-basis alone, which used to make
+   Players noticeably wider than its neighbors before the chip list moved
+   into its own panel. Fixed at the same 150px explicitly so the collapsed
+   button can't inflate. */
+.control-players { position: relative; width: 150px; }
+
+/* Replaces the plain <label> that every other .control uses — Players is
+   the one filter where "clear everything" can't live inside the dropdown
+   like Teams' All/None row (there's no fixed checklist to reset, just
+   whatever chips have accumulated), so it sits next to the label instead. */
+.players-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Sits before the Players reset button to flag that Teams and Players
+   aren't two independent filters — see the isDimmed union in app.js's
+   render() — a selected team highlights all its players regardless of the
+   Players list, and vice versa. Populated at boot by createInfoPopover()
+   (info-popover.js) rather than static markup, so this slot and the RSWA
+   column header below share one component instead of two hand-rolled
+   tooltip implementations. The "Players" text itself now lives inside that
+   component (its .info-popover-label span, id="players-label") rather than
+   a sibling <label> — aria-labelledby on the players toggle button/input
+   still resolves to it by that same id. */
+.info-popover-slot { display: contents; }
+
+/* Shared InfoPopover trigger (info-popover.js) — click-toggled, not
+   hover-only, since the Players filter row is desktop/tablet-only already
+   and a touch device has no hover to dwell on. Just the label text inside
+   this <button> (.info-popover-label), no separate "i" icon — the border
+   wraps the whole clickable label rather than needing an icon to flag it as
+   interactive. */
+.info-popover-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  color: #f0ede4;
+  font-family: var(--font-oswald);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+}
+.info-popover-label { white-space: nowrap; }
+.info-popover-trigger:hover,
+.info-popover-trigger:focus-visible,
+.info-popover-trigger[aria-expanded="true"] {
+  border-color: var(--flag-gold);
+  background: rgba(211, 167, 61, 0.18);
+  color: var(--flag-gold);
+  outline: none;
+}
+
+/* The popup itself — appended to document.body by info-popover.js, not a
+   CSS ::after, so it can't be clipped by a scrolling ancestor
+   (.linemate-summary-wrap) the way the old .info-hint::after would've been
+   had it been reused there. Same 2px #f0ede4 neubrutalist border as the
+   trigger; body copy is IBM Plex Mono per the shared component's spec. */
+.info-popover-content {
+  position: fixed;
+  z-index: 200;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  background: var(--turf-800);
+  border: 2px solid #f0ede4;
+  border-radius: 6px;
+  padding: 10px 26px 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.info-popover-text {
+  margin: 0;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.info-popover-close {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+}
+.info-popover-close:hover,
+.info-popover-close:focus-visible {
+  color: var(--flag-gold);
+  outline: none;
+}
+
+/* Body-appended tooltip (attachAppTooltip()/showAppTooltip() in app.js) for
+   the app's other, hover/focus-only info triggers (linemate row snap counts,
+   percentile cells, the Linemate Card title hint) — distinct from
+   .info-popover-content above, which is click-toggled. Living outside the
+   card's DOM subtree means no ancestor's overflow can clip either one.
+   Positioned via inline left/top computed from the trigger's own rect. */
+.app-tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  background: var(--turf-800);
+  color: var(--chalk);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.4;
+  /* Preserves the "\n" showAppTooltip() callers use to force a break (e.g.
+     between a percentile cell's "Metric:" and its "#rank/n" line) while
+     still wrapping normally within max-width otherwise. */
+  white-space: pre-line;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+/* Blue rather than the gold/chalk every other label-adjacent control uses —
+   deliberately off-palette so a destructive "clear everything" action reads
+   as visually distinct at a glance, not just another muted label. */
+.players-reset-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--instant-replay-blue);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+}
+.players-reset-btn:hover,
+.players-reset-btn:focus-visible {
+  color: var(--instant-replay-blue-bright);
+  outline: none;
+}
+
+.players-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.players-panel[hidden] { display: none; }
+
+.players-field {
+  box-sizing: border-box;
+  min-height: 38px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.players-field:focus-within {
+  border-color: var(--flag-gold);
+}
+
+.players-chips {
+  display: contents; /* Chips lay out directly in .players-field's flex row, alongside input. */
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--turf-700);
+  border: 1px solid var(--turf-600);
+  border-radius: 999px;
+  padding: 3px 4px 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--chalk);
+  white-space: nowrap;
+}
+.player-chip-remove {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.player-chip-remove:hover,
+.player-chip-remove:focus-visible {
+  color: var(--flag-gold-bright);
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+
+.players-input {
+  flex: 1 1 90px;
+  min-width: 90px;
+  background: transparent;
+  border: none;
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 4px 2px;
+}
+.players-input:focus { outline: none; }
+.players-input::placeholder { color: var(--chalk-dim); }
+
+/* Nested inside .players-panel now (not its own floating box) — just the
+   scrollable suggestion list under the chip field, separated by a divider
+   whenever it actually has matches to show. */
+.players-dropdown {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--turf-600);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.players-dropdown[hidden] { display: none; }
+
+.player-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--chalk);
+  text-align: left;
+  cursor: pointer;
+}
+.player-option:hover,
+.player-option:focus-visible {
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+.player-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-option-team {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--chalk-dim);
+}
+.player-option-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+/* Below Threshold Matches toggle — sits above the first .player-option in
+   #players-dropdown (see renderPlayersDropdown() in filters.js). Styled
+   distinctly from a candidate row (gold text, bottom divider) since it opens
+   a popup rather than picking a player. */
+.below-threshold-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--turf-600);
+  border-radius: 5px;
+  margin-bottom: 4px;
+  padding: 6px 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--flag-gold);
+  text-align: left;
+  cursor: pointer;
+}
+.below-threshold-toggle:hover,
+.below-threshold-toggle:focus-visible {
+  color: var(--flag-gold-bright);
+  outline: none;
+}
+
+/* Below Threshold Matches popup — .merge-edit-overlay/.merge-edit-box/
+   .merge-edit-title/.merge-edit-actions/.merge-edit-done are reused verbatim
+   for the modal shell (same convention as #merge-create-overlay/
+   #merge-edit-overlay sharing those classes); .below-threshold-box only
+   widens the shell since a row here carries more content (name, team,
+   value, action button) than a merge member row does. */
+.below-threshold-box {
+  max-width: 460px;
+}
+.below-threshold-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.below-threshold-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.below-threshold-row-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.below-threshold-row-info .player-option-name {
+  font-size: 13px;
+  color: var(--chalk);
+}
+.below-threshold-row-value {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--chalk-dim);
+}
+.below-threshold-row-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--flag-gold);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  cursor: pointer;
+}
+.below-threshold-row-btn:hover,
+.below-threshold-row-btn:focus-visible {
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  outline: none;
+}
+
 /* Governs every filter control now (category/season/position/axes/threshold
    all sit "pending" in their own inputs until this is clicked), so it's
    styled as the form's one primary action rather than tucked next to the
    threshold slider like the old threshold-only Set button was. */
+/* v1.4.0 neubrutalism: 2px solid border (up from 1px) and a minimal 4px
+   radius, matching the flat 2px card border language in .scout-card-panel
+   above — no shadows/gradients on the resting button. */
+/* min-width/line-height/centered-flex mirror .png-btn (Save Plot) below so
+   the two render as the exact same size despite "Apply" being much shorter
+   than "Save Plot" + its icon — same min-width-matching convention as
+   .pcs-inspect-btn/.merge-btn (Manage/Create) further down this file. */
 .apply-btn {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 95px;
   background: var(--flag-gold);
   color: var(--turf-950);
-  border: 1px solid var(--flag-gold);
-  border-radius: 6px;
+  border: 2px solid #000;
+  border-radius: 4px;
   padding: 9px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -449,31 +965,44 @@ body {
 .apply-btn:hover,
 .apply-btn:focus-visible {
   background: var(--flag-gold-bright);
-  border-color: var(--flag-gold-bright);
+  border-color: #000;
 }
 /* Lit up while any control (category/season/position/axes/threshold) holds
    a value that differs from what's actually drawn on the chart — the only
-   cue that pending selections are sitting unapplied. */
+   cue that pending selections are sitting unapplied. Swaps the resting
+   gold fill for burnt orange rather than adding a ring/shadow, so the
+   pending state reads as "this button now does something" instead of a
+   decoration on top of the gold button. */
 .apply-btn.pending {
-  box-shadow: 0 0 0 2px var(--turf-950), 0 0 0 4px var(--flag-gold-bright), 0 0 10px rgba(232, 193, 94, 0.55);
+  background: #d9622b;
+  border-color: #d9622b;
+  color: #f0ede4;
 }
 /* Secondary action next to Apply — black bg + chalk text, gold reserved for
    Apply since that's the primary action. Exports whatever's currently
    rendered on the chart, so it's disabled whenever the chart itself is
-   empty (see the `< 2` check in render()). */
+   empty (see the `< 2` check in render()). min-width matches .apply-btn's
+   (see its comment above) so the pair renders at the exact same size. */
 .png-btn {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
+  min-width: 95px;
   background: #000;
   color: var(--chalk);
-  border: 1px solid var(--turf-600);
-  border-radius: 6px;
-  padding: 9px 20px;
-  font-family: var(--font-mono);
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  /* Tighter horizontal padding than .apply-btn's 20px — "Save Plot" + its
+     icon is inherently wider content than "Apply", so matching padding left
+     too much dead space on either side; vertical padding stays 9px so
+     height still matches .apply-btn exactly. */
+  padding: 9px 10px;
+  font-family: var(--font-oswald);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -489,7 +1018,7 @@ body {
 }
 .png-btn:disabled:hover {
   background: #000;
-  border-color: var(--turf-600);
+  border-color: #f0ede4;
 }
 
 /* Mobile-only separator between the toggle controls and the Save Plot /
@@ -510,7 +1039,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-body);
+  font-family: var(--font-oswald);
+  font-weight: 600;
   font-size: 13px;
   color: var(--chalk-dim);
   text-transform: none;
@@ -531,7 +1061,9 @@ body {
 
 .chart-panel {
   background: var(--turf-800);
-  border: 1px solid var(--turf-600);
+  /* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+     every other top-level container — background and radius unchanged. */
+  border: 2px solid #f0ede4;
   border-radius: 10px;
   padding: 12px;
   min-height: 720px;
@@ -544,6 +1076,10 @@ body {
 }
 
 #chart { width: 100%; height: 720px; }
+@media (min-width: 861px) {
+  .chart-panel { min-height: 800px; }
+  #chart { height: 800px; }
+}
 /* The actual hit-testing layer is Plotly's .nsewdrag overlay rect, which
    sits above every marker and would otherwise keep its own injected
    crosshair cursor (a leftover affordance for drag-to-zoom, which is off
@@ -567,7 +1103,7 @@ body {
   background: rgba(15, 33, 25, 0.85);
   border-radius: 10px;
 }
-/* the [hidden] attribute alone isn't enough to beat the rule above once we
+/* [hidden] attribute alone isn't enough to beat the rule above once we
    set display:flex below — without this, an "empty" state panel with
    position:absolute; inset:0 would sit on top of the chart and silently
    swallow every hover/click even while invisible. */
@@ -593,22 +1129,47 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* --- scouting card, the signature element ---
-   Desktop: a floating overlay pinned to the chart panel's top-right
-   corner. Collapsed by default (just the gold PROSPECT tab peeking out,
-   ~24px tall) so it never squeezes the chart width, even with 60+ dots.
-   The tab lives outside `.scout-card-panel`'s overflow:hidden box so it
-   never gets clipped while the panel collapses/expands. */
+/* --- scouting cards, the signature element ---
+   Desktop: any number of independent floating overlays, one per pinned
+   player (see openScoutCard() in app.js, which clones #scout-card-template
+   into #scout-cards for each). display:contents means #scout-cards itself
+   never becomes a positioning context — each cloned .scout-card still
+   resolves its position:absolute against .board, same as the single static
+   card used to, so the cascade-offset/drag math below needs no per-card
+   special-casing. On mobile this switches to a plain flex column so
+   multiple cards stack as separate blocks under the chart instead. */
+.scout-cards { display: contents; }
+@media (max-width: 860px) {
+  .scout-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+}
+
 .scout-card {
   position: absolute;
   top: 24px;
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". */
+     Rate". Fixed, not resizable — see .is-folded below for the two-state
+     Fold/Unfold that replaced the old free edge-resize (BLUEPRINT.md §1.3). */
   width: 380px;
+  min-width: 260px;
+  max-width: 640px;
+  /* Baseline stacking order for a freshly-opened card before it's ever been
+     interacted with — openScoutCard()/bringScoutCardToFront() in app.js
+     assign an incrementing inline z-index above this the moment a card is
+     clicked or dragged, so the most recently touched card always wins. */
   z-index: 5;
 }
+
+/* Merge/Linemate cards reuse every .scout-card rule above (position, drag,
+   z-index, mobile stacking) via this base class, plus their own modifier
+   below for anything that needs to differ. */
+.scout-card--merge { width: 640px; }
+.scout-card--linemate { width: 420px; }
 
 /* Positioned relative to .scout-card itself (not .scout-card-panel) so the
    same top/right offsets land in the right corner whether .scout-card is
@@ -664,7 +1225,10 @@ body {
   background: linear-gradient(165deg, rgba(30, 61, 40, 0.9), rgba(22, 48, 31, 0.94));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--turf-600);
+  /* v1.4.0 neubrutalism: 2px solid, up from 1px — shared by all three card
+     types (Player/Linemate/Merge) via this one base rule. Color matches the
+     card-title text (#f0ede4), not --turf-600. */
+  border: 2px solid #f0ede4;
   border-radius: 0 8px 8px 8px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
   transition: max-height 0.28s ease, opacity 0.22s ease;
@@ -674,17 +1238,95 @@ body {
   max-height: 480px;
   opacity: 1;
   pointer-events: auto;
+  /* A card's body (stats table / merge table / linemate roster+summary) can
+     run taller than the 480px cap above — overflow-y:auto means it scrolls
+     instead of clipping silently. overflow-x stays hidden from the rule
+     above. */
+  overflow-y: auto;
 }
 
-/* placeholder text never shows on the desktop overlay — collapsed state
-   is just the 24px tab, see class rule above */
-.scout-card-empty { display: none; }
+/* Fold/Unfold (BLUEPRINT.md §1.3) — two discrete states only, no continuous
+   resize, shared by all three card types. Folding hides the card's metric
+   body and leaves just the header (.scout-card-top) — and, for a Player
+   Card, its always-visible .scout-card-actions row (merge-select + linemate
+   toggle), which should stay usable without unfolding first. No inline
+   height is ever set here, so there's no min-size clamp and nothing can
+   mid-row clip. */
+.scout-card.is-folded .scout-stats,
+.scout-card.is-folded .merge-table-wrap,
+.scout-card.is-folded .linemate-table-wrap,
+.scout-card.is-folded .linemate-see-more,
+.scout-card.is-folded .linemate-summary-wrap {
+  display: none;
+}
+.scout-fold {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 40px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.scout-fold:hover,
+.scout-fold:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.scout-card.is-active .scout-fold { display: flex; }
 
-/* same [hidden]-losing-to-author-CSS trap as .empty-state above: display:flex
-   on this class beats the UA [hidden]{display:none} rule by origin, not
-   specificity, so the hidden attribute alone won't hide it without this. */
-.scout-card-body { display: none; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
-.scout-card-body:not([hidden]) { display: flex; }
+/* Save-as-PNG (card-export.js) — third button in the same top-right row as
+   Fold/Close, shared by all three card types. Sits outside .scout-card-panel
+   like its siblings, so it survives folding (a folded card can still be
+   captured — see attachCardSave()'s ignoreElements list, which excludes this
+   button itself along with .scout-close/.scout-fold/.scout-resize-handle). */
+.card-save-btn {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 70px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.55);
+  border: 1px solid var(--turf-600);
+  border-radius: 50%;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.card-save-btn:hover,
+.card-save-btn:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+}
+.card-save-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.scout-card.is-active .card-save-btn { display: flex; }
+
+/* A cloned card is only ever in the DOM while its player is pinned, so
+   unlike the old single static card, the body never needs its own
+   hidden/empty toggle — it's always the live content. */
+.scout-card-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 16px 16px; }
+
+/* The "click any player" hint (#scout-empty-hint) shown when zero cards are
+   pinned — invisible on desktop (nothing to say once you know the feature),
+   surfaced only in the mobile stacked layout below. */
+.scout-empty-hint { display: none; }
 
 /* Doubles as the drag handle on desktop (see beginScoutDrag() in app.js) —
    cursor + touch-action here, mobile reset alongside the rest of the
@@ -694,7 +1336,7 @@ body {
   align-items: center;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 1px dashed var(--turf-600);
+  border-bottom: 1px solid var(--turf-600);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -705,6 +1347,69 @@ body {
 .scout-card.is-dragging .scout-card-panel {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
+
+/* Edge/corner resize handles (BLUEPRINT.md-style: shared by every card type
+   via .scout-card, wired in app.js's attachScoutResize()). Straddle the
+   panel's border like a native window's resize grips — invisible until
+   hovered so they don't clutter the card, but wide enough (10-14px) to grab
+   without pixel-hunting. Desktop-only (see the mobile media query below) but
+   stay active while folded — a pull/push on a folded card auto-unfolds or
+   re-folds it in app.js, rather than the handles going dead. */
+.scout-resize-handle {
+  position: absolute;
+  z-index: 7;
+  background: transparent;
+}
+.scout-resize-handle:hover,
+.scout-resize-handle:active {
+  background: rgba(211, 167, 61, 0.22);
+}
+.scout-resize-handle.scout-resize-n,
+.scout-resize-handle.scout-resize-s {
+  left: 8px;
+  right: 8px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.scout-resize-handle.scout-resize-n { top: -5px; }
+.scout-resize-handle.scout-resize-s { bottom: -5px; }
+.scout-resize-handle.scout-resize-e,
+.scout-resize-handle.scout-resize-w {
+  top: 8px;
+  bottom: 8px;
+  width: 10px;
+  cursor: ew-resize;
+}
+.scout-resize-handle.scout-resize-e { right: -5px; }
+.scout-resize-handle.scout-resize-w { left: -5px; }
+.scout-resize-handle.scout-resize-ne,
+.scout-resize-handle.scout-resize-nw,
+.scout-resize-handle.scout-resize-se,
+.scout-resize-handle.scout-resize-sw {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+.scout-resize-handle.scout-resize-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.scout-resize-handle.scout-resize-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.scout-resize-handle.scout-resize-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.scout-resize-handle.scout-resize-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+/* Disables the panel's open/close max-height transition while an active
+   drag would otherwise fight it every frame (BLUEPRINT.md pattern: same
+   reasoning as .is-dragging above, just for the panel's own height). */
+.scout-card.is-resizing .scout-card-panel { transition: none; }
+.scout-card.is-resizing { user-select: none; }
+
+/* Flashes a floating card when the user re-clicks a player already in the
+   Workspace (BLUEPRINT_PinnedPlayers.md §4) — mirrors .pcs-row.is-flash's
+   pulse, scoped to the card's panel rather than the whole absolutely-
+   positioned .scout-card so it doesn't fight bringScoutCardToFront()'s
+   z-index bump. */
+@keyframes scout-card-flash {
+  0%, 100% { box-shadow: none; }
+  35% { box-shadow: 0 0 0 3px rgba(211, 167, 61, 0.55); }
+}
+.scout-card.is-flash .scout-card-panel { animation: scout-card-flash 0.6s ease; }
 
 .scout-logo-wrap {
   width: 52px; height: 52px;
@@ -763,11 +1468,6 @@ body {
   color: var(--chalk);
   font-weight: 600;
 }
-.scout-stats dd.scout-stat-value.is-highlighted {
-  color: var(--flag-gold-bright);
-}
-/* Left un-highlighted even on gold rows so it stays legible as a quieter
-   third column next to the bright value. */
 .scout-stats dd.scout-stat-rank {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -776,14 +1476,1063 @@ body {
   color: var(--chalk-dim);
   min-width: 64px;
 }
+/* Player Card-only percentile color coding (six bins, see
+   percentileChipClass() in scout-card.js) — the whole "#rank/N · Nth pct"
+   string sits on a solid background chip rather than just tinting the text,
+   so the color reads at a glance without needing to parse the string first.
+   Minimal 3px radius matches the app's neubrutalist language elsewhere
+   (not a rounded pill); text color per bin is contrast-matched against its
+   background rather than a single color for all six. Games/the threshold
+   field have no percentile and so render as plain .scout-stat-rank text,
+   never a chip — see renderScoutCardStats()'s addRow(). Scoped to Player
+   Card only: Linemate/Merge Card rank cells and the Line Summary table
+   don't get this treatment. */
+.scout-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.scout-pct-red { background: #e74c3c; color: #f0ede4; }
+.scout-pct-orange { background: #e67e22; color: #f0ede4; }
+.scout-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.scout-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.scout-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.scout-pct-violet { background: #a569bd; color: #f0ede4; }
 
-.footnote {
-  margin-top: 26px;
-  font-size: 12.5px;
-  line-height: 1.6;
+/* --- Player Card actions: linemate toggle (BLUEPRINT.md §2) ---
+   Sits between the header and the stats table, always visible — including
+   while the card is folded, see .is-folded above — so a card doesn't need
+   to be unfolded to pull up its linemates. Merge selection moved to this
+   player's Single Cards row in the Pinned Players (see .pcs-row-merge
+   below) — BLUEPRINT_PinnedPlayers.md §4 — so this row now holds just the
+   one action; flex-start keeps the button snug against the left edge
+   (rather than the old two-item space-between layout's flex-end) and the
+   tightened padding keeps a single-button row from reading as an
+   oversized gap between the header and the stats table. */
+.scout-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--turf-600);
+}
+/* Player Card's own Linemates toggle: solid-gold, same button language as
+   .apply-btn/.pcs-inspect-btn, so it reads as the card's primary
+   call-to-action rather than a utility icon — distinct from the card's
+   structural #f0ede4 border and from the download/collapse/close icons in
+   the top-right corner. Deliberately its own rule, not shared with
+   .merge-row-linemate-toggle below: that one stays a small ghost/ouline
+   icon button scoped to a dense merge-table row, where a solid gold fill
+   per row would be too loud. */
+.card-linemate-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #d4af5a;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-oswald);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.card-linemate-toggle:hover,
+.card-linemate-toggle:focus-visible {
+  background: var(--flag-gold-bright);
+  outline: none;
+}
+
+.merge-row-linemate-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--turf-700);
+  color: var(--chalk-dim);
+  border: 1px solid var(--turf-600);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-row-linemate-toggle:hover,
+.merge-row-linemate-toggle:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+
+/* --- Pinned Players (BLUEPRINT_PinnedPlayers.md) ---
+   Persistent Workspace management region — replaces the old merge-toolbar.
+   Lives outside .board (see the comment on #player-cards-space in
+   index.html), styled after .apply-btn/.png-btn's conventions. */
+/* v1.4.0 neubrutalism: 2px solid #f0ede4, same border language/color as
+   every other top-level container. Owned here (not by .pcs-bar/.pcs-panel
+   below) so collapsed and expanded read as one continuous bordered block
+   rather than two independently-boxed sections stacked on top of each
+   other — .pcs-bar stays transparent and .pcs-panel gets a divider instead
+   of its own border, see both below. */
+.player-cards-space {
+  margin: 18px 0;
+  background: var(--turf-800);
+  border: 2px solid #f0ede4;
+  border-radius: 8px;
+}
+.player-cards-space[hidden] { display: none; }
+
+.pcs-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+}
+.pcs-quota {
+  font-family: var(--font-oswald);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.04em;
   color: var(--chalk-dim);
 }
-.footnote a { color: var(--flag-gold-bright); }
+/* Same size, gold treatment, and now typography (Oswald/600) as .apply-btn
+   in the filter bar — an expand/collapse panel toggle (§2: not a native
+   select), visually the row's primary action. The scatter-plot label font
+   is Oswald too, but stays at its own lighter 450 weight, not this bar's
+   600. */
+/* Fixed width (not min-width) pinned to .apply-btn's own actual rendered
+   width (measured via getBoundingClientRect in a real browser: 95px) — a
+   min-width floor let Manage's chevron+longer label push it wider than
+   Apply despite the shared 95px value, since a floor only guarantees a
+   minimum, not equality. .merge-btn (Create) mirrors .png-btn (Save Plot)
+   the same way, see its own comment below. Padding tightened to 9px 10px
+   (from Apply's 20px) — at Apply's own padding there's no room left inside
+   95px for "Manage" + the chevron + their gap, and the flex row silently
+   shrinks the chevron to 0 width to compensate (verified via
+   getBoundingClientRect — it doesn't just look small, it's actually zero).
+   Tighter padding gives the icon real room without changing the outer
+   box's width. */
+.pcs-inspect-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 95px;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 2px solid var(--flag-gold);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-family: var(--font-oswald);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pcs-inspect-btn:hover,
+.pcs-inspect-btn:focus-visible {
+  background: var(--flag-gold-bright);
+  border-color: var(--flag-gold-bright);
+  outline: none;
+}
+.pcs-inspect-btn .chevron {
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+.pcs-inspect-btn[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+/* Glass treatment (v1.4.0) — scoped to this one floating panel on purpose,
+   not the Player/Linemate/Merge Card bodies: those are data-dense stat
+   tables where a blurred background would hurt legibility. -webkit- prefix
+   is required for the iPad/WeChat in-app-browser (WKWebView) case this app
+   already targets. */
+.pcs-panel {
+  /* backdrop-filter establishes a new stacking context, which otherwise
+     traps the Single Cards search dropdown's z-index:50 (below) inside it
+     — .board (the chart) sits later in the DOM at its own position:relative/
+     z-index:auto, so without an explicit z-index here .board would win that
+     comparison and paint over the dropdown. position+z-index below let this
+     whole panel (dropdown included) stack above .board again. */
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  /* Divider off .pcs-bar above, same weight/color as .pcs-columns-divider's
+     own Player Profiles/Player Comparisons split below — not a border, so
+     .player-cards-space's own border reads as one continuous frame around
+     both. Bottom corners rounded to match that outer frame since .pcs-panel
+     is always its visible bottom edge when expanded; deliberately no
+     overflow:hidden on the wrapper to get this for free — that would clip
+     the Single Cards search dropdown (up to 220px tall, positioned near the
+     panel's top) whenever the panel is short. */
+  border-top: 1px solid var(--turf-600);
+  border-radius: 0 0 8px 8px;
+  padding: 14px 16px;
+}
+.pcs-panel[hidden] { display: none; }
+
+.pcs-columns {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+}
+/* Central rule splitting Single Cards from Merged Cards — a plain 1px grid
+   track rather than a border on either column, so it stays centered in the
+   gutter regardless of which column's content is taller. */
+.pcs-columns-divider {
+  width: 1px;
+  background: var(--turf-600);
+}
+@media (max-width: 860px) {
+  .pcs-columns { grid-template-columns: 1fr; }
+  .pcs-columns-divider { display: none; }
+}
+
+.pcs-column-title {
+  margin: 0 0 8px;
+  font-family: var(--font-oswald);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+}
+.pcs-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 37px; /* matches .merge-btn's rendered height, so Single/Merged Cards titles land on the same line */
+  margin-bottom: 8px;
+}
+.pcs-column-header .pcs-column-title { margin: 0; flex: none; }
+
+/* Single Cards' add-search box (BLUEPRINT_PinnedPlayers.md v1.2.0 §4) —
+   .merge-edit-add/.merge-edit-input/.merge-edit-dropdown are reused wholesale
+   here (same fuzzy-match look as the Players filter and the Create/Edit
+   merge popups). Lives in the column header row now, alongside the title
+   (mirroring the Merged Cards column's title+Create row) rather than its own
+   full-width row above the list — sized to match the Filters bar's shared
+   150px non-Season control width (.control select/.teams-select-btn) so it
+   reads as the same control, not stretching across the row; space-between
+   on .pcs-column-header still pins it to the header's right edge. This is
+   no longer the same width as .merge-btn (Create) next to it in the other
+   column (104.53125px) — matching the Filters bar took priority over that
+   pairing. Unlike the Create/Edit popups' own .merge-edit-dropdown (which
+   is fine growing in normal flow inside an already-floating modal), this
+   one sits in the persistent Pinned Players panel, so it's floated absolute
+   instead — same reasoning as .players-panel — so a search here doesn't
+   shove the rest of the panel/board down the page the way the Players
+   filter never does either. (The full instruction that no longer fits in
+   this box at this width lives on its own static line below instead,
+   reusing .pcs-empty — see index.html.) */
+.pcs-add-wrap { flex: none; width: 150px; margin-bottom: 0; }
+/* Glassmorphism reverted here (was rgba(255,255,255,0.07)/blur(10px)/
+   rgba(255,255,255,0.18), matching .pcs-panel above) — the blurred chart
+   title text bleeding through the dropdown clashed with the player-name
+   list underneath it, hurting readability. Solid background instead, same
+   #16281c as the rest of the workspace panel, with the v1.4.0 neubrutalist
+   2px #f0ede4 border (matching the search input above it) rather than the
+   glass border. .pcs-panel itself keeps its own glass treatment — this
+   revert is scoped to just this floating suggestion list. */
+.pcs-add-wrap .merge-edit-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 260px;
+  margin-top: 0;
+  background: #16281c;
+  border: 2px solid #f0ede4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+/* .merge-edit-input/.player-option(-name/-team) are reused wholesale here
+   (see comment above) but the base rules for those classes stay Inter/mono
+   — they're shared with the Players filter and the Create/Edit merge
+   popups, which this Oswald pass doesn't touch. Scope the override to just
+   the copy rendered inside Pinned Players instead of touching the shared
+   base rule. */
+#player-cards-space .merge-edit-input,
+#player-cards-space .player-option,
+#player-cards-space .player-option-team {
+  font-family: var(--font-oswald);
+}
+/* v1.4.0 neubrutalism, extended to the Single Cards add-search box — same
+   2px solid #f0ede4/minimal-radius language as .apply-btn/.pcs-row-remove
+   above, scoped here rather than on the shared base .merge-edit-input rule
+   since that rule is also the Create/Edit merge popups' own input, which
+   this pass doesn't touch. height pinned explicitly to match the Players
+   filter box's own fixed height (.teams-select-btn: height: 38px) — the
+   base .merge-edit-input rule has no explicit height of its own (computed
+   from its 8px/10px padding + border + line-height instead), and that
+   computed value doesn't necessarily land on 38px once this rule's own 2px
+   border (vs. the base rule's 1px) is added on top. */
+#player-cards-space .merge-edit-input {
+  height: 38px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+}
+
+.pcs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.pcs-empty {
+  margin: 0;
+  font-family: var(--font-oswald);
+  font-size: 12.5px;
+  color: var(--chalk-dim);
+  font-style: italic;
+}
+.pcs-empty[hidden] { display: none; }
+
+.pcs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--turf-700);
+}
+.pcs-row:last-child { border-bottom: none; }
+/* Single Cards rows double as a reopen/focus control for their floating
+   card (BLUEPRINT_PinnedPlayers.md §4) — Merged Cards rows don't get
+   this, they only act through their Edit/Dismiss buttons. */
+.pcs-row.is-clickable { cursor: pointer; }
+.pcs-row.is-clickable:hover { background: var(--turf-700); }
+.pcs-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-oswald);
+  font-size: 13px;
+  color: var(--chalk);
+}
+/* Single Cards rows: name+meta sit together on the left instead of meta
+   getting flex-pushed next to the buttons — the name no longer grows to
+   fill the row, and a dedicated spacer takes that slack instead. */
+.pcs-row--single .pcs-row-name { flex: 0 1 auto; }
+.pcs-row-spacer { flex: 1 1 auto; }
+.pcs-row-meta {
+  flex: none;
+  font-family: var(--font-oswald);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--chalk-dim);
+}
+/* v1.4.0 neubrutalism, extended: same 2px solid #f0ede4/minimal-radius
+   language as .apply-btn/.scout-card-panel, but transparent (outline) rather
+   than filled — these are row-level secondary actions, so they shouldn't
+   carry the same visual weight as a filled primary action like Create/Apply
+   even once bordered the same way. */
+.pcs-row-remove,
+.pcs-row-edit,
+.pcs-row-dismiss {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  background: transparent;
+  color: var(--chalk-dim);
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-oswald);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pcs-row-remove:hover, .pcs-row-remove:focus-visible,
+.pcs-row-edit:hover, .pcs-row-edit:focus-visible,
+.pcs-row-dismiss:hover, .pcs-row-dismiss:focus-visible {
+  color: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+
+/* Fixed width (not min-width) pinned to .png-btn's own actual rendered
+   width (measured via getBoundingClientRect in a real browser:
+   104.53125px) — see .pcs-inspect-btn's comment above for why min-width
+   isn't enough. gold stays reserved for Manage/Apply. v1.4.0 neubrutalism:
+   2px solid #f0ede4/4px radius, same border weight as
+   .pcs-row-remove/-edit/-dismiss above — the solid black fill (vs. their
+   transparent outline) is what marks this as the primary action, not a
+   heavier border. */
+.merge-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 104.53125px;
+  background: #000;
+  color: var(--chalk);
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  padding: 9px 10px;
+  font-family: var(--font-oswald);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+}
+.merge-btn:hover,
+.merge-btn:focus-visible {
+  background: #1a1a1a;
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.merge-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Merge Card table --- one row per player, one column per metric,
+   percentile-only cells (BLUEPRINT.md §1.2). */
+/* Below the .scout-card-top divider: the shared-pool sentence (Pool
+   column dropped from the table below, see renderMergeCardBody() — falls
+   back to listing each member's own pool if the card mixes positions), then
+   the scroll hint. One flex child of .scout-card-body so the two lines sit
+   close together instead of each taking the body's full 16px gap. Rendered
+   as a bulleted list (.merge-card-note-list), same treatment as Linemate
+   Card's own two-line disclaimer (.linemate-card-note-list) — gold/italic
+   bullets rather than plain stacked paragraphs. */
+.merge-card-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.merge-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.merge-card-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
+}
+/* Player Card's own single-line pool sentence — same bulleted, gold/italic
+   treatment as .merge-card-note-list/.linemate-card-note-list above, rather
+   than the plain dim paragraph it used to be. Still just one <li>; the list
+   wrapper exists so a single line reads identically to the two-line notes
+   on Merge/Linemate Cards instead of looking like a different component. */
+.scout-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.scout-card-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
+}
+/* Excel-style click-to-sort headers (table-sort.js) — shared by Merge
+   Card's table, Linemate Card's roster table, and its Line Summary table.
+   `<th>` itself is the click target (not just its text or the arrows), so
+   the whole cell needs to read as interactive. Every sortable column always
+   shows both a ▲ and a ▼ (stacked, text glyphs — not emoji, since emoji
+   ignore CSS `color` and can't carry the three states below), not just the
+   currently-sorted one, so a column's sortability is visible before it's
+   ever clicked. Kept as one shared block near the top of the DataFrame-table
+   styles below rather than repeated per table, since all three use
+   identical treatment. */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-th:hover,
+.sortable-th.is-sorted {
+  color: var(--flag-gold);
+}
+.sortable-th:focus-visible {
+  outline: 1px solid var(--flag-gold);
+  outline-offset: -1px;
+}
+.sort-indicator {
+  display: inline-flex;
+  flex-direction: column;
+  margin-left: 4px;
+  vertical-align: middle;
+  line-height: 0.6;
+}
+/* Neutral (this column isn't the active sort): both arrows sit at the same
+   dim color. Active: makeSortableHeader() adds .is-active to whichever
+   arrow matches the current direction (gold); the other arrow drops to an
+   even dimmer shade via .is-sorted below rather than staying at the neutral
+   color, so the active direction reads unambiguously at a glance. */
+.sort-arrow {
+  font-size: 8px;
+  color: #5a6e5f;
+}
+.sort-arrow.is-active { color: #d4af5a; }
+.sortable-th.is-sorted .sort-arrow:not(.is-active) { color: #3f4f43; }
+
+.merge-table-wrap { overflow-x: auto; }
+.merge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.merge-table th,
+.merge-table td {
+  padding: 6px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.merge-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.merge-table td { color: var(--chalk); }
+.merge-metric-cell { cursor: help; }
+.merge-metric-cell:hover { color: var(--flag-gold); }
+/* Percentile color coding — same six bins/colors/text-contrast rule as
+   Player Card's .scout-pct-chip (scout-card.js's percentileChipClass()).
+   The JS mapping function is reimplemented locally per file
+   (percentileFillClass() in both merge-card.js and linemate-card.js) rather
+   than shared, matching this codebase's existing per-card-type styling
+   convention (e.g. .merge-table-frozen vs .linemate-table-frozen) — but
+   these CSS classes themselves ARE the one shared component both files'
+   copies point at, same reasoning as .sortable-th/.sort-arrow above being
+   one shared block for Merge Card's table and Linemate Card's roster table.
+   Deliberately NOT used on Linemate Card's Line Summary table (Min/Median/
+   RSWA/Max are order statistics across the roster, not an individual's
+   performance grade — see linemate-card.js's percentileFillClass() comment).
+   An inset chip span inside the <td> — minimal-radius/small-padding, same
+   language as .scout-pct-chip — not a full edge-to-edge cell fill, so the
+   cell's own background and row divider stay visible around it. (An earlier
+   pass on Merge Card colored the <td> directly for an Excel-style full-cell
+   fill; reverted — besides looking wrong for this grid, .merge-table td's
+   own `color: var(--chalk)` rule is MORE specific than a single class like
+   .merge-pct-yellow and silently won on the td, breaking dark-on-light text
+   for the yellow/light-blue bins. Setting color on the chip span instead
+   sidesteps that: a span is never itself a `.merge-table td`/`.linemate-
+   table td`, so the two rules never compete on the same element.) Games/
+   threshold-field columns never get one of these classes (see
+   renderMergeCardBody()/renderLinemateRoster()), so they stay uncolored. */
+.merge-pct-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.merge-pct-red { background: #e74c3c; color: #f0ede4; }
+.merge-pct-orange { background: #e67e22; color: #f0ede4; }
+.merge-pct-yellow { background: #f1c40f; color: #1a1a1a; }
+.merge-pct-lightblue { background: #5dade2; color: #1a1a1a; }
+.merge-pct-darkblue { background: #1f618d; color: #f0ede4; }
+.merge-pct-violet { background: #a569bd; color: #f0ede4; }
+.merge-table .merge-table-name,
+.merge-table th:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.merge-table .merge-table-team,
+.merge-table th:nth-child(2) { text-align: left; }
+.merge-table-team-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--chalk-dim);
+}
+.merge-table-team-logo {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+/* Player/Team/Linemates columns freeze in place while Games/PR Opp and the
+   metric columns scroll underneath — Excel frozen-pane style. Left offsets
+   are set inline per column by applyStickyMetaColumns() (merge-card.js),
+   since they depend on each column's actual rendered width. Opaque
+   background is required for sticky cells to mask scrolled-under content;
+   .merge-table-wrap's ancestor (.scout-card-panel) uses a translucent
+   gradient, so a flat, close-enough turf tone stands in here rather than
+   trying to replicate the gradient per cell (which would seam at the
+   column boundaries). */
+.merge-table-frozen {
+  position: sticky;
+  z-index: 2;
+  background: var(--turf-800);
+}
+thead .merge-table-frozen { z-index: 3; }
+.merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
+
+/* --- Linemate Association Card --- roster table + 3M/RSWA summary
+   (BLUEPRINT.md §2). Header now mirrors the Player Card's two-row layout
+   (.scout-card-top logo+name+meta, then a second bordered row) — see
+   openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
+   second row's own modifier on .scout-card-actions, swapping its single-
+   button flex-start layout for the two disclaimer lines (roster size/
+   threshold, then the percentile note) that used to sit under the title. */
+.linemate-card-notes {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.linemate-card-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.linemate-card-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flag-gold);
+}
+/* Roster table — same DataFrame column style as Merge Card's .merge-table
+   (BLUEPRINT.md §2.1/§1.2: one row per teammate, one column per metric,
+   percentile-only cells), just without its Team column (redundant here —
+   every row already shares the anchor's team, see computeLinemateRoster())
+   or its Linemates-toggle column (no per-row drill-down on this card type,
+   BLUEPRINT.md §2.3's recursion guard). */
+.linemate-table-wrap { overflow-x: auto; margin-bottom: 10px; }
+.linemate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.linemate-table th,
+.linemate-table td {
+  padding: 6px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.linemate-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.linemate-table td { color: var(--chalk); }
+.linemate-metric-cell { cursor: help; }
+.linemate-metric-cell:hover { color: var(--flag-gold); }
+.linemate-table .linemate-table-name,
+.linemate-table th:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+/* Position — same left-align treatment as Merge Card's Team column
+   (.merge-table .merge-table-team, .merge-table th:nth-child(2)), just
+   plain text instead of a logo since there's no per-row team to show. */
+.linemate-table .linemate-table-position,
+.linemate-table th:nth-child(2) { text-align: left; }
+/* Freeze Panes, scoped to the Player + Position columns — both metadata,
+   same as Merge Card's own Player/Team/Linemates freeze. Left offsets are
+   set inline per column by applyStickyLinemateColumns() (linemate-card.js),
+   since they depend on Player's actual rendered width, not just Position's
+   fixed slot at 0. Opaque background masks the Games/PR Opp/metric columns
+   scrolling underneath, same reasoning as .merge-table-frozen — including
+   the real class (not just :first-child) card-export.js's buildExportClone()
+   needs to force these back to position:static, same reason it does for
+   .merge-table-frozen (see its comment there). */
+.linemate-table-frozen {
+  position: sticky;
+  z-index: 2;
+  background: var(--turf-800);
+}
+thead .linemate-table-frozen { z-index: 3; }
+.linemate-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
+.linemate-see-more {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  background: transparent;
+  border: none;
+  color: var(--instant-replay-blue);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+/* Same specificity as the base rule above, so without this the [hidden]
+   attribute app.js sets (roster.length <= LINEMATE_VISIBLE_DEFAULT) loses
+   the cascade tie to `display: block` and the button stays visible with
+   nothing left to reveal — this is the fix, not that base rule. */
+.linemate-see-more[hidden] { display: none; }
+.linemate-see-more:hover,
+.linemate-see-more:focus-visible {
+  color: var(--instant-replay-blue-bright);
+  outline: none;
+}
+.linemate-summary-wrap { overflow-x: auto; }
+.linemate-summary-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+}
+.linemate-summary-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+/* Every column, header and data alike, shares one alignment (BLUEPRINT.md
+   §2.5's summary is a stat grid, not a label-then-numbers report — mixing
+   left-aligned metric names against right-aligned figures read as two
+   different tables stitched together). Metric column gets a fixed, narrower
+   width than table-layout:auto would give its longest label ("TPS Allowed
+   Pressure %"), with wrapping turned back on so that label breaks onto a
+   second line instead of forcing the other four columns to shrink. */
+.linemate-summary-table th,
+.linemate-summary-table td {
+  padding: 5px 7px;
+  text-align: center;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--turf-600);
+}
+.linemate-summary-table th {
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+.linemate-summary-table td { color: var(--chalk); }
+.linemate-summary-metric,
+.linemate-summary-table th:first-child {
+  font-family: var(--font-body);
+}
+.linemate-summary-table th:first-child,
+.linemate-summary-table td:first-child {
+  width: 40%;
+  white-space: normal;
+}
+/* Min/Max hold the same short ordinal text as Median/RSWA ("41st", "95th")
+   but don't need as much room once Metric (above) claims more of the row
+   for its own long labels ("TPS Allowed Pressure %") — narrowed so that
+   extra width comes from here rather than shrinking Median/RSWA, which
+   still need to fit the RSWA header's InfoPopover trigger button. */
+.linemate-summary-table th:nth-child(2),
+.linemate-summary-table td:nth-child(2),
+.linemate-summary-table th:nth-child(5),
+.linemate-summary-table td:nth-child(5) {
+  width: 12%;
+}
+/* The RSWA header's InfoPopover trigger (BLUEPRINT.md §2.5's formula) —
+   shared .info-popover-trigger component (info-popover.js), same one the
+   Players filter header uses, standing in for that column's plain-text
+   label (see renderLinemateSummary()'s replaceChild). Sized down from the
+   component's own default padding/font-size here — this table's columns are
+   too narrow (see the 32%-first-column split above) for the full-size
+   button to fit without crowding the Min/Median/Max headers next to it. */
+.linemate-summary-table th .info-popover-trigger {
+  padding: 2px 6px;
+  gap: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+/* --- Workspace quota/cap notice popup --- same modal-overlay pattern as
+   .merge-confirm-overlay below, just a single acknowledgement button since
+   there's no decision to make, only a reason to see (showWorkspaceNotice()
+   in app.js). */
+.workspace-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.workspace-notice-overlay[hidden] { display: none; }
+.workspace-notice-box {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.workspace-notice-body {
+  margin: 0 0 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rush-clay);
+}
+.workspace-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.workspace-notice-ok {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
+}
+.workspace-notice-ok:hover,
+.workspace-notice-ok:focus-visible {
+  filter: brightness(1.1);
+  outline: none;
+}
+
+/* --- Pool-change confirm modal (BLUEPRINT.md §4) --- */
+.merge-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.merge-confirm-overlay[hidden] { display: none; }
+.merge-confirm-box {
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.merge-confirm-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--chalk);
+}
+.merge-confirm-body {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+.merge-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.merge-confirm-actions button {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-confirm-cancel {
+  background: transparent;
+  color: var(--chalk-dim);
+  border: 1px solid var(--turf-600);
+}
+.merge-confirm-cancel:hover,
+.merge-confirm-cancel:focus-visible {
+  color: var(--chalk);
+  border-color: var(--flag-gold);
+  outline: none;
+}
+.merge-confirm-clear {
+  background: var(--rush-clay);
+  color: var(--chalk);
+  border: 1px solid var(--rush-clay);
+}
+.merge-confirm-clear:hover,
+.merge-confirm-clear:focus-visible {
+  filter: brightness(1.1);
+  outline: none;
+}
+
+/* --- Merge Card popups: Create + Edit (BLUEPRINT_PinnedPlayers.md v1.2.0
+   §5) --- .merge-edit-overlay/.merge-edit-box etc. are shared verbatim by
+   both #merge-create-overlay and #merge-edit-overlay (different ids, same
+   markup shape/classes) rather than duplicating the styling. Same
+   modal-overlay pattern as .merge-confirm-overlay above; the fuzzy-add
+   input/dropdown reuse .players-input/.players-dropdown/.player-option's
+   look wholesale (see runMergeEditSearch()/renderMergeEditDropdown() and
+   their Create-popup counterparts in app.js). */
+.merge-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 33, 25, 0.75);
+  padding: 24px;
+}
+.merge-edit-overlay[hidden] { display: none; }
+.merge-edit-box {
+  width: 100%;
+  max-width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+  border: 1px solid var(--turf-600);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+.merge-edit-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--chalk);
+}
+.merge-edit-members {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.merge-edit-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.merge-edit-member-name {
+  font-size: 13px;
+  color: var(--chalk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.merge-edit-member-remove {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  background: transparent;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.merge-edit-member-remove:hover,
+.merge-edit-member-remove:focus-visible {
+  color: var(--flag-gold-bright);
+  background: rgba(241, 236, 221, 0.08);
+  outline: none;
+}
+.merge-edit-add { position: relative; }
+.merge-edit-input {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 8px 10px;
+}
+.merge-edit-input:focus {
+  outline: none;
+  border-color: var(--flag-gold);
+}
+.merge-edit-input::placeholder { color: var(--chalk-dim); }
+.merge-edit-dropdown {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--turf-950);
+  border: 1px solid var(--turf-600);
+  border-radius: 6px;
+  padding: 6px;
+}
+.merge-edit-dropdown[hidden] { display: none; }
+.merge-edit-message {
+  margin: 10px 0 0;
+  min-height: 1em;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--rush-clay);
+}
+.merge-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+.merge-edit-done {
+  border-radius: 6px;
+  padding: 8px 20px;
+  background: var(--flag-gold);
+  color: var(--turf-950);
+  border: 1px solid var(--flag-gold);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.merge-edit-done:hover,
+.merge-edit-done:focus-visible {
+  background: var(--flag-gold-bright);
+  border-color: var(--flag-gold-bright);
+  outline: none;
+}
 
 @media (max-width: 860px) {
   .board { grid-template-columns: 1fr; }
@@ -806,13 +2555,13 @@ body {
   .hero-github { top: 14px; right: 16px; }
   .hero-github svg { width: 18px; height: 18px; }
 
-  /* Below 860px there's no room to float the card over the chart without
-     covering data, so it drops back to a plain block stacked underneath —
-     the pre-overlay behavior, undoing all the desktop overlay rules above.
+  /* Below 860px there's no room to float cards over the chart without
+     covering data, so each one drops back to a plain block stacked
+     underneath (see .scout-cards' flex-column switch above) — the
+     pre-overlay behavior, undoing all the desktop overlay rules above.
      `.scout-card-panel` takes over as the visible card box (padding,
-     background, min-height); `.scout-card` is just a relative anchor for
-     the tab, and `.scout-card-body` gives up its desktop padding since
-     the panel now owns it. */
+     background, min-height); `.scout-card` is just a relative anchor, and
+     `.scout-card-body` gives up its desktop padding since panel now owns it. */
   .scout-card {
     position: relative;
     top: auto;
@@ -830,12 +2579,6 @@ body {
     cursor: auto;
     touch-action: auto;
   }
-  .scout-card-tab {
-    position: absolute;
-    top: -11px;
-    left: 18px;
-    border-radius: 3px;
-  }
   .scout-card-panel {
     max-height: none;
     overflow: visible;
@@ -849,24 +2592,55 @@ body {
     padding: 20px 18px 18px;
     min-height: 320px;
   }
-  .scout-card-empty {
+  /* Fold/Unfold isn't restricted to desktop (unlike Merge/Linemate) — but a
+     folded card's body is empty (see .is-folded in the desktop rules above),
+     so the 320px min-height meant for an always-expanded mobile card would
+     otherwise leave a tall dead gap under the header. */
+  .scout-card.is-folded .scout-card-panel { min-height: 0; }
+  .scout-card-body { padding: 0; }
+
+  /* Standalone placeholder (not nested in a card) shown when nothing is
+     pinned yet — styled like a card box itself so it doesn't look out of
+     place stacked among real ones once cards start appearing. */
+  .scout-empty-hint {
     display: none;
     align-items: center;
     justify-content: center;
-    height: 100%;
     min-height: 200px;
+    margin: 0 -10px;
+    padding: 20px 18px;
     text-align: center;
     color: var(--chalk-dim);
     font-size: 13.5px;
-    padding: 0 8px;
+    background: linear-gradient(165deg, var(--turf-700), var(--turf-800));
+    border: 1px solid var(--turf-600);
+    border-radius: 10px;
   }
-  .scout-card-empty:not([hidden]) { display: flex; }
-  .scout-card-body { padding: 0; }
+  .scout-empty-hint:not([hidden]) { display: flex; }
 
   /* Filter controls collapse into a bottom-sheet drawer here — left open
      and flex-wrapped like on desktop, five selects + a slider would eat
      most of a phone screen before the chart even starts. */
   .controls-toggle { display: block; margin-bottom: 14px; }
+
+  /* Players is a deliberate desktop/tablet-only feature (see the comment on
+     .control-players above) — no mobile fallback, no read-only messaging,
+     it's simply absent from the mobile drawer. */
+  .control-players { display: none; }
+
+  /* Merge Cards, Linemate Cards, and Pinned Players are desktop/
+     tablet-only too (BLUEPRINT.md §0, BLUEPRINT_PinnedPlayers.md's own
+     "Not rendered on mobile" checklist item) — app.js's
+     isDesktopScoutLayout() guards already stop new ones from opening below
+     860px and already [hidden]-gate Pinned Players itself; this hides the
+     remaining affordance that would start that flow (each Player Card's
+     linemate-toggle row) so the mobile card body is exactly what v1.1.0
+     shipped. */
+  .player-cards-space,
+  .scout-card-actions,
+  .scout-resize-handle {
+    display: none;
+  }
 
   .filters-drawer {
     position: fixed;
@@ -905,6 +2679,14 @@ body {
     width: 100%;
   }
   .filters-drawer .control-season select { width: 100%; }
+  /* Every plain select and .teams-select-btn (Teams/Players) is pinned to a
+     fixed 150px width on desktop to keep the control bar's row aligned (see
+     the rules near .control-season and .teams-select-btn above) —
+     irrelevant here since the drawer stacks controls in a single column,
+     but max-width would otherwise still win over this width: 100% and leave
+     the control artificially narrow. */
+  .filters-drawer .control select { max-width: 100%; }
+  .filters-drawer .teams-select-btn { width: 100%; max-width: 100%; }
 
   /* The teams dropdown is absolutely positioned on desktop; inside the
      fixed bottom-sheet drawer (which scrolls) that risks clipping/overlap,

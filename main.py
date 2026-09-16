@@ -2,8 +2,10 @@
 
 Routes:
   GET  /api/metadata                    → seasons, positions, metric defs, teams
-  GET  /api/pass_rush?season=&position= → per-slice records
-  GET  /api/pass_block?season=&position= → per-slice records
+  GET  /api/pass_rush?season=[&position=] → records; position omitted → every
+                                             position in the category (client
+                                             partitions/filters from there)
+  GET  /api/pass_block?season=[&position=] → same shape as pass_rush
   GET  /health                          → readiness probe for Railway
 
 Anything else falls through to StaticFiles serving `frontend/`.
@@ -18,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from config import ALLOWED_HAVOC_RATE_NOTE, DEFAULT_THRESHOLDS, HAVOC_RATE_NOTE
+from config import ALLOWED_HAVOC_RATE_NOTE, HAVOC_RATE_NOTE, resolve_default_threshold
 from database.db_models import (
     Base,
     PassBlockStat,
@@ -177,14 +179,20 @@ def metadata() -> dict:
             "metrics": PASS_RUSH_METRICS,
             "threshold_field": "PR Opp",
             "seasons": pass_rush_seasons,
-            "default_threshold": DEFAULT_THRESHOLDS["pass_rush"],
+            "default_thresholds": {
+                season: resolve_default_threshold("pass_rush", season)
+                for season in pass_rush_seasons
+            },
         },
         "pass_block": {
             "positions": PASS_BLOCK_POSITIONS,
             "metrics": PASS_BLOCK_METRICS,
             "threshold_field": "Non Spike PB Snaps",
             "seasons": pass_block_seasons,
-            "default_threshold": DEFAULT_THRESHOLDS["pass_block"],
+            "default_thresholds": {
+                season: resolve_default_threshold("pass_block", season)
+                for season in pass_block_seasons
+            },
         },
         "teams": {
             team.code: {
@@ -199,19 +207,29 @@ def metadata() -> dict:
 @app.get("/api/pass_rush")
 def pass_rush(
     season: int = Query(..., ge=1980, le=2100),
-    position: str = Query(..., min_length=1, max_length=4),
+    position: str | None = Query(None, min_length=1, max_length=4),
 ) -> dict:
-    if position not in PASS_RUSH_POSITIONS:
+    if position is not None and position not in PASS_RUSH_POSITIONS:
         raise HTTPException(
             400,
             f"invalid position: {position!r} — choose from {list(PASS_RUSH_POSITIONS)}",
         )
 
+    filters = [PassRushStat.season == season]
+    # Omitted position means "every supported position", not literally every
+    # row for the season — the table can carry positions PASS_RUSH_POSITIONS
+    # doesn't expose (e.g. LB), left over from a broader raw ingest.
+    filters.append(
+        PassRushStat.position == position
+        if position is not None
+        else PassRushStat.position.in_(PASS_RUSH_POSITIONS)
+    )
+
     with SessionLocal() as sess:
         rows = (
             sess.execute(
                 select(PassRushStat)
-                .where(PassRushStat.season == season, PassRushStat.position == position)
+                .where(*filters)
                 .order_by(PassRushStat.pr_opp.desc())
             )
             .scalars()
@@ -229,21 +247,26 @@ def pass_rush(
 @app.get("/api/pass_block")
 def pass_block(
     season: int = Query(..., ge=1980, le=2100),
-    position: str = Query(..., min_length=1, max_length=4),
+    position: str | None = Query(None, min_length=1, max_length=4),
 ) -> dict:
-    if position not in PASS_BLOCK_POSITIONS:
+    if position is not None and position not in PASS_BLOCK_POSITIONS:
         raise HTTPException(
             400,
             f"invalid position: {position!r} — choose from {list(PASS_BLOCK_POSITIONS)}",
         )
 
+    filters = [PassBlockStat.season == season]
+    filters.append(
+        PassBlockStat.position == position
+        if position is not None
+        else PassBlockStat.position.in_(PASS_BLOCK_POSITIONS)
+    )
+
     with SessionLocal() as sess:
         rows = (
             sess.execute(
                 select(PassBlockStat)
-                .where(
-                    PassBlockStat.season == season, PassBlockStat.position == position
-                )
+                .where(*filters)
                 .order_by(PassBlockStat.non_spike_pb_snaps.desc())
             )
             .scalars()

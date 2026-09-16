@@ -1,13 +1,11 @@
-name: black-linter
+name: Black Lint
 
 on:
   push:
-    branches: [main]
-    paths:
-      - '**/*.py'
+    branches: [main, dev]
   pull_request:
-    paths:
-      - '**/*.py'
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
