@@ -9,8 +9,8 @@
 [![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
 
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
-![Season](https://img.shields.io/badge/Season-2025-crimson)
-![Week](https://img.shields.io/badge/Week-18-gold)
+![Season](https://img.shields.io/badge/Season-2026-crimson)
+![Week](https://img.shields.io/badge/Week-1-gold)
 
 ![Oldest](https://img.shields.io/badge/Oldest-Data-brown?labelColor=brown&style=flat)
 ![Season](https://img.shields.io/badge/Season-2022-crimson)
