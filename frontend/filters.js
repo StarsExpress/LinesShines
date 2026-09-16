@@ -18,6 +18,7 @@ import { els } from "./dom.js";
 import {
   metadata,
   playerPoolCategory,
+  playerPoolRecords,
   appliedFilters,
   currentRecords,
   fetchSlice,
@@ -554,14 +555,63 @@ export async function loadCurrentSlice() {
 // dropdown always searches the position currently selected, e.g. switching
 // from ED to DI immediately drops ED-only players like Derick Hall from the
 // suggestions and starts surfacing DI players like Dexter Lawrence instead,
-// without waiting for Apply.
+// without waiting for Apply. Also keeps the threshold number box's clamp
+// ceiling live via updatePendingThresholdMax() below — see that function's
+// own comment for why.
 export async function updatePlayerPool() {
   const category = els.category.value;
   const season = Number(els.season.value);
   // setPlayerPool() — see the comment in loadCurrentSlice() above.
   setPlayerPool(await fetchSlice(category, season), category);
+  updatePendingThresholdMax();
   prunePlayerSelections();
   runPlayersSearch();
+}
+
+// Live counterpart to updateThresholdRange()'s max calculation below, but
+// sourced from playerPoolRecords (the pending category/season/position's
+// already-fetched data, kept live by updatePlayerPool() above) instead of
+// currentRecords (Apply-gated). Fixes a real bug: switching Season away
+// from an in-progress season — whose real observed max is small, since the
+// season's only partway through — to a historical one, without clicking
+// Apply, left the number box's clamp ceiling stuck at that old small max.
+// main.js's thresholdNumber "input" handler reads els.threshold.max on
+// every keystroke, so typing e.g. 230 was silently rewritten back down to
+// e.g. 50 until Apply finally recomputed it. This keeps the ceiling honest
+// about whatever season/position is currently shown in the dropdown at all
+// times, not just after Apply. Guarded on playerPoolCategory rather than
+// els.category.value for the same race-safety reason runPlayersSearch()/
+// openBelowThresholdPopup() above read it that way — an in-flight fetch for
+// a category the user has since changed away from shouldn't get read as if
+// it were current.
+function updatePendingThresholdMax() {
+  if (!playerPoolCategory) return;
+  const cat = metadata[playerPoolCategory];
+  const positionRecords = playerPoolRecords.filter((r) => r.position === els.position.value);
+  const values = positionRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
+  const maxVal = values.length ? Math.max(...values) : 100;
+  const max = Math.ceil(maxVal / 10) * 10;
+
+  // Read the number box's own current value *before* touching .max below —
+  // a native <input type="range">'s value auto-clamps to a lowered max the
+  // instant it's assigned, so checking els.threshold.value afterward would
+  // silently compare against an already-corrected number and skip
+  // clamping thresholdNumber (caught via manual testing: the slider ended
+  // up right, but the number box was left stuck at the old, too-high
+  // value). thresholdNumber has no such auto-clamp, so it's the only
+  // reliable "what was actually set before this ran" source here.
+  const currentValue = Number(els.thresholdNumber.value);
+
+  els.threshold.max = max;
+  els.thresholdNumber.max = max;
+  // A pending swap can shrink the ceiling below whatever's currently set,
+  // same correction updateThresholdRange() already makes at Apply time —
+  // clamp live too, rather than leaving the number box showing a value the
+  // newly selected season/position can't actually support.
+  if (currentValue > max) {
+    els.threshold.value = max;
+    els.thresholdNumber.value = max;
+  }
 }
 
 export function updateThresholdRange() {

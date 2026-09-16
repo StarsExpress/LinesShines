@@ -45,8 +45,12 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // §2.3's recursion guard trivial: a Linemate Card never renders a linemate
 // toggle of its own, so there's no second layer of anchors to key around.
 // Entry: { id, origin:'linemate', anchorKey, anchorRecord, roster, el,
-// folded, seeMore }. anchorRecord/roster are read and overwritten by
-// renderLinemateCardBody() on every open/refresh — see refreshOpenLinemateCards().
+// folded, seeMore, includeAnchor }. anchorRecord/roster are read and
+// overwritten by renderLinemateCardBody() on every open/refresh — see
+// refreshOpenLinemateCards(). includeAnchor (default false, toggled by the
+// card's own "Include anchor player" checkbox) persists across a refresh the
+// same way seeMore/rosterSort/summarySort do — renderLinemateCardBody()
+// only ever reads it, never resets it.
 export const linemateCards = new Map();
 
 // Closes every Linemate Card — only for a season/category/position change
@@ -132,6 +136,38 @@ export function computeLinemateRoster(anchorRecord) {
   const cap = LINEMATE_CAP[appliedFilters.category];
 
   return sorted.slice(0, cap);
+}
+
+// Rows actually shown/summarized — computeLinemateRoster()'s cap/threshold
+// logic never sees the anchor (entry.roster stays teammates-only always, so
+// the OL/DL cap is never affected by this toggle); this just inserts the
+// anchor's own record into its rank position by the category's own
+// threshold_field (snap count) when the card's "Include {player} into
+// tables" checkbox is on — entry.roster is already sorted descending by
+// that same field (see computeLinemateRoster()), so everyone (anchor
+// included) reads as one snap-ranked line, not the anchor pinned to a fixed
+// slot regardless of how many snaps he played. This is only the *default*
+// order — a header click still re-sorts by whatever column via
+// entry.rosterSort, same as any other row. Every render call site below
+// reads through this rather than entry.roster directly, so the roster
+// table, the Line Summary (via computeThreeMRSWA, which is otherwise
+// anchor-agnostic — it just summarizes whatever records it's given), and
+// the PNG export all pick up the anchor consistently with zero
+// special-casing anywhere else.
+function linemateDisplayRoster(entry) {
+  if (!entry.includeAnchor) return entry.roster;
+
+  const field = appliedCategoryMeta().threshold_field;
+  const anchorValue = entry.anchorRecord[field] ?? 0;
+  // roster is sorted descending by `field` already — insert just before the
+  // first teammate whose value is strictly lower than the anchor's, so a
+  // tie keeps the existing teammates-first order rather than jumping ahead.
+  const insertAt = entry.roster.findIndex((t) => (t[field] ?? 0) < anchorValue);
+
+  const combined = entry.roster.slice();
+  if (insertAt === -1) combined.push(entry.anchorRecord);
+  else combined.splice(insertAt, 0, entry.anchorRecord);
+  return combined;
 }
 
 // Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
@@ -381,24 +417,35 @@ export function renderLinemateCardBody(entry) {
 
   entry.roster = computeLinemateRoster(entry.anchorRecord);
   const roster = entry.roster;
+  // What actually renders — teammates, plus the anchor's own row when
+  // "Include anchor player" is on. See linemateDisplayRoster()'s own
+  // comment for why roster (cap/threshold-relevant) and this stay separate.
+  const displayRoster = linemateDisplayRoster(entry);
 
-  titleEl.textContent = `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
+  titleEl.textContent = entry.includeAnchor
+    ? `${entry.anchorRecord.player} & His Linemates`
+    : `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
   // The roster-size/threshold sentence sits on its own line above the "All
   // numbers are..." disclaimer, rather than behind a hover-only info icon.
+  // Always describes the teammates-only, cap-relevant pool (roster, not
+  // displayRoster) regardless of the anchor toggle — this is the OL/DL cap
+  // and threshold talking, not a literal count of the table's current rows.
   const rosterNoteEl = cardEl.querySelector(".linemate-card-roster-note");
   rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
 
-  // A refresh that shrinks the roster to <= the default visible count
-  // resets "See more" back to collapsed — there's nothing left to hide, so
-  // a lingering "See less" state would just be confusing.
-  if (roster.length <= LINEMATE_VISIBLE_DEFAULT) entry.seeMore = false;
-  renderLinemateRoster(entry, roster, tableEl);
-  seeMoreBtn.hidden = roster.length <= LINEMATE_VISIBLE_DEFAULT;
+  // A refresh that shrinks the *displayed* roster (teammates, plus the
+  // anchor when the toggle is on) to <= the default visible count resets
+  // "See more" back to collapsed — there's nothing left to hide, so a
+  // lingering "See less" state would just be confusing.
+  if (displayRoster.length <= LINEMATE_VISIBLE_DEFAULT) entry.seeMore = false;
+  renderLinemateRoster(entry, displayRoster, tableEl);
+  seeMoreBtn.hidden = displayRoster.length <= LINEMATE_VISIBLE_DEFAULT;
   seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
 
-  // 3M + RSWA summary, computed over every qualifying (capped) linemate
-  // regardless of "See more" state.
-  renderLinemateSummary(entry, roster, summaryTable);
+  // 3M + RSWA summary, computed over every qualifying (capped) linemate —
+  // plus the anchor himself when the toggle is on — regardless of "See
+  // more" state.
+  renderLinemateSummary(entry, displayRoster, summaryTable);
 }
 
 // Value a Line Summary row sorts by for a given column label — "Metric"
@@ -497,6 +544,8 @@ export function openLinemateCard(anchorRecord) {
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
   const tableEl = cardEl.querySelector(".linemate-table");
   const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
+  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
+  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
   const metaEl = cardEl.querySelector(".linemate-card-meta");
@@ -518,6 +567,10 @@ export function openLinemateCard(anchorRecord) {
     badge.style.background = color;
   };
   metaEl.textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
+  // Anchor name is fixed for the card's lifetime too — same reasoning as
+  // logo/badge/metaEl above, set once here rather than in
+  // renderLinemateCardBody()'s refresh path.
+  anchorToggleLabel.textContent = `Include ${anchorRecord.player} into tables.`;
 
   const id = nextCardId();
   const entry = {
@@ -529,6 +582,7 @@ export function openLinemateCard(anchorRecord) {
     el: cardEl,
     folded: false,
     seeMore: false,
+    includeAnchor: false,
     // Excel-style click-to-sort state for the roster and Line Summary
     // tables (table-sort.js) — independent of each other and of seeMore,
     // and persists across a threshold-only refresh the same way seeMore
@@ -537,13 +591,23 @@ export function openLinemateCard(anchorRecord) {
     summarySort: { key: null, dir: "asc" },
   };
 
-  // Wired once — reads entry.roster/entry.seeMore fresh on every click, so
-  // it keeps working correctly across renderLinemateCardBody() refreshes
-  // without needing to be re-attached.
+  // Wired once — reads entry.roster/entry.seeMore/entry.includeAnchor fresh
+  // on every click, so it keeps working correctly across
+  // renderLinemateCardBody() refreshes without needing to be re-attached.
   seeMoreBtn.addEventListener("click", () => {
     entry.seeMore = !entry.seeMore;
     seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
-    renderLinemateRoster(entry, entry.roster, tableEl);
+    renderLinemateRoster(entry, linemateDisplayRoster(entry), tableEl);
+  });
+
+  // Full rebuild (title/roster/summary all depend on includeAnchor) rather
+  // than a partial patch, same reason a threshold refresh reuses this whole
+  // function too — entry.roster itself is untouched by this (computed fresh
+  // from computeLinemateRoster() either way), so the OL/DL cap never sees
+  // this toggle.
+  anchorToggle.addEventListener("change", () => {
+    entry.includeAnchor = anchorToggle.checked;
+    renderLinemateCardBody(entry);
   });
 
   renderLinemateCardBody(entry);
@@ -558,7 +622,7 @@ export function openLinemateCard(anchorRecord) {
   const onUnfold = () => {
     entry.seeMore = false;
     seeMoreBtn.textContent = "See more";
-    renderLinemateRoster(entry, entry.roster, tableEl);
+    renderLinemateRoster(entry, linemateDisplayRoster(entry), tableEl);
   };
   attachScoutResize(cardEl, entry, onUnfold);
 
@@ -579,15 +643,21 @@ export function openLinemateCard(anchorRecord) {
     // in the first place (see renderLinemateRoster) — a collapsed roster's
     // hidden rows don't exist for html2canvas to reveal via CSS. Re-render
     // straight into the clone's own roster element with seeMore forced on,
-    // same entry.roster the live card already computed, so the export always
-    // shows the full capped roster regardless of the on-screen toggle state.
+    // via linemateDisplayRoster(entry) — the same rows the live card is
+    // currently showing (anchor included or not, per the "Include anchor
+    // player" checkbox) — so the export always shows the full capped
+    // roster, unfolded, exactly matching whatever's on screen.
     (clone) => {
       const cloneTableEl = clone.querySelector(".linemate-table");
       // Carries the live card's current sort along into the export (its own
       // { key, dir } object, not a fresh one) rather than resetting it — the
       // export should look exactly like what's on screen, just unfolded.
       if (cloneTableEl) {
-        renderLinemateRoster({ seeMore: true, rosterSort: entry.rosterSort }, entry.roster, cloneTableEl);
+        renderLinemateRoster(
+          { seeMore: true, rosterSort: entry.rosterSort },
+          linemateDisplayRoster(entry),
+          cloneTableEl
+        );
         // renderLinemateRoster() wipes and rebuilds every cell, which re-adds
         // .linemate-table-frozen (position:sticky) via applyStickyLinemateColumns()
         // — undoing buildExportClone()'s static-position fix, which only ever
