@@ -508,25 +508,22 @@ export function populateCategoryDependentControls() {
       select.appendChild(opt);
     });
   });
-  // Distinct defaults, mirroring the pipeline's canonical query pairs
-  // (e.g. plain Win Rate vs. TPS Win Rate). Pass rush gets an explicit
-  // TPS Win Rate / TPS Pressure Rate pairing; pass block gets an explicit
-  // TPS Allowed Pressure % / TPS Allowed Havoc % pairing.
+  // Distinct defaults, mirroring the pipeline's canonical query pairs.
   // Anything else falls back to generic non-TPS-vs-TPS heuristic.
   if (
     els.category.value === "pass_rush" &&
-    metricKeys.includes("TPS Win Rate") &&
-    metricKeys.includes("TPS Pressure Rate")
+    metricKeys.includes("Win Rate") &&
+    metricKeys.includes("TPS Win Rate")
   ) {
-    els.xMetric.value = "TPS Win Rate";
-    els.yMetric.value = "TPS Pressure Rate";
+    els.xMetric.value = "Win Rate";
+    els.yMetric.value = "TPS Win Rate";
   } else if (
     els.category.value === "pass_block" &&
-    metricKeys.includes("TPS Allowed Pressure %") &&
-    metricKeys.includes("TPS Allowed Havoc %")
+    metricKeys.includes("Allowed Pressure %") &&
+    metricKeys.includes("TPS Allowed Pressure %")
   ) {
-    els.xMetric.value = "TPS Allowed Pressure %";
-    els.yMetric.value = "TPS Allowed Havoc %";
+    els.xMetric.value = "Allowed Pressure %";
+    els.yMetric.value = "TPS Allowed Pressure %";
   } else {
     els.xMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0];
     els.yMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
