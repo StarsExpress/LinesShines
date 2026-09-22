@@ -10,7 +10,7 @@
 
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
 ![Season](https://img.shields.io/badge/Season-2026-crimson)
-![Week](https://img.shields.io/badge/Week-1-gold)
+![Week](https://img.shields.io/badge/Week-2-gold)
 
 ![Oldest](https://img.shields.io/badge/Oldest-Data-brown?labelColor=brown&style=flat)
 ![Season](https://img.shields.io/badge/Season-2022-crimson)
