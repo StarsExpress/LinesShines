@@ -408,6 +408,13 @@
               </label>
               <ul class="linemate-card-note-list">
                 <li class="linemate-card-note linemate-card-roster-note"></li>
+                <!-- Same scroll cue as Merge Card's .merge-card-scroll-hint — the
+                     roster table's frozen Player/Position columns (see
+                     .linemate-table-frozen in style.css) make the horizontal
+                     scroll less obvious than a bare native scrollbar,
+                     especially on a touch viewport now that this card opens
+                     on mobile too. -->
+                <li class="linemate-card-note linemate-card-scroll-hint">Please scroll right for more metrics.</li>
                 <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
               </ul>
             </div>

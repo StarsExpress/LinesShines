@@ -1050,10 +1050,22 @@ body {
 }
 .checkbox-label input { accent-color: var(--flag-gold); width: 15px; height: 15px; }
 
-/* --- board: chart + scouting card --- */
+/* --- board: chart + scouting card ---
+   grid-template-columns is `minmax(0, 1fr)`, not a bare `1fr` — a bare 1fr
+   track still carries an automatic MINIMUM size based on its widest grid
+   item's intrinsic content width, so a wide, nowrap-heavy card (e.g. the
+   Linemate Card's 10-column roster table, .linemate-table-wrap) can force
+   this column wider than the viewport, dragging .chart-panel (the other
+   grid item sharing this same single column) along with it. `minmax(0, 1fr)`
+   is the standard fix: it clamps the track's minimum to 0 so
+   .linemate-table-wrap's own `overflow-x: auto` (style.css, Linemate Card
+   section) actually gets to do its job — scroll its own content — instead
+   of being bypassed by an ancestor that silently grew to fit it. See also
+   .scout-cards' matching `min-width: 0` below, same fix one level down the
+   chain (grid item → flex container) for the mobile stacked-card layout. */
 .board {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
   position: relative; /* positioning context for the scout-card overlay */
@@ -1144,6 +1156,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    /* Defense-in-depth alongside .board's minmax(0, 1fr) above — a flex
+       item's default min-width is `auto` (its content's intrinsic width),
+       which can reintroduce the exact same overflow-forces-ancestor-wider
+       bug one level down even with the grid track itself now clamped. */
+    min-width: 0;
   }
 }
 
@@ -2099,8 +2116,9 @@ thead .merge-table-frozen { z-index: 3; }
    (.scout-card-top logo+name+meta, then a second bordered row) — see
    openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
    second row's own modifier on .scout-card-actions, swapping its single-
-   button flex-start layout for the two disclaimer lines (roster size/
-   threshold, then the percentile note) that used to sit under the title. */
+   button flex-start layout for the disclaimer lines (roster size/threshold,
+   the scroll hint, then the percentile note) that used to sit under the
+   title. */
 .linemate-card-notes {
   flex-direction: column;
   align-items: flex-start;
@@ -2535,7 +2553,11 @@ thead .linemate-table-frozen { z-index: 3; }
 }
 
 @media (max-width: 860px) {
-  .board { grid-template-columns: 1fr; }
+  /* No .board override needed here — the base rule's `minmax(0, 1fr)`
+     already holds at every breakpoint; a mobile-only re-declaration of a
+     bare `1fr` previously lived here and quietly undid the fix above
+     specifically on mobile (same specificity, later in source order wins),
+     which is exactly the viewport this bug only ever showed up on. */
 
   /* Bleed the chart panel out to the viewport edges — .layout's 24px
      horizontal padding is otherwise doubled up with the panel's own 12px,
@@ -2628,16 +2650,19 @@ thead .linemate-table-frozen { z-index: 3; }
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
 
-  /* Merge Cards, Linemate Cards, and Pinned Players are desktop/
-     tablet-only too (BLUEPRINT.md §0, BLUEPRINT_PinnedPlayers.md's own
-     "Not rendered on mobile" checklist item) — app.js's
-     isDesktopScoutLayout() guards already stop new ones from opening below
-     860px and already [hidden]-gate Pinned Players itself; this hides the
-     remaining affordance that would start that flow (each Player Card's
-     linemate-toggle row) so the mobile card body is exactly what v1.1.0
-     shipped. */
+  /* Merge Cards and Pinned Players stay desktop/tablet-only (BLUEPRINT.md
+     §0) — app.js's isDesktopScoutLayout() guards already stop new Merge
+     Cards from opening below 860px, and Pinned Players' own management
+     panel (.player-cards-space) is hidden below regardless. Linemate Cards
+     are the one exception (BLUEPRINT.md §0 update): a Linemate Card is just
+     a scrollable teammate-stats table (see .linemate-table-wrap's
+     overflow-x below), not a scatter plot, so it doesn't need the wide
+     layout — .scout-card-actions (the Player Card's linemate-toggle row,
+     also reused as the Linemate Card's own note row) is therefore no
+     longer hidden here. .scout-resize-handle stays desktop-only — edge-
+     resizing isn't meaningful once mobile cards are static stacked blocks
+     (see .scout-card overrides above), for either card type. */
   .player-cards-space,
-  .scout-card-actions,
   .scout-resize-handle {
     display: none;
   }

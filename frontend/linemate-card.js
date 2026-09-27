@@ -23,7 +23,6 @@ import {
 } from "./data.js";
 import { LINEMATE_POSITIONS, LINEMATE_CAP, LINEMATE_VISIBLE_DEFAULT } from "./config.js";
 import {
-  isDesktopScoutLayout,
   ordinal,
   nextCardId,
   cascadeScoutCardPosition,
@@ -208,8 +207,14 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   return results;
 }
 
+// No longer desktop/tablet-gated (BLUEPRINT.md §0 originally scoped this
+// alongside Merge Cards) — a Linemate Card is just another scrollable
+// stats table, not a scatter plot, so it doesn't need the wide layout Merge
+// Cards/Pinned Players still do. Dragging/cascading on the opened card still
+// stay desktop-only: cascadeScoutCardPosition()/beginScoutDrag() (imported
+// from cards-base.js, used below in openLinemateCard()) each self-guard on
+// their own isDesktopScoutLayout() check, so nothing extra is needed here.
 export function toggleLinemateCard(anchorRecord) {
-  if (!isDesktopScoutLayout()) return;
   if (linemateCards.has(anchorRecord.player)) {
     closeLinemateCard(anchorRecord.player);
   } else {
