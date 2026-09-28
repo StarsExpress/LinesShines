@@ -14,6 +14,7 @@ Anything else falls through to StaticFiles serving `frontend/`.
 from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -174,6 +175,14 @@ def metadata() -> dict:
         teams = sess.execute(select(Team)).scalars().all()
 
     return {
+        # Same Calendar Year comparison resolve_default_threshold() uses to
+        # route a season to the static vs. dynamic threshold (see config.py) —
+        # exposed here so the frontend can classify a season as "ongoing" vs
+        # "historical" the same way, without duplicating a
+        # date.today().year call client-side (which would drift out of sync
+        # with whatever this process actually resolved thresholds against,
+        # e.g. across a stale page left open over a year boundary).
+        "current_year": date.today().year,
         "pass_rush": {
             "positions": PASS_RUSH_POSITIONS,
             "metrics": PASS_RUSH_METRICS,

@@ -31,7 +31,11 @@ export const CONFERENCES = {
 // stays on the plot (still visible, still clickable, still counted in the
 // median) but fades to these opacities instead of disappearing.
 export const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
-export const LABEL_ALPHA = 0.8; // normal (non-dimmed) player-name opacity
+// Bumped from 0.8 to fully opaque as the "brighter" half of the spotlighted-
+// label emphasis follow-up (Reddit: "needs more contrast") — render.js's
+// applyLabelEmphasis() handles the "bolder" + halo/glow half, since neither
+// is expressible through Plotly's textfont config at all.
+export const LABEL_ALPHA = 1;
 
 export const MERGE_CARD_MAX_MEMBERS = 5;
 export const MERGE_QUOTA = 8;

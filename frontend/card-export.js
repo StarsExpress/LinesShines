@@ -4,14 +4,14 @@
  * global by index.html — no bundler here, same reasoning as Plotly's own
  * vendored script), excluding each card's own chrome (close/fold/resize
  * handles/this button itself), then composites the exact same credit-line
- * footer the main chart export uses (render.js's compositeFooterCanvas) so
- * every PNG this app produces — chart or card — carries the same brand
- * footer. Depends on render.js (one-directional: render.js never imports
- * this module), not on any of the three card modules, so scout-card.js/
- * merge-card.js/linemate-card.js can each import attachCardSave() without
- * adding a new cycle.
+ * footer the main chart export uses (chart-export.js's compositeFooterCanvas)
+ * so every PNG this app produces — chart or card — carries the same brand
+ * footer. Depends on chart-export.js (one-directional: chart-export.js never
+ * imports this module), not on any of the three card modules, so scout-
+ * card.js/merge-card.js/linemate-card.js can each import attachCardSave()
+ * without adding a new cycle.
  */
-import { compositeFooterCanvas, downloadCanvasAsPng, sanitizeForFilename } from "./render.js";
+import { compositeFooterCanvas, downloadCanvasAsPng, sanitizeForFilename } from "./chart-export.js";
 
 export { sanitizeForFilename };
 

@@ -568,19 +568,39 @@ export async function updatePlayerPool() {
 // Live counterpart to updateThresholdRange()'s max calculation below, but
 // sourced from playerPoolRecords (the pending category/season/position's
 // already-fetched data, kept live by updatePlayerPool() above) instead of
-// currentRecords (Apply-gated). Fixes a real bug: switching Season away
-// from an in-progress season — whose real observed max is small, since the
-// season's only partway through — to a historical one, without clicking
-// Apply, left the number box's clamp ceiling stuck at that old small max.
-// main.js's thresholdNumber "input" handler reads els.threshold.max on
-// every keystroke, so typing e.g. 230 was silently rewritten back down to
-// e.g. 50 until Apply finally recomputed it. This keeps the ceiling honest
-// about whatever season/position is currently shown in the dropdown at all
-// times, not just after Apply. Guarded on playerPoolCategory rather than
-// els.category.value for the same race-safety reason runPlayersSearch()/
-// openBelowThresholdPopup() above read it that way — an in-flight fetch for
-// a category the user has since changed away from shouldn't get read as if
-// it were current.
+// currentRecords (Apply-gated). Two independent reasons this function
+// reassigns .max/.value, checked in priority order below:
+//
+// 1. resetThresholdOnNextRange is still true — a Category switch or an
+//    ongoing→historical Season switch is still pending. A Category switch
+//    already ran resetThresholdToCategoryDefault() synchronously (a rough
+//    placeholder — it can only grow .max just far enough to fit the new
+//    default off whatever pending data was already on hand, not this
+//    slice's real max); a Season switch deliberately skips that synchronous
+//    call entirely (see main.js's season "change" handler) and leaves
+//    *everything* pending until here. Either way, this is the first point
+//    where this slice's real fetched data is actually available, so it's
+//    where the real default+max get applied, together, in one write. Doing
+//    both atomically — rather than a value now / max later two-step — is
+//    what avoids ever rendering a wrong intermediate frame: the old
+//    two-step version could pin the slider handle at the far-right edge
+//    for however long the fetch took (whenever the placeholder max landed
+//    right on the new value) and then visibly snap back once corrected.
+// 2. No reset is pending, but the current value no longer fits the newly
+//    computed max — a real, if smaller, correction (e.g. Position swapped
+//    into a narrower pool). Falls back to this season's configured default
+//    rather than the raw pool max (see the comment inline below).
+//
+// Neither case touches .max for a swap that changes nothing (e.g. one
+// historical season to another, sharing DEFAULT_THRESHOLDS' one static
+// value) — a native range input's handle position is purely value/max, so
+// touching .max unconditionally on every pending swap (the very first
+// version of this function) visibly slid the bar even when the number box
+// read identically before and after. Guarded on playerPoolCategory rather
+// than els.category.value for the same race-safety reason
+// runPlayersSearch()/openBelowThresholdPopup() above read it that way — an
+// in-flight fetch for a category the user has since changed away from
+// shouldn't get read as if it were current.
 function updatePendingThresholdMax() {
   if (!playerPoolCategory) return;
   const cat = metadata[playerPoolCategory];
@@ -588,6 +608,15 @@ function updatePendingThresholdMax() {
   const values = positionRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
   const maxVal = values.length ? Math.max(...values) : 100;
   const max = Math.ceil(maxVal / 10) * 10;
+
+  if (resetThresholdOnNextRange) {
+    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
+    els.threshold.max = max;
+    els.thresholdNumber.max = max;
+    els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
+    els.thresholdNumber.value = els.threshold.value;
+    return;
+  }
 
   // Read the number box's own current value *before* touching .max below —
   // a native <input type="range">'s value auto-clamps to a lowered max the
@@ -598,16 +627,13 @@ function updatePendingThresholdMax() {
   // value). thresholdNumber has no such auto-clamp, so it's the only
   // reliable "what was actually set before this ran" source here.
   const currentValue = Number(els.thresholdNumber.value);
-
-  els.threshold.max = max;
-  els.thresholdNumber.max = max;
-  // A pending swap can shrink the ceiling below whatever's currently set,
-  // same correction updateThresholdRange() already makes at Apply time —
-  // clamp live too, rather than leaving the number box showing a value the
-  // newly selected season/position can't actually support.
   if (currentValue > max) {
-    els.threshold.value = max;
-    els.thresholdNumber.value = max;
+    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
+    const fallback = Math.min(Math.max(defaultValue, 0), max);
+    els.threshold.max = max;
+    els.thresholdNumber.max = max;
+    els.threshold.value = fallback;
+    els.thresholdNumber.value = fallback;
   }
 }
 
@@ -623,37 +649,66 @@ export function updateThresholdRange() {
   const max = Math.ceil(maxVal / 10) * 10;
 
   els.threshold.min = 0;
-  els.threshold.max = max;
   els.threshold.step = 5;
+  els.thresholdNumber.min = 0;
 
+  // .max is only reassigned inside the two branches below, not
+  // unconditionally up front — same "don't move the bar unless the value
+  // actually needs to" rule as updatePendingThresholdMax()'s live
+  // counterpart (see its comment for the full reasoning). A no-op Apply
+  // (e.g. one historical season swapped for another, both sharing
+  // DEFAULT_THRESHOLDS' one static value) now leaves the slider's fill
+  // percentage exactly where it was instead of jumping to match
+  // whatever slightly different real max the new slice happens to have.
   if (resetThresholdOnNextRange) {
     const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
+    els.threshold.max = max;
+    els.thresholdNumber.max = max;
     els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
     resetThresholdOnNextRange = false;
   } else if (Number(els.threshold.value) > max) {
-    // Season/position change within the same category — keep the user's
-    // value, only clamping if the new slice's max no longer covers it.
-    els.threshold.value = max;
+    // Every other Season/Position change (Position always; Season only
+    // when it isn't an ongoing→historical transition — main.js's season
+    // "change" handler already forces resetThresholdOnNextRange for that
+    // case via resetThresholdToCategoryDefault(), so this branch won't even
+    // run for it) — keep the user's value if it still fits; otherwise fall
+    // back to this season's configured default rather than the new slice's
+    // raw max (see updatePendingThresholdMax()'s matching comment — same
+    // bug, same fix, just the Apply-time copy of it).
+    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
+    els.threshold.max = max;
+    els.thresholdNumber.max = max;
+    els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
   }
+  // else: the current value still fits under the new max, and nothing
+  // forced a default reset — leave .max/.thresholdNumber.max exactly as
+  // they are so the bar doesn't move for a change that isn't there.
 
-  els.thresholdNumber.min = 0;
-  els.thresholdNumber.max = max;
   els.thresholdNumber.value = els.threshold.value;
 }
 
-// Fired immediately on a Category switch (main.js's attachEvents()), unlike
-// the season/position case in updateThresholdRange() above which only
-// clamps the user's existing value — the two threshold_field scales (PR Opp
-// vs Non Spike PB Snaps) aren't comparable, so leaving the outgoing
-// category's number on screen until Apply would be actively misleading.
-// Always snaps to the new category's configured default for whatever season
-// is currently selected (see config.py's resolve_default_threshold — a
-// season may carry a static or dynamic default) and never tries to preserve
-// whatever the user had set for the outgoing category. The
-// accurate slider max (which needs the new category's fetched data) still
-// gets recomputed at Apply time via loadCurrentSlice()/updateThresholdRange()
-// — this only fixes what's on screen immediately. Sets both the slider and
-// the number input together so they can never fall out of sync with each
+// Fired immediately on a Category switch only (main.js's attachEvents()) —
+// unlike every other Season/Position case in updateThresholdRange() above,
+// which only clamps the user's existing value. A Category switch needs an
+// *instant* correction because the outgoing and incoming threshold scales
+// aren't comparable at all (PR Opp vs Non Spike PB Snaps) — leaving the
+// outgoing category's number on screen even for the beat it'd take a fetch
+// to resolve would be actively misleading (wrong units, not just a stale
+// number). A Season switch has no such units mismatch, so it doesn't call
+// this — see main.js's season "change" handler and
+// updatePendingThresholdMax()'s matching branch for why it waits for real
+// fetched data instead of guessing a placeholder here (guessing was tried;
+// it could pin the slider at the far-right edge for however long the fetch
+// took, then visibly snap back once corrected). Always snaps to the new
+// category's configured default for whatever season is currently selected
+// (see config.py's resolve_default_threshold — a season may carry a static
+// or dynamic default) and never tries to preserve whatever the user had
+// set beforehand. The accurate slider max (which needs the new category's
+// fetched data) still gets corrected as soon as it's available via
+// updatePendingThresholdMax(), and again at Apply time via
+// loadCurrentSlice()/updateThresholdRange() — this only fixes what's on
+// screen immediately, as a rough placeholder. Sets both the slider and the
+// number input together so they can never fall out of sync with each
 // other, same as every other place both controls change at once.
 export function resetThresholdToCategoryDefault() {
   const cat = currentCategoryMeta();

@@ -1,6 +1,7 @@
 """API-level tests against a seeded in-memory-equivalent sqlite DB."""
 
 from __future__ import annotations
+from datetime import date
 from config import DEFAULT_THRESHOLDS
 
 
@@ -13,6 +14,11 @@ def test_metadata_shape(client, seeded_db):
     assert 2025 in body["pass_block"]["seasons"]
     assert "BUF" in body["teams"]
     assert body["teams"]["BUF"]["full_name"] == "Buffalo Bills"
+
+    # Exposed so the frontend can classify a season as ongoing vs. historical
+    # the same way resolve_default_threshold() does, without a second,
+    # potentially-drifting date.today().year call of its own.
+    assert body["current_year"] == date.today().year
 
     # 2025 is a finalized season: safely in the past relative to any plausible "today".
     # Should carry the static default, not a dynamic one. See config.py's resolve_default_threshold.

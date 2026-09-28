@@ -111,6 +111,18 @@ export function currentCategoryMeta() {
   return metadata[els.category.value];
 }
 
+// True for whatever season is still in progress this calendar year, false
+// for every finalized/historical one — same Calendar Year comparison
+// config.py's resolve_default_threshold() routes the static-vs-dynamic
+// threshold default on, backed by metadata.current_year (see main.py's
+// /api/metadata) rather than a separate date.today().year call here, so
+// the frontend can never classify a season differently than the backend
+// just resolved its default against. `season` is whatever a <select>'s
+// .value gives you (a string) or a raw number — Number() normalizes either.
+export function isOngoingSeason(season) {
+  return Number(season) === metadata.current_year;
+}
+
 // Moved here (not filters.js, where every other Teams-checklist helper
 // lives) because render.js's highlightSubtitle() needs it too and can't
 // import from filters.js without a circular import — see filters.js's
