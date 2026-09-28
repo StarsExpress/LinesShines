@@ -43,11 +43,11 @@ export function sanitizeForFilename(value) {
 
 // Credit strip baked into exported PNGs only — the on-screen chart never
 // shows this (the page's own .meta-band already covers it for site
-// visitors). Drawn via canvas rather than a Plotly annotation: the extra
-// margin an in-chart annotation would need depends on the live isMobile
-// axis-title sizing (see render()'s margin.b), which is fragile to
-// replicate here — layering a fixed-height strip onto the finished raster
-// is simpler and pixel-exact regardless of what layout produced it.
+// visitors). Drawn via canvas rather than a Plotly annotation: an in-chart
+// annotation would still need its own margin math duplicated here, which is
+// fragile to keep in sync with render()'s own margin.b — layering a
+// fixed-height strip onto the finished raster is simpler and pixel-exact
+// regardless of what layout produced it.
 export const EXPORT_FOOTER_TEXT = "LinesShines · www.lines-shines.com · Source: PFF Premium Stats";
 export const EXPORT_FOOTER_HEIGHT = 30; // logical px, pre-scale
 export const EXPORT_FOOTER_FONT_SIZE = 12; // logical px, pre-scale — chart-annotation size

@@ -350,6 +350,32 @@ body {
   height: 0;
 }
 
+/* Conditional sibling of .row-break above: inert (flex-basis: 0, no effect)
+   at normal desktop/laptop widths, where Season/Teams/Players/Category/
+   Position/X axis/Y axis already all fit on one line today. Only below
+   1150px (a real narrow browser window, or a phone rendering this desktop
+   layout via index.html's viewport-meta override -- both report the same
+   window.innerWidth, there's no way to tell them apart, and there's no
+   need to: either way the fix is the same, "there isn't room for 7") does
+   it activate and force Category/Position/X axis/Y axis onto their own
+   deliberate row, instead of leaving Y axis stranded alone by plain
+   flex-wrap. 1150px is comfortably above where the phone-disguise layout
+   (1024px) needs this and comfortably below where a typical real laptop
+   window naturally already fits all 7 in one row — not tied to any other
+   layout math, adjust freely. */
+.row-break-narrow { flex-basis: 0; width: 0; height: 0; }
+@media (max-width: 1150px) {
+  .row-break-narrow { flex-basis: 100%; }
+}
+/* Row 1/Row 2's *widths* (each row filling the full control-bar width,
+   not just matching each other) are handled in one consolidated block
+   further down this file, deliberately placed after every base .control-*
+   width rule (.control-season select, .teams-select-btn, .control select,
+   etc.) so it always wins the cascade on source order alone — see the
+   comment there for why splitting a narrow-viewport override like this
+   across two locations earlier caused a real bug (a later, equal-
+   specificity base rule silently cancelled an earlier override). */
+
 /* Season only ever holds a 4-digit year — the shared 150px .control select
    width was sized for longer option text (metric names, position labels)
    and left Season looking as wide as Category for no reason. */
@@ -1080,11 +1106,22 @@ body {
   padding: 12px;
   min-height: 720px;
   position: relative;
-  /* Without this, a pinch gesture aimed at a data point is read by the
-     browser as a page-zoom gesture, blowing the whole layout (controls
-     included) off screen instead of hovering the point. Plotly's own
-     scrollZoom handling (see app.js) covers zoom instead. */
-  touch-action: none;
+  /* `manipulation` (= pan-x pan-y pinch-zoom, minus double-tap-zoom) is a
+     deliberate choice, not `none` and not `auto`. A pinch gesture over the
+     chart is now meant to trigger the browser's own native visual-viewport
+     zoom/pan — "look closer at the same rendered picture," not Plotly's own
+     data zoom (which stays off: dragmode:false, scrollZoom:false in
+     render.js). Explicitly excluding double-tap-zoom matters here: a plain
+     tap opens a Player Card (render.js's plotly_click handler), and native
+     double-tap-zoom would otherwise either misfire on quick repeat taps or
+     add the classic ~300ms tap-delay while the browser waits to see if a
+     second tap is coming. `auto` would allow that double-tap gesture too;
+     `manipulation` is the standard value for "native pan/pinch, but keep
+     single-tap immediate." On mobile this also has to coexist with
+     .chart-panel's own horizontal scroll (see the mobile media block below,
+     where #chart is deliberately wider than the viewport) — pan-x/pan-y
+     covers that scroll, pinch-zoom still bubbles up to the page. */
+  touch-action: manipulation;
 }
 
 #chart { width: 100%; height: 720px; }
@@ -2552,6 +2589,50 @@ thead .linemate-table-frozen { z-index: 3; }
   outline: none;
 }
 
+/* Consolidated here, deliberately after every base .control-* width rule
+   in this file (.control-season select, .teams-select-btn, .control-
+   players, .control select) so this always wins their cascade on source
+   order alone, regardless of selector specificity — splitting a narrow-
+   viewport override like this across two locations earlier (one of them
+   physically *before* a same-specificity base rule) silently lost that
+   fight and the override never took effect, a real bug caught by
+   qa-kitten. Keeping every override for these controls in this one place
+   removes that whole class of mistake going forward.
+
+   Below 1150px, .row-break-narrow (above) splits Season/Teams/Players and
+   Category/Position/X axis/Y axis onto two separate rows. Left at their
+   normal fixed pixel widths, each row would only be as wide as its own
+   controls demand, stranded at the left edge of a much wider card with
+   empty space on the right (Row 1 with 3 controls narrower than Row 2
+   with 4). flex: 1 1 0 turns every control in both rows into an equal-
+   share flex item instead of a fixed-width one — flexbox distributes a
+   wrapped line's free space independently *per line*, so Row 1's 3 items
+   and Row 2's 4 items each grow to fill the *same* full row width (the
+   .control-bar's own content width) on their own, with no manual pixel
+   arithmetic to keep in sync if a gap or base width ever changes (unlike
+   the fixed-206px approach this replaced). width: 100% on the actual
+   select/button inside each .control makes it track its now-flexible
+   parent instead of the fixed px size it renders at everywhere else. */
+@media (max-width: 1150px) {
+  .control-season,
+  .control-teams,
+  #players-control,
+  .control-category,
+  .control-position,
+  .control-axis {
+    flex: 1 1 0;
+  }
+  .control-season select,
+  .control-teams .teams-select-btn,
+  #players-control .teams-select-btn,
+  .control-category select,
+  .control-position select,
+  .control-axis select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 @media (max-width: 860px) {
   /* No .board override needed here — the base rule's `minmax(0, 1fr)`
      already holds at every breakpoint; a mobile-only re-declaration of a
@@ -2567,6 +2648,20 @@ thead .linemate-table-frozen { z-index: 3; }
     margin: 0 -24px;
     border-radius: 0;
   }
+  /* Reverted a same-day experiment: #chart was briefly forced to a fixed
+     1100px desktop-style width here (scrolled or shrink-to-fit via CSS
+     transform, with render.js's margin/font sizing also forced to always
+     use desktop numbers) so mobile would show "the same wide layout as
+     desktop." Turned out to be the wrong shape entirely once tested against
+     a real reference screenshot: shrinking a 1100px desktop-font canvas down
+     to fit a phone screen makes the text/logos tiny by default, not legible
+     the way mobile's own smaller font tuning (see render.js's isMobile
+     branch) already renders them at 100% width. Back to width:100% —
+     #chart just fills .chart-panel like every other mobile element, at its
+     own crisp native resolution, no scaling trick involved. Native
+     pinch-zoom (touch-action: manipulation above) is still there for anyone
+     who wants to look even closer at a crowded cluster; it's just a bonus
+     now, not required to read the chart's default labels. */
   #chart, .chart-panel { min-height: 600px; }
   #chart { height: 75vh; min-height: 600px; }
   .hero { padding: 16px 16px 12px; }

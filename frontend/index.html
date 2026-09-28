@@ -3,6 +3,70 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+  /* --- Phone-only "desktop layout, shrunk to fit" experiment ---
+     Rewrites the viewport meta tag above, synchronously, before first
+     paint, so phones render the full desktop-proportioned layout (wide
+     scatter chart included) at a fixed logical width and let the browser
+     auto-scale the whole page down to fit the real screen — the same idea
+     as "zoom out on a desktop site," not a per-element CSS transform trick
+     (an earlier, narrower attempt at that — shrinking just #chart — was
+     tried and reverted; see render.js history). The user then pinches in
+     for detail (touch-action: manipulation, already wired up on
+     .chart-panel for exactly this).
+
+     Deliberately scoped to PHONES ONLY, not tablets: tablets in landscape
+     already clear the existing 860px CSS breakpoint (isDesktopScoutLayout(),
+     cards-base.js) and get this same layout natively today, no override
+     needed. screen.width/height reflect the CURRENT orientation (the
+     "width" value swaps with "height" on rotation), so Math.min(...) — the
+     device's orientation-independent short edge — is what actually answers
+     "is this a phone-class device," regardless of how it's currently held.
+
+     PHONE_MAX_SHORT_EDGE (600px): the largest current phones (iPhone 15 Pro
+     Max) are 430 CSS px on their short edge; the smallest common tablets
+     (iPad Mini portrait) are 744 CSS px. 600 sits in that ~300px gap with
+     room to spare either side — not precision-critical, just needs to land
+     somewhere in it.
+
+     DESKTOP_LAYOUT_WIDTH (1024px): the logical viewport width phones render
+     at, as if the browser window were that wide. Chosen to land inside
+     .layout's `max-width: 1440px` bracket (style.css, @media
+     (min-width: 861px)) so .layout fills this exact width with no wasted
+     margin, while still being a recognizable, intentional-looking size
+     (classic tablet-landscape/small-laptop width). Adjust freely — not
+     tied to any other layout math.
+
+     initial-scale is computed explicitly here (screen.width ÷ layout
+     width) rather than left for the browser to auto-fit from a bare
+     `width=N` — iOS Safari and Android Chrome are known to handle that
+     auto-fit slightly differently, so computing the exact number ourselves
+     from a value already in hand sidesteps most of that inconsistency
+     rather than trusting either browser's own guess. minimum-scale is
+     pinned to the same value so pinch-*out* can't zoom past "the whole
+     layout" — there's nothing beyond it to see. maximum-scale is left
+     generous (5x) for pinch-*in* detail work, same spirit as the desktop
+     experience of zooming a browser page.
+
+     No-JS fallback: if this script doesn't run at all, the meta tag simply
+     stays at its original width=device-width — today's ordinary mobile
+     layout — a safe, unbroken default. */
+  (function () {
+    var PHONE_MAX_SHORT_EDGE = 600;
+    var DESKTOP_LAYOUT_WIDTH = 1024;
+    var shortEdge = Math.min(screen.width, screen.height);
+    if (shortEdge > PHONE_MAX_SHORT_EDGE) return; // tablet/desktop: leave width=device-width alone
+    var scale = screen.width / DESKTOP_LAYOUT_WIDTH;
+    var viewportMeta = document.querySelector('meta[name="viewport"]');
+    viewportMeta.setAttribute(
+      "content",
+      "width=" + DESKTOP_LAYOUT_WIDTH +
+        ", initial-scale=" + scale +
+        ", minimum-scale=" + scale +
+        ", maximum-scale=5"
+    );
+  })();
+</script>
 <title>LinesShines · 鋒光</title>
 <meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
@@ -123,7 +187,20 @@
         </div>
       </div>
 
-      <div class="control">
+      <!-- Width-gated row-break: on a wide desktop/laptop screen all 7
+           controls above and including Y axis comfortably fit on one line
+           (see .row-break below, which is unconditional and always exists
+           regardless of width) -- but on a narrower screen (a real narrow
+           browser window, or a phone rendering this desktop layout via
+           index.html's viewport-meta override) there isn't room for all 7,
+           and plain flex-wrap strands just the last one (Y axis) alone on
+           its own line, which reads as an accident rather than a design.
+           .row-break-narrow (style.css) is inert at normal widths and only
+           activates below a breakpoint, deliberately grouping Category/
+           Position/X axis/Y axis onto their own row together instead. -->
+      <div class="row-break row-break-narrow" aria-hidden="true"></div>
+
+      <div class="control control-category">
         <label for="category-select">Category</label>
         <select id="category-select">
           <option value="pass_rush">DL Pass Rush</option>
@@ -131,7 +208,7 @@
         </select>
       </div>
 
-      <div class="control">
+      <div class="control control-position">
         <label for="position-select">Position</label>
         <select id="position-select"></select>
       </div>
