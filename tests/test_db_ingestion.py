@@ -26,6 +26,8 @@ def _write_front_7_xlsx(path, team="BUF", player="T. Test") -> None:
             "TPS Pressure Rate": [25.0],
             "Havoc Rate": [8.0],
             "TPS Havoc Rate": [10.0],
+            "PRP": [6.0],
+            "TPS PRP": [7.5],
         }
     )
 
@@ -46,6 +48,8 @@ def _write_ol_xlsx(path, team="MIA", player="O. Line") -> None:
             "TPS Allowed Pressure %": [6.0],
             "Allowed Havoc %": [2.0],
             "TPS Allowed Havoc %": [3.0],
+            "PBE": [95.0],
+            "TPS PBE": [92.0],
         }
     )
 

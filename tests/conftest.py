@@ -60,6 +60,8 @@ def seeded_db():
                 tps_pressure_rate=25.0,
                 havoc_rate=8.0,
                 tps_havoc_rate=10.0,
+                prp=6.0,
+                tps_prp=7.5,
             )
         )
 
@@ -82,6 +84,8 @@ def seeded_db():
                 tps_pressure_rate=22.0,
                 havoc_rate=7.0,
                 tps_havoc_rate=9.0,
+                prp=5.0,
+                tps_prp=6.5,
             )
         )
 
@@ -99,6 +103,8 @@ def seeded_db():
                 tps_allowed_pressure_pct=6.0,
                 allowed_havoc_pct=2.0,
                 tps_allowed_havoc_pct=3.0,
+                pbe=95.0,
+                tps_pbe=92.0,
             )
         )
 
@@ -117,6 +123,8 @@ def seeded_db():
                 tps_allowed_pressure_pct=5.0,
                 allowed_havoc_pct=1.5,
                 tps_allowed_havoc_pct=2.5,
+                pbe=96.0,
+                tps_pbe=93.0,
             )
         )
 

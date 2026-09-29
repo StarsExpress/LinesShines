@@ -390,7 +390,12 @@ export function render() {
 
   const annotations = [...medianAnnotations, ...noteAnnotations];
 
-  const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
+  // Reverse an axis whenever its own metric is lower-is-better — per-metric,
+  // not per-category, since a category can mix directions (e.g. pass_block's
+  // PBE/TPS PBE are higher-is-better alongside its lower-is-better Allowed
+  // metrics).
+  const xReversed = xMeta.higher_is_better === false;
+  const yReversed = yMeta.higher_is_better === false;
 
   // total_selected counts everyone clearing threshold, not just highlighted teams;
   // Teams dims players rather than removing them (see DIM_OPACITY above),
@@ -425,13 +430,13 @@ export function render() {
       title: { text: axisTitle(xKey, xMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
-      autorange: reversed ? "reversed" : true,
+      autorange: xReversed ? "reversed" : true,
     },
     yaxis: {
       title: { text: axisTitle(yKey, yMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
-      autorange: reversed ? "reversed" : true,
+      autorange: yReversed ? "reversed" : true,
     },
     shapes,
     annotations,

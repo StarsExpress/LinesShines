@@ -57,6 +57,9 @@ class PassRushStat(Base):
     havoc_rate = Column(Float)  # Havoc Rate.
     tps_havoc_rate = Column(Float)  # TPS Havoc Rate.
 
+    prp = Column(Float)  # PRP.
+    tps_prp = Column(Float)  # TPS PRP.
+
     team = relationship("Team", back_populates="pass_rush_stats")
 
     __table_args__ = (
@@ -91,6 +94,9 @@ class PassBlockStat(Base):
 
     allowed_havoc_pct = Column(Float)  # Allowed Havoc %.
     tps_allowed_havoc_pct = Column(Float)  # TPS Allowed Havoc %.
+
+    pbe = Column(Float)  # PBE.
+    tps_pbe = Column(Float)  # TPS PBE.
 
     team = relationship("Team", back_populates="pass_block_stats")
 
@@ -128,6 +134,8 @@ def pass_rush_row_to_dict(row: PassRushStat) -> dict:
         "TPS Pressure Rate": row.tps_pressure_rate,
         "Havoc Rate": row.havoc_rate,
         "TPS Havoc Rate": row.tps_havoc_rate,
+        "PRP": row.prp,
+        "TPS PRP": row.tps_prp,
     }
 
 
@@ -146,4 +154,6 @@ def pass_block_row_to_dict(row: PassBlockStat) -> dict:
         "TPS Allowed Pressure %": row.tps_allowed_pressure_pct,
         "Allowed Havoc %": row.allowed_havoc_pct,
         "TPS Allowed Havoc %": row.tps_allowed_havoc_pct,
+        "PBE": row.pbe,
+        "TPS PBE": row.tps_pbe,
     }

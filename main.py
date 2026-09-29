@@ -102,6 +102,16 @@ PASS_RUSH_METRICS = {
         "note": HAVOC_RATE_NOTE,
         "pff_note": "Havoc rate on true pass sets",
     },
+    "PRP": {
+        "unit": "",
+        "higher_is_better": True,
+        "pff_note": "PFF Pass Rush Productivity",
+    },
+    "TPS PRP": {
+        "unit": "",
+        "higher_is_better": True,
+        "pff_note": "Pass rush productivity on true pass sets",
+    },
 }
 
 PASS_BLOCK_METRICS = {
@@ -126,6 +136,16 @@ PASS_BLOCK_METRICS = {
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
         "pff_note": "Allowed havoc rate on true pass sets",
+    },
+    "PBE": {
+        "unit": "",
+        "higher_is_better": True,
+        "pff_note": "PFF Pass Block Efficiency",
+    },
+    "TPS PBE": {
+        "unit": "",
+        "higher_is_better": True,
+        "pff_note": "Pass block efficiency on true pass sets",
     },
 }
 

@@ -2062,6 +2062,7 @@ body {
   font-size: 10px;
 }
 .merge-table td { color: var(--chalk); }
+.merge-table td.merge-metric-cell { text-align: center; }
 .merge-metric-cell { cursor: help; }
 .merge-metric-cell:hover { color: var(--flag-gold); }
 /* Percentile color coding — same six bins/colors/text-contrast rule as
@@ -2193,6 +2194,7 @@ thead .merge-table-frozen { z-index: 3; }
   font-size: 10px;
 }
 .linemate-table td { color: var(--chalk); }
+.linemate-table td.linemate-metric-cell { text-align: center; }
 .linemate-metric-cell { cursor: help; }
 .linemate-metric-cell:hover { color: var(--flag-gold); }
 .linemate-table .linemate-table-name,
