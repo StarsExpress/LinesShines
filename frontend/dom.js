@@ -35,7 +35,9 @@ export const els = {
   playersChips: document.getElementById("players-chips"),
   playersInput: document.getElementById("players-input"),
   playersDropdown: document.getElementById("players-dropdown"),
-  // Below-threshold-matches popup — see openBelowThresholdPopup() in filters.js.
+  // Below-threshold-matches popup — see openBelowThresholdPopup() in
+  // filters.js. Shared by the Players filter and every Pinned Players
+  // search box (workspace.js/merge-card.js), not just this one.
   belowThresholdOverlay: document.getElementById("below-threshold-overlay"),
   belowThresholdList: document.getElementById("below-threshold-list"),
   belowThresholdClose: document.getElementById("below-threshold-close"),

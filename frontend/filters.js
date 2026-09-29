@@ -37,7 +37,7 @@ import { CONFERENCES } from "./config.js";
 import { render } from "./render.js";
 import { refreshOpenScoutCards } from "./scout-card.js";
 import { refreshOpenLinemateCards, clearLinemateCards } from "./linemate-card.js";
-import { workspaceSingles, mergeCards } from "./merge-card.js";
+import { workspaceSingles, mergeCards, refreshOpenMergeCards } from "./merge-card.js";
 import { clearWorkspace, showMergeInvalidationConfirm } from "./workspace.js";
 
 // True right after page load and right after a category switch — both cases
@@ -69,8 +69,10 @@ export const selectedPlayers = new Map();
 // indistinguishable from "no such player" — see runPlayersSearch()). A
 // generous cap since this is a scrollable popup, not the 8-item autocomplete
 // dropdown — just enough to keep a single-letter query from dumping the
-// whole pool into it.
-const BELOW_THRESHOLD_TOP_K = 20;
+// whole pool into it. Exported since every Pinned Players search box
+// (workspace.js/merge-card.js) reuses the same cap for its own below-
+// threshold pass, see those files' run*Search() functions.
+export const BELOW_THRESHOLD_TOP_K = 20;
 let belowThresholdMatches = [];
 
 export function currentFilterState() {
@@ -263,7 +265,16 @@ export function renderPlayersDropdown(matches) {
     toggle.type = "button";
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${belowThresholdMatches.length})`;
-    toggle.addEventListener("click", () => openBelowThresholdPopup());
+    toggle.addEventListener("click", () =>
+      openBelowThresholdPopup(belowThresholdMatches, metadata[playerPoolCategory], (value) => {
+        // Players filter stays Apply-gated, same as every other batched
+        // control here — see setThresholdTo()'s own comment for why this
+        // only stages a pending value rather than committing it the way
+        // applyThresholdImmediately() does for Pinned Players below.
+        setThresholdTo(value);
+        runPlayersSearch();
+      })
+    );
     els.playersDropdown.appendChild(toggle);
   }
 
@@ -344,15 +355,23 @@ export function runPlayersSearch() {
 // Single static overlay, repopulated per open — same convention as
 // #merge-edit-overlay (see its header comment in index.html): no
 // outside-click dismissal, closes only via its own Close button (wired once
-// in main.js's attachEvents()). Reads the module-level belowThresholdMatches
-// captured by the runPlayersSearch() call that rendered the toggle button,
-// rather than taking a matches argument, since it can only ever be opened
-// from that button.
-export function openBelowThresholdPopup() {
-  const cat = metadata[playerPoolCategory];
+// in main.js's attachEvents()). Shared by every search box with a below-
+// threshold concept (the Players filter here, plus every Pinned Players
+// search box in workspace.js/merge-card.js) rather than one popup per box —
+// there's only ever one threshold control to quick-set regardless of which
+// box's dropdown the toggle was clicked from. `matches` and `cat` are
+// whatever that box's own run*Search() just computed; `onSetThreshold(value)`
+// is called on the Set Threshold click, before the popup closes — it owns
+// BOTH committing the value (setThresholdTo() for the Players filter's own
+// pending-only behavior, applyThresholdImmediately() for every Pinned
+// Players box, see that function's comment) AND re-running that box's own
+// search afterward. Deliberately left entirely to the caller rather than
+// hardcoded here, since the two commit strategies differ per caller and this
+// popup has no business knowing which one applies.
+export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
   els.belowThresholdList.innerHTML = "";
 
-  belowThresholdMatches.forEach((record) => {
+  matches.forEach((record) => {
     const row = document.createElement("div");
     row.className = "below-threshold-row";
 
@@ -386,13 +405,11 @@ export function openBelowThresholdPopup() {
     setBtn.className = "below-threshold-row-btn";
     setBtn.textContent = "Set Threshold";
     setBtn.addEventListener("click", () => {
-      setThresholdTo(record[cat.threshold_field]);
+      // Query text is left untouched (nothing in this flow writes to the
+      // triggering box's own input) — onSetThreshold's own rerun surfaces
+      // the just-qualified player the same way retyping the query would.
+      onSetThreshold(record[cat.threshold_field]);
       closeBelowThresholdPopup();
-      // Query text is left untouched (see els.playersInput.value — nothing
-      // in this flow writes to it), so this re-run surfaces the
-      // just-qualified player in the normal dropdown immediately, same as
-      // if the user had retyped the query.
-      runPlayersSearch();
     });
 
     row.append(info, value, setBtn);
@@ -407,17 +424,17 @@ export function closeBelowThresholdPopup() {
   els.belowThresholdList.innerHTML = "";
 }
 
-// Sets the threshold to exactly `value` — the filter is an inclusive `>=`
-// (see qualifyingPlayerPool()), so a candidate's own metric value is already
-// the minimum threshold that surfaces them, no off-by-one adjustment needed.
+// Clamp-and-sync core shared by setThresholdTo() (pending-only, Players
+// filter) and applyThresholdImmediately() (commits immediately, Pinned
+// Players — see below) — the filter is an inclusive `>=` (see
+// qualifyingPlayerPool()), so a candidate's own metric value is already the
+// minimum threshold that surfaces them, no off-by-one adjustment needed.
 // Mirrors the manual slider/number-input handlers in main.js's attachEvents()
 // (sync both controls, clamp to range, mark the value as an explicit
-// override, re-check selections) rather than reimplementing that logic here.
-// Deliberately does NOT call runPlayersSearch() itself — every existing
-// caller of this same clamp/sync/prune sequence (the manual handlers) leaves
-// that to whatever's calling it, since a threshold edit doesn't always
-// happen with the Players dropdown open.
-export function setThresholdTo(value) {
+// override) rather than reimplementing that logic per caller. Neither
+// caller's own appliedFilters/pool-refresh handling lives here — that's each
+// one's own job, since they differ (stay pending vs. commit now).
+function syncThresholdControls(value) {
   const min = Number(els.threshold.min);
   const max = Number(els.threshold.max);
   const step = Number(els.threshold.step) || 1;
@@ -429,7 +446,53 @@ export function setThresholdTo(value) {
   // value), same split as the manual number-input handler in main.js.
   els.threshold.value = min + Math.round((clamped - min) / step) * step;
   setResetThresholdOnNextRange(false);
+}
+
+// Sets the threshold to exactly `value`, staged as a pending edit like the
+// manual slider/number-input handlers — the chart/Pinned Players search
+// pools don't see it until Apply. Deliberately does NOT call
+// runPlayersSearch() itself — every existing caller of this same clamp/sync/
+// prune sequence (the manual handlers) leaves that to whatever's calling it,
+// since a threshold edit doesn't always happen with the Players dropdown
+// open.
+export function setThresholdTo(value) {
+  syncThresholdControls(value);
   prunePlayerSelections();
+  updatePendingState();
+}
+
+// Pinned Players' own "Set Threshold" behavior (Below Threshold Matches,
+// triggered from the Single Cards add-search or the Merge Create/Edit
+// popups) — unlike setThresholdTo() above, this commits the new threshold
+// immediately instead of staging it for the next Apply click. Pinned
+// Players was never an Apply-gated area of the UI to begin with (Single/
+// Merge Cards already take effect the moment you pick a player — see
+// addPlayerToSingleCards()/submitCreateMergePopup()), so leaving a below-
+// threshold quick-set stuck behind a full Apply — with its pool-change
+// confirm and its Merge-Card-clearing side effect (see CLAUDE.md's
+// "Pool-change invalidation") — forced a "back out of the Create/Edit
+// popup, Apply, reopen the popup, redo the search" loop just to pull in one
+// player below the bar. No refetch is needed either way — currentRecords
+// already holds every threshold value (see data.js) — so this writes
+// straight into appliedFilters (a threshold-only merge, every other
+// currently-Applied field — category/season/position/axes/Teams/Players —
+// is left exactly as it was, even if some of THOSE have their own unrelated
+// pending edit sitting unapplied in the drawer right now) and refreshes
+// every already-open card in place instead of invalidating the Workspace
+// the way a normal Apply's threshold change does.
+export function applyThresholdImmediately(value) {
+  syncThresholdControls(value);
+  // Read back els.thresholdNumber.value (a string) rather than restating
+  // `clamped` here, so appliedFilters.threshold is byte-for-byte what
+  // currentFilterState() would have produced — that's what keeps
+  // filtersArePending() from lighting the Apply button for a threshold that
+  // in fact just got committed.
+  setAppliedFilters({ ...appliedFilters, threshold: els.thresholdNumber.value });
+  prunePlayerSelections();
+  render();
+  refreshOpenScoutCards();
+  refreshOpenLinemateCards();
+  refreshOpenMergeCards();
   updatePendingState();
 }
 

@@ -582,19 +582,30 @@
   </div>
 </div>
 
-<!-- Below Threshold Matches popup — surfaces a Players-search name match
-     whose season snap count/opportunities fall under the current threshold,
-     rather than leaving that indistinguishable from "no such player".
-     Opened from the "Below Threshold Matches (N)" toggle rendered above the
-     first candidate in #players-dropdown (see renderPlayersDropdown() in
-     filters.js), never auto-popped. Same modal pattern as #merge-edit-overlay
-     above — single static instance, repopulated per open via
-     openBelowThresholdPopup(), closes only via its own Close button (no
+<!-- Below Threshold Matches popup — surfaces a fuzzy-search name match whose
+     season snap count/opportunities fall under the current threshold, rather
+     than leaving that indistinguishable from "no such player". Shared by
+     EVERY search box with this concern, not just the Players filter: the
+     "Below Threshold Matches (N)" toggle rendered above the first candidate
+     in #players-dropdown (renderPlayersDropdown(), filters.js), the Single
+     Cards add-search (#pcs-add-dropdown, renderPcsAddDropdown(),
+     workspace.js), and the Merge Create/Edit popups' own search boxes
+     (#merge-create-dropdown/#merge-edit-dropdown, renderCreateDropdown()/
+     renderMergeEditDropdown(), merge-card.js) — one popup, never auto-popped,
+     since there's only ever one threshold control to quick-set regardless of
+     which box's toggle opened it (openBelowThresholdPopup() takes the
+     triggering box's own matches + a rerun callback as arguments). Same modal
+     pattern as #merge-edit-overlay above — single static instance,
+     repopulated per open, closes only via its own Close button (no
      outside-click dismissal). Each row's "Set Threshold" button sets the
      threshold to that player's own value (the filter is inclusive, so no
      off-by-one is needed) and closes the popup — leaving it open would show a
      stale list, since the clicked player (and possibly others) no longer
-     belong in it. -->
+     belong in it. For the Players filter this takes effect immediately (its
+     search pool reads the pending threshold live); for a Pinned Players
+     search box it takes effect once Apply commits the new threshold, since
+     those boxes search the Applied pool (see fullPcsSearchPool()'s header
+     comment in search.js). -->
 <div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
   <div class="merge-edit-box below-threshold-box" role="dialog" aria-modal="true" aria-labelledby="below-threshold-title">
     <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>
