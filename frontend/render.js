@@ -23,9 +23,11 @@ import {
   thresholdFieldLabel,
   allTeamCodes,
   teamName,
+  metadata,
 } from "./data.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
 import { viewFloatingCard } from "./scout-card.js";
+import { collectMetricNotes } from "./metric-notes.js";
 
 export let logoRelayoutGuard = false; // suppresses our own relayout from re-triggering itself
 
@@ -364,7 +366,43 @@ export function render() {
 
   const isMobile = window.innerWidth < 860;
 
-  const annotations = medianAnnotations;
+  // "Include metric notes" — live, not Apply-gated (main.js wires this
+  // checkbox's "change" straight to render(), same as Player Names/Team
+  // Logos), and drawn at the bottom of the plot rather than the old
+  // Havoc-only top-right box it replaced (see the removed noteAnnotations —
+  // this covers every metric with a note/formula_note, not just Havoc's
+  // family, via the same collectMetricNotes() the export appendix uses).
+  // Being a real Plotly annotation (not a canvas-composited export-only
+  // strip like the card exports use) means it's part of els.chart.layout
+  // itself, so Save Plot's export clone picks it up automatically — see
+  // main.js's Save Plot handler, which deliberately does NOT also pass
+  // appendixNotes to exportChartPngWithFooter, to avoid drawing it twice.
+  const metricNoteLines = els.metricNotesToggle.checked
+    ? collectMetricNotes(cat, [xKey, yKey], metadata.tps_note)
+    : [];
+  // BASE_MARGIN_B is the plot's own bottom margin — already sized (and
+  // proven, pre-dating this feature) to comfortably fit the x-axis tick
+  // labels + axis title with no overlap. Rather than re-guessing how tall
+  // that combined tick+title block actually renders (an earlier version of
+  // this tried a flat -34px yshift, which undershot and overlapped the axis
+  // title directly — see the bug this replaced), each note line is
+  // anchored to start strictly *after* that whole known-good region ends,
+  // never inside it, so it can't collide with the title regardless of its
+  // real rendered height.
+  const BASE_MARGIN_B = 56;
+  const NOTE_LINE_HEIGHT = 14;
+  const NOTE_TOP_PADDING = 8; // gap between the axis title and the first note line
+  const metricNoteAnnotations = metricNoteLines.map((note, i) => ({
+    xref: "paper", x: 0, xanchor: "left",
+    yref: "paper", y: 0, yanchor: "top",
+    yshift: -(BASE_MARGIN_B + NOTE_TOP_PADDING + i * NOTE_LINE_HEIGHT),
+    text: `<i>ⓘ ${note}</i>`,
+    showarrow: false,
+    align: "left",
+    font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 11, color: "#a9b6a9" },
+  }));
+
+  const annotations = [...medianAnnotations, ...metricNoteAnnotations];
 
   // Reverse an axis whenever its own metric is lower-is-better — per-metric,
   // not per-category, since a category can mix directions (e.g. pass_block's
@@ -384,12 +422,20 @@ export function render() {
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
     // Metric definitions used to also live in an on-chart top-right callout
-    // (a note box pinned to the plot's own y:1 top edge) — retired in favor
-    // of the opt-in export appendix (metric-notes.js/chart-export.js's
-    // compositeFooterCanvas), which now covers every metric with a note,
-    // not just the Havoc family this used to special-case. Top margin below
-    // is just title/subtitle headroom now, no longer padded for that box.
-    margin: { l: 60, r: 24, t: isMobile ? 80 : 72, b: 56 },
+    // (a note box pinned to the plot's own y:1 top edge, Havoc-family only)
+    // — retired in favor of metricNoteAnnotations above, which moved to the
+    // bottom and covers every metric with a note, gated by "Include metric
+    // notes" instead of always-on. Top margin is just title/subtitle
+    // headroom now; bottom margin grows with metricNoteLines so the note
+    // text has room below the axis title instead of overlapping it.
+    margin: {
+      l: 60,
+      r: 24,
+      t: isMobile ? 80 : 72,
+      b: metricNoteLines.length
+        ? BASE_MARGIN_B + NOTE_TOP_PADDING + metricNoteLines.length * NOTE_LINE_HEIGHT + NOTE_TOP_PADDING
+        : BASE_MARGIN_B,
+    },
     title: {
       text: titleText,
       font: { family: "Anton, Arial Narrow, sans-serif", size: isMobile ? 16 : 22, color: "#f1ecdd" },

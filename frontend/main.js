@@ -14,7 +14,6 @@ import {
   preloadLogos,
   isOngoingSeason,
   currentCategoryMeta,
-  appliedCategoryMeta,
   metadata,
 } from "./data.js";
 import {
@@ -44,7 +43,6 @@ import {
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { createInfoPopover } from "./info-popover.js";
-import { collectMetricNotes } from "./metric-notes.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
 import {
   openCreateMergePopup,
@@ -398,18 +396,16 @@ function attachEvents() {
         // close to the real on-screen size and reaching the same 2400x1500
         // output via scale:2 instead makes exported text match what's on
         // screen while keeping the image just as crisp.
+        // No appendixNotes param here, unlike card-export.js's calls — the
+        // chart's own notes are now live Plotly annotations (render.js),
+        // baked into els.chart.layout itself when the checkbox is on, and
+        // exportChartPngWithFooter's clone already deep-clones that layout.
+        // Passing them again here would draw the same text twice.
         exportChartPngWithFooter(els.chart, {
           filename,
           width: 1200,
           height: 750,
           scale: 2,
-          appendixNotes: els.metricNotesToggle.checked
-            ? collectMetricNotes(
-                appliedCategoryMeta(),
-                [appliedFilters.xMetric, appliedFilters.yMetric],
-                metadata.tps_note
-              )
-            : [],
         })
       )
       .then(() => {
@@ -434,6 +430,11 @@ function attachEvents() {
 
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
+  // Live, not Apply-gated — same as Labels/Logos above. render() itself
+  // reads els.metricNotesToggle.checked to build the bottom-of-chart note
+  // annotations (see render.js), so toggling this immediately shows/hides
+  // them without needing Apply or Save Plot.
+  els.metricNotesToggle.addEventListener("change", render);
 
   // Per-card close/drag listeners are wired up inside openScoutCard() itself
   // — each cloned card owns its own close button and drag handle — so
