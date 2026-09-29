@@ -30,8 +30,18 @@ export const CONFERENCES = {
 // Teams is a highlight, not a filter — a player whose team isn't selected
 // stays on the plot (still visible, still clickable, still counted in the
 // median) but fades to these opacities instead of disappearing.
-export const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.12 };
-export const LABEL_ALPHA = 0.8; // normal (non-dimmed) player-name opacity
+// label bumped 0.12 -> 0.4 per a Reddit legibility follow-up: faded labels
+// were below WCAG's 3:1 contrast floor against the chart background.
+// Spotlighted labels (LABEL_ALPHA below) were already at the 1.0 ceiling, so
+// raising the floor here necessarily narrows the spotlighted/faded gap —
+// verified against screenshots (dense-cluster + ~400px mobile-width) before
+// picking this value over smaller candidates that didn't clear 3:1.
+export const DIM_OPACITY = { marker: 0.15, logo: 0.22, label: 0.4 };
+// Bumped from 0.8 to fully opaque as the "brighter" half of the spotlighted-
+// label emphasis follow-up (Reddit: "needs more contrast") — render.js's
+// applyLabelEmphasis() handles the "bolder" + halo/glow half, since neither
+// is expressible through Plotly's textfont config at all.
+export const LABEL_ALPHA = 1;
 
 export const MERGE_CARD_MAX_MEMBERS = 5;
 export const MERGE_QUOTA = 8;

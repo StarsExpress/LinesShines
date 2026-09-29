@@ -3,6 +3,70 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+  /* --- Phone-only "desktop layout, shrunk to fit" experiment ---
+     Rewrites the viewport meta tag above, synchronously, before first
+     paint, so phones render the full desktop-proportioned layout (wide
+     scatter chart included) at a fixed logical width and let the browser
+     auto-scale the whole page down to fit the real screen — the same idea
+     as "zoom out on a desktop site," not a per-element CSS transform trick
+     (an earlier, narrower attempt at that — shrinking just #chart — was
+     tried and reverted; see render.js history). The user then pinches in
+     for detail (touch-action: manipulation, already wired up on
+     .chart-panel for exactly this).
+
+     Deliberately scoped to PHONES ONLY, not tablets: tablets in landscape
+     already clear the existing 860px CSS breakpoint (isDesktopScoutLayout(),
+     cards-base.js) and get this same layout natively today, no override
+     needed. screen.width/height reflect the CURRENT orientation (the
+     "width" value swaps with "height" on rotation), so Math.min(...) — the
+     device's orientation-independent short edge — is what actually answers
+     "is this a phone-class device," regardless of how it's currently held.
+
+     PHONE_MAX_SHORT_EDGE (600px): the largest current phones (iPhone 15 Pro
+     Max) are 430 CSS px on their short edge; the smallest common tablets
+     (iPad Mini portrait) are 744 CSS px. 600 sits in that ~300px gap with
+     room to spare either side — not precision-critical, just needs to land
+     somewhere in it.
+
+     DESKTOP_LAYOUT_WIDTH (1024px): the logical viewport width phones render
+     at, as if the browser window were that wide. Chosen to land inside
+     .layout's `max-width: 1440px` bracket (style.css, @media
+     (min-width: 861px)) so .layout fills this exact width with no wasted
+     margin, while still being a recognizable, intentional-looking size
+     (classic tablet-landscape/small-laptop width). Adjust freely — not
+     tied to any other layout math.
+
+     initial-scale is computed explicitly here (screen.width ÷ layout
+     width) rather than left for the browser to auto-fit from a bare
+     `width=N` — iOS Safari and Android Chrome are known to handle that
+     auto-fit slightly differently, so computing the exact number ourselves
+     from a value already in hand sidesteps most of that inconsistency
+     rather than trusting either browser's own guess. minimum-scale is
+     pinned to the same value so pinch-*out* can't zoom past "the whole
+     layout" — there's nothing beyond it to see. maximum-scale is left
+     generous (5x) for pinch-*in* detail work, same spirit as the desktop
+     experience of zooming a browser page.
+
+     No-JS fallback: if this script doesn't run at all, the meta tag simply
+     stays at its original width=device-width — today's ordinary mobile
+     layout — a safe, unbroken default. */
+  (function () {
+    var PHONE_MAX_SHORT_EDGE = 600;
+    var DESKTOP_LAYOUT_WIDTH = 1024;
+    var shortEdge = Math.min(screen.width, screen.height);
+    if (shortEdge > PHONE_MAX_SHORT_EDGE) return; // tablet/desktop: leave width=device-width alone
+    var scale = screen.width / DESKTOP_LAYOUT_WIDTH;
+    var viewportMeta = document.querySelector('meta[name="viewport"]');
+    viewportMeta.setAttribute(
+      "content",
+      "width=" + DESKTOP_LAYOUT_WIDTH +
+        ", initial-scale=" + scale +
+        ", minimum-scale=" + scale +
+        ", maximum-scale=5"
+    );
+  })();
+</script>
 <title>LinesShines · 鋒光</title>
 <meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
@@ -123,7 +187,7 @@
         </div>
       </div>
 
-      <div class="control">
+      <div class="control control-category">
         <label for="category-select">Category</label>
         <select id="category-select">
           <option value="pass_rush">DL Pass Rush</option>
@@ -131,18 +195,24 @@
         </select>
       </div>
 
-      <div class="control">
+      <div class="control control-position">
         <label for="position-select">Position</label>
         <select id="position-select"></select>
       </div>
 
       <div class="control control-axis">
-        <label for="x-metric-select">X axis</label>
+        <div class="axis-label-row">
+          <label for="x-metric-select">X axis</label>
+          <span class="info-popover-slot" id="x-axis-info-slot"></span>
+        </div>
         <select id="x-metric-select"></select>
       </div>
 
       <div class="control control-axis">
-        <label for="y-metric-select">Y axis</label>
+        <div class="axis-label-row">
+          <label for="y-metric-select">Y axis</label>
+          <span class="info-popover-slot" id="y-axis-info-slot"></span>
+        </div>
         <select id="y-metric-select"></select>
       </div>
 
@@ -176,6 +246,14 @@
         <label class="checkbox-label">
           <input type="checkbox" id="logos-toggle" checked />
           Team Logos
+        </label>
+        <!-- Default OFF, unlike the two above — an opt-in addition to every
+             PNG export (Save Plot + every card's own Save button), not a
+             view of the on-screen chart itself. See metric-notes.js /
+             chart-export.js's compositeFooterCanvas appendix support. -->
+        <label class="checkbox-label">
+          <input type="checkbox" id="metric-notes-toggle" />
+          Include metric notes
         </label>
       </div>
 
@@ -408,6 +486,13 @@
               </label>
               <ul class="linemate-card-note-list">
                 <li class="linemate-card-note linemate-card-roster-note"></li>
+                <!-- Same scroll cue as Merge Card's .merge-card-scroll-hint — the
+                     roster table's frozen Player/Position columns (see
+                     .linemate-table-frozen in style.css) make the horizontal
+                     scroll less obvious than a bare native scrollbar,
+                     especially on a touch viewport now that this card opens
+                     on mobile too. -->
+                <li class="linemate-card-note linemate-card-scroll-hint">Please scroll right for more metrics.</li>
                 <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
               </ul>
             </div>
@@ -511,19 +596,30 @@
   </div>
 </div>
 
-<!-- Below Threshold Matches popup — surfaces a Players-search name match
-     whose season snap count/opportunities fall under the current threshold,
-     rather than leaving that indistinguishable from "no such player".
-     Opened from the "Below Threshold Matches (N)" toggle rendered above the
-     first candidate in #players-dropdown (see renderPlayersDropdown() in
-     filters.js), never auto-popped. Same modal pattern as #merge-edit-overlay
-     above — single static instance, repopulated per open via
-     openBelowThresholdPopup(), closes only via its own Close button (no
+<!-- Below Threshold Matches popup — surfaces a fuzzy-search name match whose
+     season snap count/opportunities fall under the current threshold, rather
+     than leaving that indistinguishable from "no such player". Shared by
+     EVERY search box with this concern, not just the Players filter: the
+     "Below Threshold Matches (N)" toggle rendered above the first candidate
+     in #players-dropdown (renderPlayersDropdown(), filters.js), the Single
+     Cards add-search (#pcs-add-dropdown, renderPcsAddDropdown(),
+     workspace.js), and the Merge Create/Edit popups' own search boxes
+     (#merge-create-dropdown/#merge-edit-dropdown, renderCreateDropdown()/
+     renderMergeEditDropdown(), merge-card.js) — one popup, never auto-popped,
+     since there's only ever one threshold control to quick-set regardless of
+     which box's toggle opened it (openBelowThresholdPopup() takes the
+     triggering box's own matches + a rerun callback as arguments). Same modal
+     pattern as #merge-edit-overlay above — single static instance,
+     repopulated per open, closes only via its own Close button (no
      outside-click dismissal). Each row's "Set Threshold" button sets the
      threshold to that player's own value (the filter is inclusive, so no
      off-by-one is needed) and closes the popup — leaving it open would show a
      stale list, since the clicked player (and possibly others) no longer
-     belong in it. -->
+     belong in it. For the Players filter this takes effect immediately (its
+     search pool reads the pending threshold live); for a Pinned Players
+     search box it takes effect once Apply commits the new threshold, since
+     those boxes search the Applied pool (see fullPcsSearchPool()'s header
+     comment in search.js). -->
 <div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
   <div class="merge-edit-box below-threshold-box" role="dialog" aria-modal="true" aria-labelledby="below-threshold-title">
     <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>

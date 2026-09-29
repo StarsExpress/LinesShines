@@ -11,6 +11,7 @@ import {
   teamName,
   logoSrc,
   thresholdFieldLabel,
+  metadata,
 } from "./data.js";
 import {
   ordinal,
@@ -26,6 +27,7 @@ import {
 } from "./cards-base.js";
 import { toggleLinemateCard } from "./linemate-card.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { categoryAppendixNotes } from "./metric-notes.js";
 import { DISPLAY_DECIMALS } from "./config.js";
 
 // Live floating Player Cards, one per currently-open card, keyed by the same
@@ -180,7 +182,12 @@ export function openScoutCard(record) {
   // abbr_name shortens the first name to an initial, keeping the last name
   // intact (e.g. "D. Hall") — same convention already shown on every card
   // title/table cell, just applied to the downloaded filename too.
-  attachCardSave(cardEl, () => `LinesShines_${sanitizeForFilename(record.abbr_name || record.player)}_${appliedFilters.season}`);
+  attachCardSave(
+    cardEl,
+    () => `LinesShines_${sanitizeForFilename(record.abbr_name || record.player)}_${appliedFilters.season}`,
+    undefined,
+    () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
+  );
 
   scoutCards.set(record.player, entry);
   updateScoutEmptyHint();

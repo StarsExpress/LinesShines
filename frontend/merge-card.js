@@ -26,6 +26,18 @@
  *    deliberate, safe circular import (function-body-only, same
  *    reasoning as cards-base.js's — see the comment there), not one this
  *    split introduces.
+ *
+ * A second deliberate cycle, added for the Pinned Players "Below Threshold
+ * Matches" extension: runCreateSearch()/runMergeEditSearch() import
+ * openBelowThresholdPopup()/applyThresholdImmediately()/BELOW_THRESHOLD_TOP_K
+ * from filters.js, which already imports workspaceSingles/mergeCards from
+ * here (applyFilters()' pool-invalidation check) and now also
+ * refreshOpenMergeCards() (applyThresholdImmediately()'s own in-place
+ * refresh, see that function's comment). Same reasoning as note 2 above —
+ * every call is inside a function body (a dropdown's toggle click, or
+ * applyThresholdImmediately() itself), never at module-evaluation time —
+ * and it's the same shared-popup relationship workspace.js now has with
+ * filters.js too, see that file's own header comment.
  */
 import { els } from "./dom.js";
 import {
@@ -37,9 +49,11 @@ import {
   teamSwatch,
   findRecordByPlayer,
   thresholdFieldLabel,
+  metadata,
 } from "./data.js";
-import { searchPlayersExcluding, pcsSearchPool } from "./search.js";
+import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
+import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
 import {
   ordinal,
   nextCardId,
@@ -56,6 +70,7 @@ import {
 import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { categoryAppendixNotes } from "./metric-notes.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
@@ -129,6 +144,12 @@ export function findDuplicateMergeCard(memberKeys, excludeId) {
 // declared above) until Submit — Cancel discards it untouched, so a
 // half-built card never briefly exists as a real, addressable Merge Card.
 
+// Below-threshold-matches for the Create popup — same mechanism as the
+// Players filter's belowThresholdMatches (filters.js), scoped to this
+// popup's own pool/exclusion set. Populated by runCreateSearch(), read by
+// renderCreateDropdown()'s toggle.
+let createBelowThresholdMatches = [];
+
 export function setCreateMessage(text) {
   els.mergeCreateMessage.textContent = text || "";
 }
@@ -142,6 +163,7 @@ export function openCreateMergePopup() {
   createSelection.clear();
   renderCreateMembers();
   els.mergeCreateInput.value = "";
+  createBelowThresholdMatches = [];
   hideCreateDropdown();
   setCreateMessage("");
   els.mergeCreateOverlay.hidden = false;
@@ -184,9 +206,24 @@ export function renderCreateMembers() {
 // etc.) — same fuzzy-match input style as the Players filter (v1.2.0 §5).
 export function renderCreateDropdown(matches) {
   els.mergeCreateDropdown.innerHTML = "";
-  if (!matches.length) {
+  if (!matches.length && !createBelowThresholdMatches.length) {
     hideCreateDropdown();
     return;
+  }
+
+  // Mirrors renderPlayersDropdown()'s own toggle exactly (filters.js).
+  if (createBelowThresholdMatches.length > 0) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "below-threshold-toggle";
+    toggle.textContent = `Below Threshold Matches (${createBelowThresholdMatches.length})`;
+    toggle.addEventListener("click", () =>
+      openBelowThresholdPopup(createBelowThresholdMatches, appliedCategoryMeta(), (value) => {
+        applyThresholdImmediately(value);
+        runCreateSearch();
+      })
+    );
+    els.mergeCreateDropdown.appendChild(toggle);
   }
 
   matches.forEach((record) => {
@@ -224,9 +261,19 @@ export function renderCreateDropdown(matches) {
 export function runCreateSearch() {
   const query = els.mergeCreateInput.value.trim();
   if (!query) {
+    createBelowThresholdMatches = [];
     hideCreateDropdown();
     return;
   }
+
+  // Same two-independent-passes shape as runPlayersSearch() (filters.js) —
+  // see that function's comment for why. No exclusion set, same reasoning as
+  // the normal-pool pass below (addCreateMember() catches an already-picked
+  // player instead).
+  const cat = appliedCategoryMeta();
+  const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
+  createBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+
   // No exclusion set — an already-picked player is caught (and explained) in
   // addCreateMember() instead, same "blocked, with a prompt" convention the
   // Edit popup already uses. Pool is position-scoped only (v1.2.0 §4).
@@ -576,7 +623,9 @@ export function mountMergeCardElement(entry, memberRecords) {
           const record = findRecordByPlayer(key);
           return sanitizeForFilename((record && (record.abbr_name || record.player)) || key);
         })
-        .join("_")}_${appliedFilters.season}`
+        .join("_")}_${appliedFilters.season}`,
+    undefined,
+    () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );
 
   updateScoutEmptyHint();
@@ -665,6 +714,12 @@ export function closeMergeCard(id) {
 // overlay instance (like #merge-confirm-overlay), repopulated per open.
 let mergeEditCardId = null;
 
+// Below-threshold-matches for the Edit popup — same mechanism as the
+// Players filter's belowThresholdMatches (filters.js), scoped to this
+// popup's own pool. Populated by runMergeEditSearch(), read by
+// renderMergeEditDropdown()'s toggle.
+let editBelowThresholdMatches = [];
+
 export function setMergeEditMessage(text) {
   els.mergeEditMessage.textContent = text || "";
 }
@@ -680,6 +735,7 @@ export function openMergeEditPopup(id) {
   mergeEditCardId = id;
   renderMergeEditMembers(entry);
   els.mergeEditInput.value = "";
+  editBelowThresholdMatches = [];
   hideMergeEditDropdown();
   setMergeEditMessage("");
   els.mergeEditOverlay.hidden = false;
@@ -740,9 +796,23 @@ export function renderMergeEditMembers(entry) {
 // etc.) for the "same fuzzy-match input style as the Players filter" rule.
 export function renderMergeEditDropdown(matches) {
   els.mergeEditDropdown.innerHTML = "";
-  if (!matches.length) {
+  if (!matches.length && !editBelowThresholdMatches.length) {
     hideMergeEditDropdown();
     return;
+  }
+
+  if (editBelowThresholdMatches.length > 0) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "below-threshold-toggle";
+    toggle.textContent = `Below Threshold Matches (${editBelowThresholdMatches.length})`;
+    toggle.addEventListener("click", () =>
+      openBelowThresholdPopup(editBelowThresholdMatches, appliedCategoryMeta(), (value) => {
+        applyThresholdImmediately(value);
+        runMergeEditSearch();
+      })
+    );
+    els.mergeEditDropdown.appendChild(toggle);
   }
 
   matches.forEach((record) => {
@@ -782,9 +852,16 @@ export function renderMergeEditDropdown(matches) {
 export function runMergeEditSearch() {
   const query = els.mergeEditInput.value.trim();
   if (!query) {
+    editBelowThresholdMatches = [];
     hideMergeEditDropdown();
     return;
   }
+
+  // Same two-independent-passes shape as runPlayersSearch() (filters.js).
+  const cat = appliedCategoryMeta();
+  const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
+  editBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+
   // No exclusion set — an already-on-this-card pick is caught (and
   // explained) defensively in addMergeMember() rather than hidden from the
   // list, matching the checklist's "blocked, with a prompt" wording.
@@ -799,6 +876,21 @@ export function rebuildMergeCardFromMembers(entry) {
   if (!entry.el) return; // floating card closed (BLUEPRINT_PinnedPlayers.md §4-style) — nothing on screen to update
   const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
   renderMergeCardBody(entry.el, memberRecords, entry.sort);
+}
+
+// Refreshes every open Merge Card's percentiles in place against whatever
+// appliedFilters/currentRecords currently hold — the Pinned Players
+// counterpart to scout-card.js's refreshOpenScoutCards()/linemate-card.js's
+// refreshOpenLinemateCards(). Its one caller today is filters.js's
+// applyThresholdImmediately() (a Below Threshold Matches "Set Threshold"
+// click from a Pinned Players search box) — that flow deliberately updates
+// every already-open Merge Card's percentiles in place instead of
+// dissolving them the way a normal Apply's threshold change does (see
+// CLAUDE.md's "Pool-change invalidation"), so a merge-in-progress survives a
+// quick threshold bump instead of forcing a redo. Reuses
+// rebuildMergeCardFromMembers(), already a no-op for a closed floating card.
+export function refreshOpenMergeCards() {
+  mergeCards.forEach((entry) => rebuildMergeCardFromMembers(entry));
 }
 
 // §5 Edit popup rules: blocks + explains a duplicate add, a 6th member, the

@@ -161,6 +161,8 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
                         tps_pressure_rate=_safe_float(row.get("TPS Pressure Rate")),
                         havoc_rate=_safe_float(row.get("Havoc Rate")),
                         tps_havoc_rate=_safe_float(row.get("TPS Havoc Rate")),
+                        prp=_safe_float(row.get("PRP")),
+                        tps_prp=_safe_float(row.get("TPS PRP")),
                     )
                 )
 
@@ -217,6 +219,8 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
                         tps_allowed_havoc_pct=_safe_float(
                             row.get("TPS Allowed Havoc %")
                         ),
+                        pbe=_safe_float(row.get("PBE")),
+                        tps_pbe=_safe_float(row.get("TPS PBE")),
                     )
                 )
 

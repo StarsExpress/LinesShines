@@ -12,6 +12,9 @@ import {
   setPlayerPool,
   setAppliedFilters,
   preloadLogos,
+  isOngoingSeason,
+  currentCategoryMeta,
+  metadata,
 } from "./data.js";
 import {
   selectedPlayers,
@@ -37,7 +40,8 @@ import {
   closeFiltersDrawer,
   applyFilters,
 } from "./filters.js";
-import { render, exportChartPngWithFooter, setLogoRelayoutGuard, sanitizeForFilename } from "./render.js";
+import { render, setLogoRelayoutGuard } from "./render.js";
+import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { createInfoPopover } from "./info-popover.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
 import {
@@ -59,6 +63,16 @@ import {
   hidePcsAddDropdown,
 } from "./workspace.js";
 
+// Tracks whatever Season value was last settled (either by the user picking
+// one, or a category switch's own season-select rebuild) so the season
+// "change" handler below can tell an ongoing→historical transition apart
+// from every other one — a plain els.season.value read inside that handler
+// only ever sees the *new* value, never what it was a moment ago. Synced
+// in three places: right after the initial load, at the end of a category
+// switch (which can silently rebuild/reset the season <select>), and at the
+// end of every season "change" event itself.
+let previousSeasonValue = null;
+
 async function loadMetadata() {
   const res = await fetch("/api/metadata");
   if (!res.ok) throw new Error(`GET /api/metadata → ${res.status}`);
@@ -68,6 +82,7 @@ async function loadMetadata() {
   setMetadata(await res.json());
 
   populateCategoryDependentControls();
+  previousSeasonValue = els.season.value;
   populateTeamsChecklist();
   attachEvents();
   await loadCurrentSlice();
@@ -83,12 +98,54 @@ async function loadMetadata() {
   updatePendingState();
 }
 
+// What an axis's info popover shows for whichever metric that <select> is
+// currently set to (its live/pending value, not appliedFilters — axis
+// changes don't take effect until Apply, but the "what does this metric
+// mean" popup should answer for whatever's on screen in the dropdown right
+// now). Resolved fresh every time the popup opens (see createInfoPopover()'s
+// header comment) rather than once at boot, since the metric list itself
+// changes with the Category select. Metrics with a rendered formula
+// (Havoc/Allowed Havoc/PRP/PBE families, main.py's PASS_RUSH_METRICS/
+// PASS_BLOCK_METRICS) show that as an image; every other metric falls back
+// to its short pff_note so the trigger is never a dead end.
+//
+// A "TPS "-prefixed metric additionally gets the shared TPS_NOTE appended
+// as a second paragraph (`extraText`) — that text lives once, server-side
+// (config.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
+// every TPS metric's own note, so the "is this a TPS metric" check is done
+// here, off the metric's own name, rather than baked into per-metric data.
+function axisFormulaContent(selectEl) {
+  const cat = currentCategoryMeta();
+  const key = selectEl.value;
+  const meta = (cat && cat.metrics && cat.metrics[key]) || {};
+  const extraText = key.startsWith("TPS ") ? metadata && metadata.tps_note : undefined;
+  if (meta.formula_svg) {
+    return { imgSrc: meta.formula_svg, imgAlt: meta.formula_note || meta.note || key, extraText };
+  }
+  return { text: meta.pff_note || key, extraText };
+}
+
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
       "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
       { label: "Players", labelId: "players-label" }
     )
+  );
+
+  els.xAxisInfoSlot.appendChild(
+    createInfoPopover(() => axisFormulaContent(els.xMetric), {
+      ariaLabel: "X axis metric definition",
+      label: "ⓘ",
+      formula: true,
+    })
+  );
+  els.yAxisInfoSlot.appendChild(
+    createInfoPopover(() => axisFormulaContent(els.yMetric), {
+      ariaLabel: "Y axis metric definition",
+      label: "ⓘ",
+      formula: true,
+    })
   );
 
   // Category/season/position/axes are all pending-only for the chart: picking
@@ -106,16 +163,54 @@ function attachEvents() {
     // away, rather than waiting for Apply — see resetThresholdToCategoryDefault()'s
     // comment for why this can't wait like season/position changes do.
     resetThresholdToCategoryDefault();
+    // populateCategoryDependentControls() can silently rebuild/reset the
+    // Season <select> (a category doesn't necessarily offer the season that
+    // was previously picked) — resync so the season "change" handler below
+    // compares against what's actually on screen now, not a stale value
+    // from before this category switch.
+    previousSeasonValue = els.season.value;
     updatePendingState();
     updatePlayerPool();
   });
 
-  [els.season, els.position].forEach((el) =>
-    el.addEventListener("change", () => {
-      updatePendingState();
-      updatePlayerPool();
-    })
-  );
+  els.season.addEventListener("change", () => {
+    // Ongoing → historical: the ongoing season's threshold sits on a scale
+    // shaped by however much of the season has actually been played, not a
+    // comparable number for a finalized season — carrying it over would
+    // either read as an oddly low cutoff or get silently clamped to an
+    // arbitrary pool max, never the historical default anyone actually
+    // configured. Historical → historical shares one static default across
+    // every finalized season (DEFAULT_THRESHOLDS), so there's nothing
+    // meaningful to snap to — leave the user's value alone.
+    //
+    // Deliberately does NOT call resetThresholdToCategoryDefault() here the
+    // way the Category handler above does — only sets the flag and lets
+    // updatePendingThresholdMax() (fired by updatePlayerPool() below, once
+    // its fetch actually resolves with this season's real data) apply the
+    // new default and its real max together in one atomic write. Calling
+    // resetThresholdToCategoryDefault() synchronously here too used to grow
+    // .max just far enough to fit the new default off of whatever pending
+    // data happened to already be on hand (the outgoing season's, not the
+    // incoming one's) — close enough to the new value that it could pin the
+    // slider handle at the far-right edge for however long the fetch took,
+    // then visibly snap back once the real max landed. A Category switch
+    // still needs that synchronous call (see its own comment — leaving the
+    // wrong category's number/units on screen is actively misleading, a
+    // worse sin than a brief stale value), but a Season switch has no such
+    // units mismatch, so there's nothing lost by just waiting the beat for
+    // real data instead of flashing a wrong guess first.
+    if (isOngoingSeason(previousSeasonValue) && !isOngoingSeason(els.season.value)) {
+      setResetThresholdOnNextRange(true);
+    }
+    previousSeasonValue = els.season.value;
+    updatePendingState();
+    updatePlayerPool();
+  });
+
+  els.position.addEventListener("change", () => {
+    updatePendingState();
+    updatePlayerPool();
+  });
 
   [els.xMetric, els.yMetric].forEach((el) =>
     el.addEventListener("change", updatePendingState)
@@ -283,8 +378,9 @@ function attachEvents() {
     // which washes out the low-opacity gridlines/labels designed for a dark
     // background. Swap in the panel's actual color just for the export, then
     // restore transparency so on-screen zoom/pan is unaffected. The guard
-    // suppresses the logo/label relayout handler from reacting to these two
-    // bookkeeping relayouts.
+    // suppresses the logo/label relayout handler from reacting to the first
+    // (dark-swap) bookkeeping relayout — harmless to skip reacting to, since
+    // the chart's about to be captured then immediately restored anyway.
     els.savePngBtn.disabled = true;
     setLogoRelayoutGuard(true);
     Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" })
@@ -300,6 +396,11 @@ function attachEvents() {
         // close to the real on-screen size and reaching the same 2400x1500
         // output via scale:2 instead makes exported text match what's on
         // screen while keeping the image just as crisp.
+        // No appendixNotes param here, unlike card-export.js's calls — the
+        // chart's own notes are now live Plotly annotations (render.js),
+        // baked into els.chart.layout itself when the checkbox is on, and
+        // exportChartPngWithFooter's clone already deep-clones that layout.
+        // Passing them again here would draw the same text twice.
         exportChartPngWithFooter(els.chart, {
           filename,
           width: 1200,
@@ -307,17 +408,33 @@ function attachEvents() {
           scale: 2,
         })
       )
-      .then(() =>
-        Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" })
-      )
-      .finally(() => {
+      .then(() => {
+        // Unguarded *before* this second relayout, not after: any relayout
+        // — even one that only touches bgcolor — can make Plotly regenerate
+        // some <text> DOM nodes as part of its normal redraw, which silently
+        // strips applyLabelEmphasis()'s manually-added inline styles (Plotly
+        // has no idea they're there, since they're not part of its own trace
+        // config). Leaving the guard up here left some spotlighted labels
+        // stuck without their halo after every export (confirmed directly).
+        // Unguarding first lets render.js's own plotly_relayout listener
+        // catch this relayout and do its normal, already-correct
+        // applyLogoImages()/applyLabelDeclutter() pass — which re-applies
+        // emphasis — rather than duplicating that recovery logic here.
         setLogoRelayoutGuard(false);
+        return Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" });
+      })
+      .finally(() => {
         els.savePngBtn.disabled = false;
       });
   });
 
   els.labelsToggle.addEventListener("change", render);
   els.logosToggle.addEventListener("change", render);
+  // Live, not Apply-gated — same as Labels/Logos above. render() itself
+  // reads els.metricNotesToggle.checked to build the bottom-of-chart note
+  // annotations (see render.js), so toggling this immediately shows/hides
+  // them without needing Apply or Save Plot.
+  els.metricNotesToggle.addEventListener("change", render);
 
   // Per-card close/drag listeners are wired up inside openScoutCard() itself
   // — each cloned card owns its own close button and drag handle — so

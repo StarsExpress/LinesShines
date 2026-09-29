@@ -19,6 +19,7 @@ import {
   playerPoolRecords,
   positionPool,
   appliedFilters,
+  currentRecords,
 } from "./data.js";
 
 export const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]);
@@ -223,4 +224,16 @@ export function searchPlayersExcluding(query, pool, excludeKeys, topK = 8) {
 // appliedFilters.position rather than an arbitrary position argument.
 export function pcsSearchPool() {
   return positionPool(appliedFilters.position);
+}
+
+// Same pool as pcsSearchPool() but without the threshold cut — mirrors
+// fullPlayerPool()'s relationship to qualifyingPlayerPool() below, so every
+// Pinned Players search box can surface a below-threshold name match the
+// same way the Players filter does (see CLAUDE.md's "Below Threshold
+// Matches" section). Sourced from currentRecords (the Applied slice), not
+// playerPoolRecords — Pinned Players has no separate pending-pool concept,
+// it's always scoped to appliedFilters.position, same as pcsSearchPool().
+export function fullPcsSearchPool() {
+  if (!appliedFilters) return [];
+  return currentRecords.filter((r) => r.position === appliedFilters.position);
 }

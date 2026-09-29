@@ -8,11 +8,20 @@
  * same call-graph reasoning as the circular import documented in
  * merge-card.js's header. Keeping it here avoids yet another edge back
  * into workspace.js for a function nothing outside this file calls.
+ *
+ * Also imports openBelowThresholdPopup()/applyThresholdImmediately()/
+ * BELOW_THRESHOLD_TOP_K from filters.js (for the Single Cards add-search's
+ * own "Below Threshold Matches" toggle) — filters.js already imports
+ * clearWorkspace()/showMergeInvalidationConfirm() from here, so this is a
+ * deliberate, function-body-only circular import, same reasoning as the
+ * merge-card.js <-> workspace.js cycle documented above and in
+ * merge-card.js's header.
  */
 import { els } from "./dom.js";
-import { logoSrc, teamSwatch, findRecordByPlayer } from "./data.js";
-import { searchPlayersExcluding, pcsSearchPool } from "./search.js";
+import { logoSrc, teamSwatch, findRecordByPlayer, appliedCategoryMeta, appliedFilters } from "./data.js";
+import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_QUOTA } from "./config.js";
+import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
 import { withTrailingPeriod, isDesktopScoutLayout, updateScoutEmptyHint } from "./cards-base.js";
 import {
   scoutCards,
@@ -87,6 +96,13 @@ export function removeSingleCard(key) {
 // Players filter (mirrors runPlayersSearch()/renderPlayersDropdown()), just
 // against pcsSearchPool() and excluding players already on the Workspace.
 
+// Below-threshold-matches for this box (CLAUDE.md's "Below Threshold
+// Matches" section) — same mechanism as the Players filter's own
+// belowThresholdMatches in filters.js, just scoped to this box's own pool/
+// exclusion set. Populated by runPcsAddSearch(), read by
+// renderPcsAddDropdown()'s toggle.
+let pcsAddBelowThresholdMatches = [];
+
 export function hidePcsAddDropdown() {
   els.pcsAddDropdown.hidden = true;
   els.pcsAddDropdown.innerHTML = "";
@@ -94,9 +110,25 @@ export function hidePcsAddDropdown() {
 
 export function renderPcsAddDropdown(matches) {
   els.pcsAddDropdown.innerHTML = "";
-  if (!matches.length) {
+  if (!matches.length && !pcsAddBelowThresholdMatches.length) {
     hidePcsAddDropdown();
     return;
+  }
+
+  // Sits above the first normal candidate — mirrors renderPlayersDropdown()'s
+  // own toggle exactly (see filters.js), just against this box's own matches.
+  if (pcsAddBelowThresholdMatches.length > 0) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "below-threshold-toggle";
+    toggle.textContent = `Below Threshold Matches (${pcsAddBelowThresholdMatches.length})`;
+    toggle.addEventListener("click", () =>
+      openBelowThresholdPopup(pcsAddBelowThresholdMatches, appliedCategoryMeta(), (value) => {
+        applyThresholdImmediately(value);
+        runPcsAddSearch();
+      })
+    );
+    els.pcsAddDropdown.appendChild(toggle);
   }
 
   matches.forEach((record) => {
@@ -139,10 +171,21 @@ export function renderPcsAddDropdown(matches) {
 export function runPcsAddSearch() {
   const query = els.pcsAddInput.value.trim();
   if (!query) {
+    pcsAddBelowThresholdMatches = [];
     hidePcsAddDropdown();
     return;
   }
-  renderPcsAddDropdown(searchPlayersExcluding(query, pcsSearchPool(), new Set(workspaceSingles.keys())));
+
+  // Same two-independent-passes shape as runPlayersSearch() in filters.js —
+  // see that function's own comment for why it's not one pass filtered
+  // afterward. fullPcsSearchPool() is this box's threshold-less counterpart
+  // to pcsSearchPool().
+  const cat = appliedCategoryMeta();
+  const excludeKeys = new Set(workspaceSingles.keys());
+  const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), excludeKeys, BELOW_THRESHOLD_TOP_K);
+  pcsAddBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+
+  renderPcsAddDropdown(searchPlayersExcluding(query, pcsSearchPool(), excludeKeys));
 }
 
 // Dissolves every Merge Card — the pool invalidation from BLUEPRINT.md §4

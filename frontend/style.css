@@ -246,6 +246,15 @@ body {
 }
 
 .control {
+  /* Default width of this control's box in px, as a bare number: the ONE
+     place a filter's default width is declared. It feeds both the fixed
+     default width (calc(var(--w) * 1px), used by .control select /
+     .teams-select-btn / .control-players and the mobile drawer) and, at
+     desktop widths, the proportional flex weight (see the
+     @media (min-width: 861px) block near the end of this file) — so the
+     row's proportions can never drift from the defaults they scale from.
+     Season overrides it below; everything else shares this 150. */
+  --w: 150;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -283,8 +292,8 @@ body {
      overflow keeps every plain select this same width regardless of which
      option is picked — the full text is still one click away in the
      native dropdown, so truncation here loses nothing. */
-  width: 150px;
-  max-width: 150px;
+  width: calc(var(--w) * 1px);
+  max-width: calc(var(--w) * 1px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -295,7 +304,12 @@ body {
   outline-offset: 2px;
 }
 
-.control-slider { min-width: 220px; flex: 1 1 220px; }
+/* Shrunk from an original 220px — freeing horizontal room on this row for
+   .control-toggles' new third checkbox ("Include metric notes", wider than
+   Player Names/Team Logos) to fit without bumping Save Plot off the Apply
+   row. The number box next to the slider already gives exact-value control,
+   so a narrower drag track is an acceptable tradeoff. */
+.control-slider { min-width: 170px; flex: 1 1 170px; }
 
 .threshold-row {
   display: flex;
@@ -349,12 +363,22 @@ body {
   width: 0;
   height: 0;
 }
+/* The 7 filters above the first .row-break (Season … Y axis) always share
+   ONE row at desktop widths and scale proportionally to their --w defaults
+   as the window narrows or widens — one consolidated block for that,
+   further down this file, deliberately placed after every base .control-*
+   width rule (.control-season select, .teams-select-btn, .control select,
+   etc.) so it always wins the cascade on source order alone. A same-
+   specificity base rule declared later once silently cancelled an earlier
+   override of this kind (caught by qa-kitten), hence one location only. */
 
 /* Season only ever holds a 4-digit year — the shared 150px .control select
    width was sized for longer option text (metric names, position labels)
-   and left Season looking as wide as Category for no reason. */
-.control-season { min-width: auto; }
-.control-season select { width: 72px; min-width: 72px; max-width: 72px; padding-right: 4px; }
+   and left Season looking as wide as Category for no reason. Its narrower
+   --w is also what makes it take proportionally less of the row when the
+   bar scales (72 : 150 ≈ 0.48). */
+.control-season { --w: 72; min-width: auto; }
+.control-season select { padding-right: 4px; }
 
 /* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
@@ -382,8 +406,8 @@ body {
      width: 100% + min-width: 150px, which let the summary text — "12
      Teams", a long typed player name — grow this past every select's width
      and break row alignment). The summary span below does the eliding. */
-  width: 150px;
-  max-width: 150px;
+  width: calc(var(--w) * 1px);
+  max-width: calc(var(--w) * 1px);
   background: var(--turf-950);
   color: var(--chalk);
   border: 2px solid var(--turf-600);
@@ -549,13 +573,18 @@ body {
    Players noticeably wider than its neighbors before the chip list moved
    into its own panel. Fixed at the same 150px explicitly so the collapsed
    button can't inflate. */
-.control-players { position: relative; width: 150px; }
+.control-players { position: relative; width: calc(var(--w) * 1px); }
 
 /* Replaces the plain <label> that every other .control uses — Players is
    the one filter where "clear everything" can't live inside the dropdown
    like Teams' All/None row (there's no fixed checklist to reset, just
    whatever chips have accumulated), so it sits next to the label instead. */
-.players-label-row {
+/* .axis-label-row (X/Y axis metric-formula trigger, main.js) shares this
+   same flex-row shape — a <label> plus one small inline extra control —
+   without renaming this class, since Players' own semantics ("clear
+   everything" next to its label) are unrelated to axis controls'. */
+.players-label-row,
+.axis-label-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -630,6 +659,31 @@ body {
   font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.5;
+}
+/* The shared TPS_NOTE appended below a TPS-variant metric's own
+   formula/description (parts.extraText in info-popover.js) — visually
+   secondary (dimmer, separated by a rule) so it reads as a general aside
+   rather than part of the metric's own definition. */
+.info-popover-extra-text {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(240, 237, 228, 0.25);
+  color: var(--chalk-dim);
+}
+/* Formula popovers (X/Y axis metric-definition triggers, main.js) show an
+   <img> instead of .info-popover-text — the fixed 240px box above is sized
+   for prose and is too narrow for a rendered formula (PRP/PBE run wider
+   than that at a legible size). This variant drops the fixed width in
+   favor of a cap that still fits small screens, and the image itself scales
+   down to whatever that ends up being. */
+.info-popover-content--formula {
+  width: max-content;
+  max-width: min(90vw, 420px);
+}
+.info-popover-formula-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 .info-popover-close {
   appearance: none;
@@ -1050,10 +1104,22 @@ body {
 }
 .checkbox-label input { accent-color: var(--flag-gold); width: 15px; height: 15px; }
 
-/* --- board: chart + scouting card --- */
+/* --- board: chart + scouting card ---
+   grid-template-columns is `minmax(0, 1fr)`, not a bare `1fr` — a bare 1fr
+   track still carries an automatic MINIMUM size based on its widest grid
+   item's intrinsic content width, so a wide, nowrap-heavy card (e.g. the
+   Linemate Card's 10-column roster table, .linemate-table-wrap) can force
+   this column wider than the viewport, dragging .chart-panel (the other
+   grid item sharing this same single column) along with it. `minmax(0, 1fr)`
+   is the standard fix: it clamps the track's minimum to 0 so
+   .linemate-table-wrap's own `overflow-x: auto` (style.css, Linemate Card
+   section) actually gets to do its job — scroll its own content — instead
+   of being bypassed by an ancestor that silently grew to fit it. See also
+   .scout-cards' matching `min-width: 0` below, same fix one level down the
+   chain (grid item → flex container) for the mobile stacked-card layout. */
 .board {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
   position: relative; /* positioning context for the scout-card overlay */
@@ -1068,11 +1134,22 @@ body {
   padding: 12px;
   min-height: 720px;
   position: relative;
-  /* Without this, a pinch gesture aimed at a data point is read by the
-     browser as a page-zoom gesture, blowing the whole layout (controls
-     included) off screen instead of hovering the point. Plotly's own
-     scrollZoom handling (see app.js) covers zoom instead. */
-  touch-action: none;
+  /* `manipulation` (= pan-x pan-y pinch-zoom, minus double-tap-zoom) is a
+     deliberate choice, not `none` and not `auto`. A pinch gesture over the
+     chart is now meant to trigger the browser's own native visual-viewport
+     zoom/pan — "look closer at the same rendered picture," not Plotly's own
+     data zoom (which stays off: dragmode:false, scrollZoom:false in
+     render.js). Explicitly excluding double-tap-zoom matters here: a plain
+     tap opens a Player Card (render.js's plotly_click handler), and native
+     double-tap-zoom would otherwise either misfire on quick repeat taps or
+     add the classic ~300ms tap-delay while the browser waits to see if a
+     second tap is coming. `auto` would allow that double-tap gesture too;
+     `manipulation` is the standard value for "native pan/pinch, but keep
+     single-tap immediate." On mobile this also has to coexist with
+     .chart-panel's own horizontal scroll (see the mobile media block below,
+     where #chart is deliberately wider than the viewport) — pan-x/pan-y
+     covers that scroll, pinch-zoom still bubbles up to the page. */
+  touch-action: manipulation;
 }
 
 #chart { width: 100%; height: 720px; }
@@ -1144,6 +1221,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    /* Defense-in-depth alongside .board's minmax(0, 1fr) above — a flex
+       item's default min-width is `auto` (its content's intrinsic width),
+       which can reintroduce the exact same overflow-forces-ancestor-wider
+       bug one level down even with the grid track itself now clamped. */
+    min-width: 0;
   }
 }
 
@@ -1730,7 +1812,7 @@ body {
    merge popups). Lives in the column header row now, alongside the title
    (mirroring the Merged Cards column's title+Create row) rather than its own
    full-width row above the list — sized to match the Filters bar's shared
-   150px non-Season control width (.control select/.teams-select-btn) so it
+   default 150px non-Season control width (--w; .control select/.teams-select-btn) so it
    reads as the same control, not stretching across the row; space-between
    on .pcs-column-header still pins it to the header's right edge. This is
    no longer the same width as .merge-btn (Create) next to it in the other
@@ -2002,7 +2084,7 @@ body {
 }
 .merge-table th,
 .merge-table td {
-  padding: 6px 8px;
+  padding: 11px 8px;
   text-align: right;
   white-space: nowrap;
   border-bottom: 1px solid var(--turf-600);
@@ -2015,6 +2097,7 @@ body {
   font-size: 10px;
 }
 .merge-table td { color: var(--chalk); }
+.merge-table td.merge-metric-cell { text-align: center; }
 .merge-metric-cell { cursor: help; }
 .merge-metric-cell:hover { color: var(--flag-gold); }
 /* Percentile color coding — same six bins/colors/text-contrast rule as
@@ -2099,8 +2182,9 @@ thead .merge-table-frozen { z-index: 3; }
    (.scout-card-top logo+name+meta, then a second bordered row) — see
    openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
    second row's own modifier on .scout-card-actions, swapping its single-
-   button flex-start layout for the two disclaimer lines (roster size/
-   threshold, then the percentile note) that used to sit under the title. */
+   button flex-start layout for the disclaimer lines (roster size/threshold,
+   the scroll hint, then the percentile note) that used to sit under the
+   title. */
 .linemate-card-notes {
   flex-direction: column;
   align-items: flex-start;
@@ -2145,6 +2229,7 @@ thead .merge-table-frozen { z-index: 3; }
   font-size: 10px;
 }
 .linemate-table td { color: var(--chalk); }
+.linemate-table td.linemate-metric-cell { text-align: center; }
 .linemate-metric-cell { cursor: help; }
 .linemate-metric-cell:hover { color: var(--flag-gold); }
 .linemate-table .linemate-table-name,
@@ -2534,8 +2619,77 @@ thead .linemate-table-frozen { z-index: 3; }
   outline: none;
 }
 
+/* Consolidated here, deliberately after every base .control-* width rule
+   in this file (.control-season select, .teams-select-btn, .control-
+   players, .control select) so this always wins their cascade on source
+   order alone, regardless of selector specificity — splitting a narrow-
+   viewport override like this across two locations earlier (one of them
+   physically *before* a same-specificity base rule) silently lost that
+   fight and the override never took effect, a real bug caught by
+   qa-kitten. Keeping every override for these controls in this one place
+   removes that whole class of mistake going forward.
+
+   At desktop widths (>= 861px; below that the mobile drawer takes over and
+   stacks controls in a column) the 7 filters share ONE row and scale as a
+   group. Each control gets `flex: var(--w) 1 0px`: a zero basis, so the
+   row's whole free width (bar content width minus the fixed 18px gaps) is
+   split purely by flex-grow, and grow = the control's own default width
+   (--w: 72 for Season, 150 for the rest). Every control therefore ends up
+   the same multiple of its default — exactly 1.0x when the bar is 1080px
+   wide (72 + 6*150 + 6*18), smaller as the window narrows, larger as it
+   widens — and Season:others stays 72:150 at every width. A zero basis
+   (rather than basis = --w) is deliberate: flex-wrap decides where to
+   break lines from each item's *hypothetical* size and never shrinks items
+   to avoid a wrap, so a --w basis would wrap Y axis onto its own line the
+   moment the bar dipped under 1080px. With basis 0 the only wrap trigger
+   is the min-width floor below, and its sum stays under the narrowest
+   possible bar at 861px, so a wrap can't happen in this range.
+   min-width is a floor at 60% of the default, a safety net only: it is
+   below the scale reached even at 861px (~0.68x), so it never distorts
+   the proportions in normal use. width: 100% on the actual select/button
+   makes each track its flexible parent instead of its fixed default px
+   width; the label text still elides via the existing overflow rules. */
+@media (min-width: 861px) {
+  .control-season,
+  .control-teams,
+  #players-control,
+  .control-category,
+  .control-position,
+  .control-axis {
+    flex: var(--w) 1 0px;
+    min-width: calc(var(--w) * 0.6px);
+  }
+  .control-season select,
+  .control-teams .teams-select-btn,
+  #players-control .teams-select-btn,
+  .control-category select,
+  .control-position select,
+  .control-axis select {
+    width: 100%;
+    max-width: none;
+  }
+  /* Season holds a fixed-length value (a 4-digit year) that just barely
+     fits its 72px default — any proportional shrink below that clips the
+     year itself ("2…"), which is worse than every other control's
+     elision because it's the one value that can't be inferred from a
+     prefix. So its floor is its own default, not 60% of it: it stays 72px
+     as the bar narrows (the other six share what's left) and still grows
+     proportionally as the bar widens. Declared after the shared rule. */
+  .control-season { min-width: calc(var(--w) * 1px); }
+  /* Players' label row (the PLAYERS button + Clear link) can't shrink, and
+     at the narrowest desktop widths it's slightly wider than the 60% floor
+     above would allow ("Clear" would poke out past the control's edge).
+     Its own content width is the floor instead — a few px at most, only
+     near 861px. Declared after the shared rule so it wins on source order. */
+  #players-control { min-width: min-content; }
+}
+
 @media (max-width: 860px) {
-  .board { grid-template-columns: 1fr; }
+  /* No .board override needed here — the base rule's `minmax(0, 1fr)`
+     already holds at every breakpoint; a mobile-only re-declaration of a
+     bare `1fr` previously lived here and quietly undid the fix above
+     specifically on mobile (same specificity, later in source order wins),
+     which is exactly the viewport this bug only ever showed up on. */
 
   /* Bleed the chart panel out to the viewport edges — .layout's 24px
      horizontal padding is otherwise doubled up with the panel's own 12px,
@@ -2545,6 +2699,20 @@ thead .linemate-table-frozen { z-index: 3; }
     margin: 0 -24px;
     border-radius: 0;
   }
+  /* Reverted a same-day experiment: #chart was briefly forced to a fixed
+     1100px desktop-style width here (scrolled or shrink-to-fit via CSS
+     transform, with render.js's margin/font sizing also forced to always
+     use desktop numbers) so mobile would show "the same wide layout as
+     desktop." Turned out to be the wrong shape entirely once tested against
+     a real reference screenshot: shrinking a 1100px desktop-font canvas down
+     to fit a phone screen makes the text/logos tiny by default, not legible
+     the way mobile's own smaller font tuning (see render.js's isMobile
+     branch) already renders them at 100% width. Back to width:100% —
+     #chart just fills .chart-panel like every other mobile element, at its
+     own crisp native resolution, no scaling trick involved. Native
+     pinch-zoom (touch-action: manipulation above) is still there for anyone
+     who wants to look even closer at a crowded cluster; it's just a bonus
+     now, not required to read the chart's default labels. */
   #chart, .chart-panel { min-height: 600px; }
   #chart { height: 75vh; min-height: 600px; }
   .hero { padding: 16px 16px 12px; }
@@ -2628,16 +2796,19 @@ thead .linemate-table-frozen { z-index: 3; }
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
 
-  /* Merge Cards, Linemate Cards, and Pinned Players are desktop/
-     tablet-only too (BLUEPRINT.md §0, BLUEPRINT_PinnedPlayers.md's own
-     "Not rendered on mobile" checklist item) — app.js's
-     isDesktopScoutLayout() guards already stop new ones from opening below
-     860px and already [hidden]-gate Pinned Players itself; this hides the
-     remaining affordance that would start that flow (each Player Card's
-     linemate-toggle row) so the mobile card body is exactly what v1.1.0
-     shipped. */
+  /* Merge Cards and Pinned Players stay desktop/tablet-only (BLUEPRINT.md
+     §0) — app.js's isDesktopScoutLayout() guards already stop new Merge
+     Cards from opening below 860px, and Pinned Players' own management
+     panel (.player-cards-space) is hidden below regardless. Linemate Cards
+     are the one exception (BLUEPRINT.md §0 update): a Linemate Card is just
+     a scrollable teammate-stats table (see .linemate-table-wrap's
+     overflow-x below), not a scatter plot, so it doesn't need the wide
+     layout — .scout-card-actions (the Player Card's linemate-toggle row,
+     also reused as the Linemate Card's own note row) is therefore no
+     longer hidden here. .scout-resize-handle stays desktop-only — edge-
+     resizing isn't meaningful once mobile cards are static stacked blocks
+     (see .scout-card overrides above), for either card type. */
   .player-cards-space,
-  .scout-card-actions,
   .scout-resize-handle {
     display: none;
   }
@@ -2679,9 +2850,9 @@ thead .linemate-table-frozen { z-index: 3; }
     width: 100%;
   }
   .filters-drawer .control-season select { width: 100%; }
-  /* Every plain select and .teams-select-btn (Teams/Players) is pinned to a
-     fixed 150px width on desktop to keep the control bar's row aligned (see
-     the rules near .control-season and .teams-select-btn above) —
+  /* Every plain select and .teams-select-btn (Teams/Players) has a default
+     width of calc(var(--w) * 1px) (see .control) that the desktop row scales
+     proportionally (@media (min-width: 861px) block) —
      irrelevant here since the drawer stacks controls in a single column,
      but max-width would otherwise still win over this width: 100% and leave
      the control artificially narrow. */
@@ -2698,12 +2869,12 @@ thead .linemate-table-frozen { z-index: 3; }
     margin-top: 8px;
     box-shadow: none;
   }
-  /* .control-slider's `flex: 1 1 220px` sizes it as a 220px-wide item in
+  /* .control-slider's `flex: 1 1 170px` sizes it as a 170px-wide item in
      the desktop row layout above. In this column-direction drawer, that
-     same flex-basis is read as a 220px *height* instead — the control's
+     same flex-basis is read as a 170px *height* instead — the control's
      actual content (label + slider row) is ~80px, so without this reset
-     it sits in a box ~140px taller than its content, which is exactly
-     the empty gap this rule fixes. */
+     it sits in a box taller than its content, which is exactly the empty
+     gap this rule fixes. */
   .filters-drawer .control-slider {
     flex: none;
     min-width: 0;

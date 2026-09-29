@@ -1,5 +1,8 @@
-/* Plotly trace construction, label declutter, logo placement, PNG export.
+/* Plotly trace construction, label declutter/emphasis, logo placement.
  * Extracted from app.js per MODULARIZATION.md v1.3.0 §2/§3 step 8.
+ * PNG export/footer-compositing split out separately into chart-export.js
+ * (no dependency on trace-building) to keep this file under the project's
+ * line-count guideline.
  *
  * render() calls viewFloatingCard() (scout-card.js) from its plotly_click
  * handler — a dependency the brief's module table doesn't list for
@@ -20,11 +23,52 @@ import {
   thresholdFieldLabel,
   allTeamCodes,
   teamName,
+  metadata,
 } from "./data.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
 import { viewFloatingCard } from "./scout-card.js";
+import { collectMetricNotes } from "./metric-notes.js";
 
 export let logoRelayoutGuard = false; // suppresses our own relayout from re-triggering itself
+
+// Point-label font size for the scatter's marker text (player names) only —
+// axis ticks/titles, chart title/subtitle, hoverlabel, and the median/note
+// annotations below all size independently of this. History: 10px original
+// → 12.5px (125%) per Reddit's "extremely hard to read" feedback → 25px
+// (200% of that) per a follow-up "even bolder" ask → 15px → 13px → back to
+// 10px. Note this is the original pre-emphasis size that prompted the
+// "extremely hard to read" feedback in the first place — but it's now
+// paired with the bold/halo/glow emphasis (LABEL_EMPHASIS_WEIGHT etc. below)
+// that didn't exist back then, so it's not a straight reversion to how it
+// used to look. computeKeptLabels()'s collision-box constants, LABEL_GAP
+// (marker-to-label offset), and the halo/glow constants below are all
+// derived off this same value (see FONT_SCALE there) so a future size
+// change can't quietly fall out of sync with however large the trace text
+// actually renders — this one constant is the whole change.
+export const POINT_LABEL_FONT_SIZE = 10;
+
+// Bold weight + a background-colored halo (outline) + a faint glow, applied
+// only to spotlighted (non-dimmed) labels — the "bolder" half of the Reddit
+// legibility follow-up (LABEL_ALPHA in config.js handles "brighter", the one
+// part Plotly's textfont natively supports). None of the three below are:
+// Plotly's textfont schema has no font-weight, stroke, or filter property at
+// all, so applyLabelEmphasis() sets these as direct inline SVG styles on the
+// rendered <text> nodes post-render instead of through trace config.
+// Exported (not just local consts) because chart-export.js's canvas-overlay
+// redraw needs these exact same values — Plotly's PNG export regenerates its
+// SVG from its own internal model rather than the live, DOM-patched chart,
+// so this emphasis has to be manually re-drawn onto the export canvas too;
+// sharing these constants is what keeps that redraw pixel-matched to what's
+// actually on screen instead of a second hand-tuned copy drifting over time.
+export const LABEL_EMPHASIS_WEIGHT = "600"; // matches the Oswald 600 instance index.html already loads
+// Halo width and glow blur are both a fraction of the label's own font size
+// rather than a flat px value, so they stay proportionate if
+// POINT_LABEL_FONT_SIZE ever changes again instead of silently drifting.
+export const LABEL_HALO_WIDTH = POINT_LABEL_FONT_SIZE * 0.16; // ~2px at 12.5px — a controlled outline, not a thick outline
+export const LABEL_HALO_COLOR = "#16301f"; // matches --turf-800 / EXPORT_FOOTER_BG in chart-export.js — the chart's real background on screen and in the export
+export const LABEL_GLOW_BLUR = POINT_LABEL_FONT_SIZE * 0.12; // ~1.5px at 12.5px — deliberately small/subtle, not a neon effect
+export const LABEL_GLOW_COLOR = "rgba(241,236,221,0.4)"; // faint bright glow, same off-white as the label text itself
+export const LABEL_FILL_RGB = "241,236,221"; // the off-white player-name/label color — shared so chart-export.js's canvas overlay fills with the exact same color
 
 // main.js's Save-PNG handler (attachEvents()) sets this directly around its
 // own paper_bgcolor/plot_bgcolor relayout calls — same reason every other
@@ -32,125 +76,6 @@ export let logoRelayoutGuard = false; // suppresses our own relayout from re-tri
 // header comment.
 export function setLogoRelayoutGuard(v) {
   logoRelayoutGuard = v;
-}
-
-// Metric labels can contain "%" or "/" (e.g. "Pressure %"), which aren't
-// safe/clean in a downloaded filename — collapse any run of non-alphanumeric
-// characters to a single underscore.
-export function sanitizeForFilename(value) {
-  return String(value).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
-// Credit strip baked into exported PNGs only — the on-screen chart never
-// shows this (the page's own .meta-band already covers it for site
-// visitors). Drawn via canvas rather than a Plotly annotation: the extra
-// margin an in-chart annotation would need depends on the live isMobile
-// axis-title sizing (see render()'s margin.b), which is fragile to
-// replicate here — layering a fixed-height strip onto the finished raster
-// is simpler and pixel-exact regardless of what layout produced it.
-export const EXPORT_FOOTER_TEXT = "LinesShines · www.lines-shines.com · Source: PFF Premium Stats";
-export const EXPORT_FOOTER_HEIGHT = 30; // logical px, pre-scale
-export const EXPORT_FOOTER_FONT_SIZE = 12; // logical px, pre-scale — chart-annotation size
-export const EXPORT_FOOTER_PADDING_X = 16; // logical px, pre-scale
-export const EXPORT_FOOTER_BG = "#16301f"; // matches --turf-800, same swap render() does for export bg
-export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, muted so it doesn't compete with the plot
-
-// Composites the credit-line footer onto a canvas already sized to include
-// the extra footerPx strip beneath sourceHeight — split out of
-// exportChartPngWithFooter so card-export.js's html2canvas-based exports can
-// draw the exact same footer without duplicating this, keeping every PNG the
-// app produces (chart or card) on one shared brand footer.
-export function drawExportFooter(ctx, canvasWidth, sourceHeight, footerPx, scale) {
-  ctx.fillStyle = EXPORT_FOOTER_COLOR;
-  ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.fillText(
-    EXPORT_FOOTER_TEXT,
-    canvasWidth - Math.round(EXPORT_FOOTER_PADDING_X * scale),
-    sourceHeight + footerPx / 2
-  );
-}
-
-// EXPORT_FOOTER_TEXT's own rendered width, at a given export scale — used
-// by compositeFooterCanvas below to guarantee the canvas is wide enough to
-// hold it. A throwaway canvas 2d context is the standard way to measure text
-// without touching the DOM; harmless to create one per export click.
-function measureFooterTextWidth(scale) {
-  const ctx = document.createElement("canvas").getContext("2d");
-  ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
-  return ctx.measureText(EXPORT_FOOTER_TEXT).width;
-}
-
-// Returns a new canvas: `sourceCanvas` with EXPORT_FOOTER_BG behind it (so
-// any transparent source pixels don't fall back to white) and the credit
-// line drawn into the extra strip below. The main chart export is always
-// comfortably wider than the footer text needs, but a narrower per-card
-// export (card-export.js — a Player Card in particular, ~380px wide) can be
-// narrower than the footer's own rendered width, silently clipping its left
-// edge off the canvas entirely. Widening the canvas to at least fit the
-// footer (with the source image centered in the extra room, rather than
-// left-aligned with a lopsided gap on the right) fixes that for every card
-// type/width at once instead of hardcoding a wider minimum per card type.
-export function compositeFooterCanvas(sourceCanvas, scale) {
-  const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
-  const paddingPx = Math.round(EXPORT_FOOTER_PADDING_X * scale);
-  // +4px/scale safety margin: measureText's result depends on Inter having
-  // actually finished loading by click time — a fallback-font measurement
-  // fractionally narrower than the real render shouldn't reintroduce a
-  // hairline clip.
-  const minWidthForFooter = Math.ceil(measureFooterTextWidth(scale)) + paddingPx * 2 + Math.round(4 * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(sourceCanvas.width, minWidthForFooter);
-  canvas.height = sourceCanvas.height + footerPx;
-
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = EXPORT_FOOTER_BG;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(sourceCanvas, Math.round((canvas.width - sourceCanvas.width) / 2), 0);
-  drawExportFooter(ctx, canvas.width, sourceCanvas.height, footerPx, scale);
-  return canvas;
-}
-
-export function downloadCanvasAsPng(canvas, filename) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("canvas.toBlob returned null"));
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${filename}.png`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      resolve();
-    }, "image/png");
-  });
-}
-
-// Renders the chart to a PNG via Plotly.toImage, then composites a footer
-// strip onto a taller canvas before triggering the download — keeps the
-// credit line out of the on-screen/exported-without-footer chart state.
-export function exportChartPngWithFooter(chartDiv, { width, height, scale, filename }) {
-  return Plotly.toImage(chartDiv, { format: "png", width, height, scale }).then(
-    (dataUrl) =>
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const sourceCanvas = document.createElement("canvas");
-          sourceCanvas.width = img.width;
-          sourceCanvas.height = img.height;
-          sourceCanvas.getContext("2d").drawImage(img, 0, 0);
-          downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale), filename).then(resolve, reject);
-        };
-        img.onerror = () => reject(new Error("Failed to load rendered chart image"));
-        img.src = dataUrl;
-      })
-  );
 }
 
 // Some metric display names (OL's "Allowed Pressure %", "TPS Allowed Havoc %")
@@ -212,9 +137,14 @@ export function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField,
     return records.map(() => true);
   }
 
-  const CHAR_WIDTH = 6.5; // Approx advance width, IBM Plex Mono @ 10px.
-  const LABEL_HEIGHT = 12;
-  const LABEL_GAP = 10;   // vertical offset from marker center to "bottom center" text
+  // Box constants below were tuned by eye at the original 10px label size;
+  // FONT_SCALE keeps them proportional to whatever POINT_LABEL_FONT_SIZE
+  // actually is now, so a future font-size tweak can't silently desync the
+  // declutter math from the text it's supposed to be measuring.
+  const FONT_SCALE = POINT_LABEL_FONT_SIZE / 10;
+  const CHAR_WIDTH = 6.5 * FONT_SCALE; // Approx advance width @ 10px baseline.
+  const LABEL_HEIGHT = 12 * FONT_SCALE;
+  const LABEL_GAP = 10 * FONT_SCALE;   // vertical offset from marker center to "bottom center" text
   // Shrink each box by this fraction on every side before the collision test,
   // so two labels have to genuinely overlap (not just sit close) to bump one
   // another — trades a bit of edge-touching/kerning overlap for showing more
@@ -254,6 +184,37 @@ export function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField,
   });
 
   return kept;
+}
+
+// Applies the bold + halo + glow emphasis (see the LABEL_EMPHASIS_WEIGHT
+// comment above) to every spotlighted label's rendered <text> node, and
+// explicitly clears those same styles from every non-spotlighted node.
+// Plotly stamps a `data-unformatted` attribute on each scatter-trace text
+// node holding its exact current text value, so matching against
+// `spotlightNames` here is robust to Plotly reusing or recreating those DOM
+// nodes across renders — it doesn't depend on array-index alignment or any
+// particular DOM structure beyond that one attribute. Always clearing the
+// non-matching nodes (not just skipping them) matters because a Teams/
+// Players change can reassign which players are spotlighted between
+// renders; without the clear, a label that's no longer spotlighted could
+// keep a stale halo from an earlier render where it was.
+//
+// Caveat: two different players sharing the exact same rendered label text
+// (an identical "First Last" abbreviation) would both match — extremely
+// rare within one filtered view, and harmless even if it happens (worst
+// case a dimmed duplicate gets an emphasis it didn't need).
+export function applyLabelEmphasis(chartDiv, spotlightNames) {
+  const nodes = chartDiv.querySelectorAll(".scatterlayer text");
+  nodes.forEach((node) => {
+    const name = node.getAttribute("data-unformatted");
+    const spotlighted = !!name && spotlightNames.has(name);
+    node.style.fontWeight = spotlighted ? LABEL_EMPHASIS_WEIGHT : "";
+    node.style.paintOrder = spotlighted ? "stroke" : "";
+    node.style.stroke = spotlighted ? LABEL_HALO_COLOR : "";
+    node.style.strokeWidth = spotlighted ? `${LABEL_HALO_WIDTH}px` : "";
+    node.style.strokeLinejoin = spotlighted ? "round" : "";
+    node.style.filter = spotlighted ? `drop-shadow(0 0 ${LABEL_GLOW_BLUR}px ${LABEL_GLOW_COLOR})` : "";
+  });
 }
 
 // Teams and Players both only dim, never exclude (see the isDimmed comment
@@ -332,12 +293,6 @@ export function render() {
   const xMeta = cat.metrics[xKey] || {};
   const yMeta = cat.metrics[yKey] || {};
 
-  const activeNotes = [];
-  if (xMeta.note) activeNotes.push(xMeta.note);
-  if (yMeta.note && yMeta.note !== xMeta.note) {
-    activeNotes.push(yMeta.note); // avoid dup when both axes use the same metric family
-  }
-
   const xVals = currentFiltered.map((r) => r[xKey]);
   const yVals = currentFiltered.map((r) => r[yKey]);
   const colors = currentFiltered.map((r) => teamColor(r.team));
@@ -354,8 +309,8 @@ export function render() {
     // logos sit on the dot itself, so push labels below to avoid clashing
     textposition: showLogos && showLabels ? "bottom center" : "top center",
     textfont: {
-      color: isDimmed.map((dim) => `rgba(241,236,221,${dim ? DIM_OPACITY.label : LABEL_ALPHA})`),
-      size: 10,
+      color: isDimmed.map((dim) => `rgba(${LABEL_FILL_RGB},${dim ? DIM_OPACITY.label : LABEL_ALPHA})`),
+      size: POINT_LABEL_FONT_SIZE,
       // Plotly's textfont has no weight field. index.html's Google Fonts
       // link now loads two Oswald instances (wght@450;600 — 600 is for the
       // Pinned/Manage bar, see style.css .pcs-quota/.pcs-inspect-btn). This
@@ -409,31 +364,53 @@ export function render() {
     },
   ];
 
-  // Metric definition callouts (e.g. what "Havoc Rate" means) — only shown
-  // when a Havoc-family metric is on an axis, see activeNotes above.
   const isMobile = window.innerWidth < 860;
-  const noteAnnotations = activeNotes.map((note, i) => ({
-    xref: "paper", yref: "paper",
-    x: 1, y: 1 - i * 0.05, // stack multiple notes vertically if both axes have notes
-    xanchor: "right", yanchor: "top",
+
+  // "Include metric notes" — live, not Apply-gated (main.js wires this
+  // checkbox's "change" straight to render(), same as Player Names/Team
+  // Logos), and drawn at the bottom of the plot rather than the old
+  // Havoc-only top-right box it replaced (see the removed noteAnnotations —
+  // this covers every metric with a note/formula_note, not just Havoc's
+  // family, via the same collectMetricNotes() the export appendix uses).
+  // Being a real Plotly annotation (not a canvas-composited export-only
+  // strip like the card exports use) means it's part of els.chart.layout
+  // itself, so Save Plot's export clone picks it up automatically — see
+  // main.js's Save Plot handler, which deliberately does NOT also pass
+  // appendixNotes to exportChartPngWithFooter, to avoid drawing it twice.
+  const metricNoteLines = els.metricNotesToggle.checked
+    ? collectMetricNotes(cat, [xKey, yKey], metadata.tps_note)
+    : [];
+  // BASE_MARGIN_B is the plot's own bottom margin — already sized (and
+  // proven, pre-dating this feature) to comfortably fit the x-axis tick
+  // labels + axis title with no overlap. Rather than re-guessing how tall
+  // that combined tick+title block actually renders (an earlier version of
+  // this tried a flat -34px yshift, which undershot and overlapped the axis
+  // title directly — see the bug this replaced), each note line is
+  // anchored to start strictly *after* that whole known-good region ends,
+  // never inside it, so it can't collide with the title regardless of its
+  // real rendered height.
+  const BASE_MARGIN_B = 56;
+  const NOTE_LINE_HEIGHT = 14;
+  const NOTE_TOP_PADDING = 8; // gap between the axis title and the first note line
+  const metricNoteAnnotations = metricNoteLines.map((note, i) => ({
+    xref: "paper", x: 0, xanchor: "left",
+    yref: "paper", y: 0, yanchor: "top",
+    yshift: -(BASE_MARGIN_B + NOTE_TOP_PADDING + i * NOTE_LINE_HEIGHT),
     text: `<i>ⓘ ${note}</i>`,
     showarrow: false,
-    font: {
-      family: "IBM Plex Mono, monospace",
-      size: isMobile ? 9 : 11,
-      color: "#a9b6a9",
-    },
-    bgcolor: "rgba(15,33,25,0.85)", // turf-950 with alpha
-    bordercolor: "rgba(211,167,61,0.4)", // faint gold border
-    borderwidth: 1,
-    borderpad: 6,
+    align: "left",
+    font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 11, color: "#a9b6a9" },
   }));
 
-  const annotations = [...medianAnnotations, ...noteAnnotations];
+  const annotations = [...medianAnnotations, ...metricNoteAnnotations];
 
-  const reversed = appliedFilters.category === "pass_block"; // lower allowed% is better
+  // Reverse an axis whenever its own metric is lower-is-better — per-metric,
+  // not per-category, since a category can mix directions (e.g. pass_block's
+  // PBE/TPS PBE are higher-is-better alongside its lower-is-better Allowed metrics).
+  const xReversed = xMeta.higher_is_better === false;
+  const yReversed = yMeta.higher_is_better === false;
 
-  // total_selected counts everyone clearing threshold, not just highlighted teams;
+  // `total_selected` counts everyone clearing threshold, not just highlighted teams;
   // Teams dims players rather than removing them (see DIM_OPACITY above),
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
@@ -444,11 +421,21 @@ export function render() {
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
-    // Extra headroom above the plot area (beyond what the title/subtitle
-    // text itself needs) so the metric-definition note box — pinned to the
-    // plot's own y:1 top edge, not the title block — doesn't sit flush
-    // against the subtitle.
-    margin: { l: 60, r: 24, t: isMobile ? 96 : 88, b: 56 },
+    // Metric definitions used to also live in an on-chart top-right callout
+    // (a note box pinned to the plot's own y:1 top edge, Havoc-family only)
+    // — retired in favor of metricNoteAnnotations above, which moved to the
+    // bottom and covers every metric with a note, gated by "Include metric
+    // notes" instead of always-on. Top margin is just title/subtitle
+    // headroom now; bottom margin grows with metricNoteLines so the note
+    // text has room below the axis title instead of overlapping it.
+    margin: {
+      l: 60,
+      r: 24,
+      t: isMobile ? 80 : 72,
+      b: metricNoteLines.length
+        ? BASE_MARGIN_B + NOTE_TOP_PADDING + metricNoteLines.length * NOTE_LINE_HEIGHT + NOTE_TOP_PADDING
+        : BASE_MARGIN_B,
+    },
     title: {
       text: titleText,
       font: { family: "Anton, Arial Narrow, sans-serif", size: isMobile ? 16 : 22, color: "#f1ecdd" },
@@ -466,13 +453,13 @@ export function render() {
       title: { text: axisTitle(xKey, xMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
-      autorange: reversed ? "reversed" : true,
+      autorange: xReversed ? "reversed" : true,
     },
     yaxis: {
       title: { text: axisTitle(yKey, yMeta) },
       gridcolor: "rgba(241,236,221,0.08)",
       zerolinecolor: "rgba(241,236,221,0.15)",
-      autorange: reversed ? "reversed" : true,
+      autorange: yReversed ? "reversed" : true,
     },
     shapes,
     annotations,
@@ -494,12 +481,29 @@ export function render() {
   }
 
   // Only declutters when logos are on — with plain colored dots the labels
-  // sit right above a small marker and collide far less.
+  // sit right above a small marker and collide far less. Either way, every
+  // spotlighted (non-dimmed) label that's actually showing gets the bold/
+  // halo/glow emphasis from applyLabelEmphasis() — declutter can only ever
+  // blank labels, never add ones back, so the two branches below just differ
+  // in how they arrive at "which spotlighted labels are currently visible".
   function applyLabelDeclutter() {
-    if (!showLabels || !showLogos) return;
+    if (!showLabels) return;
+    const labelName = (r) => r.abbr_name || r.player;
+    if (!showLogos) {
+      const spotlightNames = new Set(
+        currentFiltered.filter((r, i) => !isDimmed[i]).map(labelName)
+      );
+      applyLabelEmphasis(els.chart, spotlightNames);
+      return;
+    }
     const kept = computeKeptLabels(els.chart, currentFiltered, xKey, yKey, cat.threshold_field, isDimmed);
-    const text = currentFiltered.map((r, i) => (kept[i] ? (r.abbr_name || r.player) : ""));
-    Plotly.restyle(els.chart, { text: [text] }, [0]);
+    const text = currentFiltered.map((r, i) => (kept[i] ? labelName(r) : ""));
+    const spotlightNames = new Set(
+      currentFiltered.filter((r, i) => kept[i] && !isDimmed[i]).map(labelName)
+    );
+    Plotly.restyle(els.chart, { text: [text] }, [0]).then(() => {
+      applyLabelEmphasis(els.chart, spotlightNames);
+    });
   }
 
   // No `images` key here on purpose — Plotly.react fully replaces

@@ -11,6 +11,8 @@ export const els = {
   position: document.getElementById("position-select"),
   xMetric: document.getElementById("x-metric-select"),
   yMetric: document.getElementById("y-metric-select"),
+  xAxisInfoSlot: document.getElementById("x-axis-info-slot"),
+  yAxisInfoSlot: document.getElementById("y-axis-info-slot"),
   threshold: document.getElementById("threshold-slider"),
   thresholdNumber: document.getElementById("threshold-number"),
   applyBtn: document.getElementById("apply-filters"),
@@ -18,6 +20,7 @@ export const els = {
   thresholdFieldLabel: document.getElementById("threshold-field-label"),
   labelsToggle: document.getElementById("labels-toggle"),
   logosToggle: document.getElementById("logos-toggle"),
+  metricNotesToggle: document.getElementById("metric-notes-toggle"),
   teamsControl: document.querySelector(".control-teams"),
   teamsBtn: document.getElementById("teams-toggle-btn"),
   teamsSummary: document.getElementById("teams-select-summary"),
@@ -35,7 +38,9 @@ export const els = {
   playersChips: document.getElementById("players-chips"),
   playersInput: document.getElementById("players-input"),
   playersDropdown: document.getElementById("players-dropdown"),
-  // Below-threshold-matches popup — see openBelowThresholdPopup() in filters.js.
+  // Below-threshold-matches popup — see openBelowThresholdPopup() in
+  // filters.js. Shared by the Players filter and every Pinned Players
+  // search box (workspace.js/merge-card.js), not just this one.
   belowThresholdOverlay: document.getElementById("below-threshold-overlay"),
   belowThresholdList: document.getElementById("below-threshold-list"),
   belowThresholdClose: document.getElementById("below-threshold-close"),
