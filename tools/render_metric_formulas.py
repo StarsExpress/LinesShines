@@ -24,7 +24,9 @@ import matplotlib
 matplotlib.use("svg")
 import matplotlib.pyplot as plt  # noqa: E402  (backend must be set first)
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "frontend" / "images" / "metric_formulas"
+OUTPUT_DIR = (
+    Path(__file__).resolve().parent.parent / "frontend" / "images" / "metric_formulas"
+)
 
 # Text color matches `--chalk` (#f1ecdd), the popover's body-text color
 # against its `--turf-800` background (see style.css's .info-popover-text).
@@ -50,7 +52,13 @@ def render_all() -> None:
         fig.patch.set_alpha(0.0)
         fig.text(0, 0, formula, fontsize=FONT_SIZE, color=TEXT_COLOR)
         out_path = OUTPUT_DIR / f"{name}.svg"
-        fig.savefig(out_path, format="svg", bbox_inches="tight", pad_inches=0.08, transparent=True)
+        fig.savefig(
+            out_path,
+            format="svg",
+            bbox_inches="tight",
+            pad_inches=0.08,
+            transparent=True,
+        )
         plt.close(fig)
         print(f"Wrote {out_path.relative_to(OUTPUT_DIR.parent.parent.parent)}")
 

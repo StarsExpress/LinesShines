@@ -16,12 +16,8 @@ HAVOC_RATE_NOTE = "Havoc Rate = (Sacks + QB Hits) / Pass Rush Opportunities."
 ALLOWED_HAVOC_RATE_NOTE = (
     "Allowed Havoc Rate = (Sacks + QB Hits) / Non Spike Pass Block Snaps."
 )
-PRP_NOTE = (
-    "PRP = (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Rush Snaps x 100."
-)
-PBE_NOTE = (
-    "PBE = 100 - (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Block Snaps."
-)
+PRP_NOTE = "PRP = (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Rush Snaps x 100."
+PBE_NOTE = "PBE = 100 - (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Block Snaps."
 
 # Shared across every "TPS "-prefixed metric — not a per-metric formula, so
 # it lives once here rather than duplicated into a TPS_*_NOTE per metric.
