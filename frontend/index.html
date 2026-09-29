@@ -187,19 +187,6 @@
         </div>
       </div>
 
-      <!-- Width-gated row-break: on a wide desktop/laptop screen all 7
-           controls above and including Y axis comfortably fit on one line
-           (see .row-break below, which is unconditional and always exists
-           regardless of width) -- but on a narrower screen (a real narrow
-           browser window, or a phone rendering this desktop layout via
-           index.html's viewport-meta override) there isn't room for all 7,
-           and plain flex-wrap strands just the last one (Y axis) alone on
-           its own line, which reads as an accident rather than a design.
-           .row-break-narrow (style.css) is inert at normal widths and only
-           activates below a breakpoint, deliberately grouping Category/
-           Position/X axis/Y axis onto their own row together instead. -->
-      <div class="row-break row-break-narrow" aria-hidden="true"></div>
-
       <div class="control control-category">
         <label for="category-select">Category</label>
         <select id="category-select">

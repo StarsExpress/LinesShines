@@ -220,7 +220,7 @@ export function renderPlayerChips() {
 
 // Mirrors updateTeamsSummary() — the collapsed button's label, shown while
 // .players-panel is closed so the chip list itself never has to fit inside
-// the 150px button (see the control-players sizing comment above .control-players).
+// the collapsed button (see the control-players sizing comment above .control-players).
 export function updatePlayersSummary() {
   const count = selectedPlayers.size;
   if (count === 0) els.playersSummary.textContent = "No Players";

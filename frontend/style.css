@@ -246,6 +246,15 @@ body {
 }
 
 .control {
+  /* Default width of this control's box in px, as a bare number: the ONE
+     place a filter's default width is declared. It feeds both the fixed
+     default width (calc(var(--w) * 1px), used by .control select /
+     .teams-select-btn / .control-players and the mobile drawer) and, at
+     desktop widths, the proportional flex weight (see the
+     @media (min-width: 861px) block near the end of this file) — so the
+     row's proportions can never drift from the defaults they scale from.
+     Season overrides it below; everything else shares this 150. */
+  --w: 150;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -283,8 +292,8 @@ body {
      overflow keeps every plain select this same width regardless of which
      option is picked — the full text is still one click away in the
      native dropdown, so truncation here loses nothing. */
-  width: 150px;
-  max-width: 150px;
+  width: calc(var(--w) * 1px);
+  max-width: calc(var(--w) * 1px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -349,38 +358,22 @@ body {
   width: 0;
   height: 0;
 }
-
-/* Conditional sibling of .row-break above: inert (flex-basis: 0, no effect)
-   at normal desktop/laptop widths, where Season/Teams/Players/Category/
-   Position/X axis/Y axis already all fit on one line today. Only below
-   1150px (a real narrow browser window, or a phone rendering this desktop
-   layout via index.html's viewport-meta override -- both report the same
-   window.innerWidth, there's no way to tell them apart, and there's no
-   need to: either way the fix is the same, "there isn't room for 7") does
-   it activate and force Category/Position/X axis/Y axis onto their own
-   deliberate row, instead of leaving Y axis stranded alone by plain
-   flex-wrap. 1150px is comfortably above where the phone-disguise layout
-   (1024px) needs this and comfortably below where a typical real laptop
-   window naturally already fits all 7 in one row — not tied to any other
-   layout math, adjust freely. */
-.row-break-narrow { flex-basis: 0; width: 0; height: 0; }
-@media (max-width: 1150px) {
-  .row-break-narrow { flex-basis: 100%; }
-}
-/* Row 1/Row 2's *widths* (each row filling the full control-bar width,
-   not just matching each other) are handled in one consolidated block
+/* The 7 filters above the first .row-break (Season … Y axis) always share
+   ONE row at desktop widths and scale proportionally to their --w defaults
+   as the window narrows or widens — one consolidated block for that,
    further down this file, deliberately placed after every base .control-*
    width rule (.control-season select, .teams-select-btn, .control select,
-   etc.) so it always wins the cascade on source order alone — see the
-   comment there for why splitting a narrow-viewport override like this
-   across two locations earlier caused a real bug (a later, equal-
-   specificity base rule silently cancelled an earlier override). */
+   etc.) so it always wins the cascade on source order alone. A same-
+   specificity base rule declared later once silently cancelled an earlier
+   override of this kind (caught by qa-kitten), hence one location only. */
 
 /* Season only ever holds a 4-digit year — the shared 150px .control select
    width was sized for longer option text (metric names, position labels)
-   and left Season looking as wide as Category for no reason. */
-.control-season { min-width: auto; }
-.control-season select { width: 72px; min-width: 72px; max-width: 72px; padding-right: 4px; }
+   and left Season looking as wide as Category for no reason. Its narrower
+   --w is also what makes it take proportionally less of the row when the
+   bar scales (72 : 150 ≈ 0.48). */
+.control-season { --w: 72; min-width: auto; }
+.control-season select { padding-right: 4px; }
 
 /* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
@@ -408,8 +401,8 @@ body {
      width: 100% + min-width: 150px, which let the summary text — "12
      Teams", a long typed player name — grow this past every select's width
      and break row alignment). The summary span below does the eliding. */
-  width: 150px;
-  max-width: 150px;
+  width: calc(var(--w) * 1px);
+  max-width: calc(var(--w) * 1px);
   background: var(--turf-950);
   color: var(--chalk);
   border: 2px solid var(--turf-600);
@@ -575,7 +568,7 @@ body {
    Players noticeably wider than its neighbors before the chip list moved
    into its own panel. Fixed at the same 150px explicitly so the collapsed
    button can't inflate. */
-.control-players { position: relative; width: 150px; }
+.control-players { position: relative; width: calc(var(--w) * 1px); }
 
 /* Replaces the plain <label> that every other .control uses — Players is
    the one filter where "clear everything" can't live inside the dropdown
@@ -1784,7 +1777,7 @@ body {
    merge popups). Lives in the column header row now, alongside the title
    (mirroring the Merged Cards column's title+Create row) rather than its own
    full-width row above the list — sized to match the Filters bar's shared
-   150px non-Season control width (.control select/.teams-select-btn) so it
+   default 150px non-Season control width (--w; .control select/.teams-select-btn) so it
    reads as the same control, not stretching across the row; space-between
    on .pcs-column-header still pins it to the header's right edge. This is
    no longer the same width as .merge-btn (Create) next to it in the other
@@ -2599,28 +2592,35 @@ thead .linemate-table-frozen { z-index: 3; }
    qa-kitten. Keeping every override for these controls in this one place
    removes that whole class of mistake going forward.
 
-   Below 1150px, .row-break-narrow (above) splits Season/Teams/Players and
-   Category/Position/X axis/Y axis onto two separate rows. Left at their
-   normal fixed pixel widths, each row would only be as wide as its own
-   controls demand, stranded at the left edge of a much wider card with
-   empty space on the right (Row 1 with 3 controls narrower than Row 2
-   with 4). flex: 1 1 0 turns every control in both rows into an equal-
-   share flex item instead of a fixed-width one — flexbox distributes a
-   wrapped line's free space independently *per line*, so Row 1's 3 items
-   and Row 2's 4 items each grow to fill the *same* full row width (the
-   .control-bar's own content width) on their own, with no manual pixel
-   arithmetic to keep in sync if a gap or base width ever changes (unlike
-   the fixed-206px approach this replaced). width: 100% on the actual
-   select/button inside each .control makes it track its now-flexible
-   parent instead of the fixed px size it renders at everywhere else. */
-@media (max-width: 1150px) {
+   At desktop widths (>= 861px; below that the mobile drawer takes over and
+   stacks controls in a column) the 7 filters share ONE row and scale as a
+   group. Each control gets `flex: var(--w) 1 0px`: a zero basis, so the
+   row's whole free width (bar content width minus the fixed 18px gaps) is
+   split purely by flex-grow, and grow = the control's own default width
+   (--w: 72 for Season, 150 for the rest). Every control therefore ends up
+   the same multiple of its default — exactly 1.0x when the bar is 1080px
+   wide (72 + 6*150 + 6*18), smaller as the window narrows, larger as it
+   widens — and Season:others stays 72:150 at every width. A zero basis
+   (rather than basis = --w) is deliberate: flex-wrap decides where to
+   break lines from each item's *hypothetical* size and never shrinks items
+   to avoid a wrap, so a --w basis would wrap Y axis onto its own line the
+   moment the bar dipped under 1080px. With basis 0 the only wrap trigger
+   is the min-width floor below, and its sum stays under the narrowest
+   possible bar at 861px, so a wrap can't happen in this range.
+   min-width is a floor at 60% of the default, a safety net only: it is
+   below the scale reached even at 861px (~0.68x), so it never distorts
+   the proportions in normal use. width: 100% on the actual select/button
+   makes each track its flexible parent instead of its fixed default px
+   width; the label text still elides via the existing overflow rules. */
+@media (min-width: 861px) {
   .control-season,
   .control-teams,
   #players-control,
   .control-category,
   .control-position,
   .control-axis {
-    flex: 1 1 0;
+    flex: var(--w) 1 0px;
+    min-width: calc(var(--w) * 0.6px);
   }
   .control-season select,
   .control-teams .teams-select-btn,
@@ -2631,6 +2631,20 @@ thead .linemate-table-frozen { z-index: 3; }
     width: 100%;
     max-width: none;
   }
+  /* Season holds a fixed-length value (a 4-digit year) that just barely
+     fits its 72px default — any proportional shrink below that clips the
+     year itself ("2…"), which is worse than every other control's
+     elision because it's the one value that can't be inferred from a
+     prefix. So its floor is its own default, not 60% of it: it stays 72px
+     as the bar narrows (the other six share what's left) and still grows
+     proportionally as the bar widens. Declared after the shared rule. */
+  .control-season { min-width: calc(var(--w) * 1px); }
+  /* Players' label row (the PLAYERS button + Clear link) can't shrink, and
+     at the narrowest desktop widths it's slightly wider than the 60% floor
+     above would allow ("Clear" would poke out past the control's edge).
+     Its own content width is the floor instead — a few px at most, only
+     near 861px. Declared after the shared rule so it wins on source order. */
+  #players-control { min-width: min-content; }
 }
 
 @media (max-width: 860px) {
@@ -2799,9 +2813,9 @@ thead .linemate-table-frozen { z-index: 3; }
     width: 100%;
   }
   .filters-drawer .control-season select { width: 100%; }
-  /* Every plain select and .teams-select-btn (Teams/Players) is pinned to a
-     fixed 150px width on desktop to keep the control bar's row aligned (see
-     the rules near .control-season and .teams-select-btn above) —
+  /* Every plain select and .teams-select-btn (Teams/Players) has a default
+     width of calc(var(--w) * 1px) (see .control) that the desktop row scales
+     proportionally (@media (min-width: 861px) block) —
      irrelevant here since the drawer stacks controls in a single column,
      but max-width would otherwise still win over this width: 100% and leave
      the control artificially narrow. */
