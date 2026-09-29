@@ -13,6 +13,9 @@ import {
   setAppliedFilters,
   preloadLogos,
   isOngoingSeason,
+  currentCategoryMeta,
+  appliedCategoryMeta,
+  metadata,
 } from "./data.js";
 import {
   selectedPlayers,
@@ -41,6 +44,7 @@ import {
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { createInfoPopover } from "./info-popover.js";
+import { collectMetricNotes } from "./metric-notes.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
 import {
   openCreateMergePopup,
@@ -96,12 +100,54 @@ async function loadMetadata() {
   updatePendingState();
 }
 
+// What an axis's info popover shows for whichever metric that <select> is
+// currently set to (its live/pending value, not appliedFilters — axis
+// changes don't take effect until Apply, but the "what does this metric
+// mean" popup should answer for whatever's on screen in the dropdown right
+// now). Resolved fresh every time the popup opens (see createInfoPopover()'s
+// header comment) rather than once at boot, since the metric list itself
+// changes with the Category select. Metrics with a rendered formula
+// (Havoc/Allowed Havoc/PRP/PBE families, main.py's PASS_RUSH_METRICS/
+// PASS_BLOCK_METRICS) show that as an image; every other metric falls back
+// to its short pff_note so the trigger is never a dead end.
+//
+// A "TPS "-prefixed metric additionally gets the shared TPS_NOTE appended
+// as a second paragraph (`extraText`) — that text lives once, server-side
+// (config.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
+// every TPS metric's own note, so the "is this a TPS metric" check is done
+// here, off the metric's own name, rather than baked into per-metric data.
+function axisFormulaContent(selectEl) {
+  const cat = currentCategoryMeta();
+  const key = selectEl.value;
+  const meta = (cat && cat.metrics && cat.metrics[key]) || {};
+  const extraText = key.startsWith("TPS ") ? metadata && metadata.tps_note : undefined;
+  if (meta.formula_svg) {
+    return { imgSrc: meta.formula_svg, imgAlt: meta.formula_note || meta.note || key, extraText };
+  }
+  return { text: meta.pff_note || key, extraText };
+}
+
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
       "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
       { label: "Players", labelId: "players-label" }
     )
+  );
+
+  els.xAxisInfoSlot.appendChild(
+    createInfoPopover(() => axisFormulaContent(els.xMetric), {
+      ariaLabel: "X axis metric definition",
+      label: "ⓘ",
+      formula: true,
+    })
+  );
+  els.yAxisInfoSlot.appendChild(
+    createInfoPopover(() => axisFormulaContent(els.yMetric), {
+      ariaLabel: "Y axis metric definition",
+      label: "ⓘ",
+      formula: true,
+    })
   );
 
   // Category/season/position/axes are all pending-only for the chart: picking
@@ -357,6 +403,13 @@ function attachEvents() {
           width: 1200,
           height: 750,
           scale: 2,
+          appendixNotes: els.metricNotesToggle.checked
+            ? collectMetricNotes(
+                appliedCategoryMeta(),
+                [appliedFilters.xMetric, appliedFilters.yMetric],
+                metadata.tps_note
+              )
+            : [],
         })
       )
       .then(() => {

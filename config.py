@@ -16,6 +16,23 @@ HAVOC_RATE_NOTE = "Havoc Rate = (Sacks + QB Hits) / Pass Rush Opportunities."
 ALLOWED_HAVOC_RATE_NOTE = (
     "Allowed Havoc Rate = (Sacks + QB Hits) / Non Spike Pass Block Snaps."
 )
+PRP_NOTE = (
+    "PRP = (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Rush Snaps x 100."
+)
+PBE_NOTE = (
+    "PBE = 100 - (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Block Snaps."
+)
+
+# Shared across every "TPS "-prefixed metric — not a per-metric formula, so
+# it lives once here rather than duplicated into a TPS_*_NOTE per metric.
+# The frontend appends this to whatever a TPS metric's own note/formula
+# already says, keyed off the "TPS " prefix rather than a per-metric flag
+# (see main.py's /api/metadata: exposed once at the top level, not per
+# metric).
+TPS_NOTE = (
+    "True Pass Set: excludes plays with less than 4 rushers, play action, "
+    "screens, short dropbacks and time-to-throws under 2 seconds."
+)
 
 # Default "historical seasons'" thresholds applied on page load.
 DEFAULT_THRESHOLDS: dict[str, int] = {
@@ -37,8 +54,8 @@ DEFAULT_THRESHOLDS: dict[str, int] = {
 # Key, which means current season, must be "renamed" when a new season comes.
 DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 30,  # Min PR Opp for pass rush filter.
-        "pass_block": 50,  # Min Non Spike PB Snaps for pass block filter.
+        "pass_rush": 45,  # Min PR Opp for pass rush filter.
+        "pass_block": 70,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
 

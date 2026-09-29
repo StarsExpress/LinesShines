@@ -20,6 +20,7 @@ import {
   logoSrc,
   teamColor,
   teamName,
+  metadata,
 } from "./data.js";
 import { LINEMATE_POSITIONS, LINEMATE_CAP, LINEMATE_VISIBLE_DEFAULT } from "./config.js";
 import {
@@ -35,6 +36,7 @@ import {
   updateScoutEmptyHint,
 } from "./cards-base.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
@@ -675,7 +677,8 @@ export function openLinemateCard(anchorRecord) {
           cell.style.left = "";
         });
       }
-    }
+    },
+    () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );
 
   linemateCards.set(anchorRecord.player, entry);

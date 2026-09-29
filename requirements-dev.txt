@@ -2,3 +2,4 @@
 pytest>=8.0,<10.0
 httpx>=0.27,<1.0
 black==26.5.1
+matplotlib>=3.8,<4.0  # Build-time only — tools/render_metric_formulas.py. Never imported at runtime.

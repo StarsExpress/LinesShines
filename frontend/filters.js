@@ -576,17 +576,17 @@ export function populateCategoryDependentControls() {
   if (
     els.category.value === "pass_rush" &&
     metricKeys.includes("Win Rate") &&
-    metricKeys.includes("TPS Win Rate")
+    metricKeys.includes("TPS PRP")
   ) {
     els.xMetric.value = "Win Rate";
-    els.yMetric.value = "TPS Win Rate";
+    els.yMetric.value = "TPS PRP";
   } else if (
     els.category.value === "pass_block" &&
     metricKeys.includes("Allowed Pressure %") &&
-    metricKeys.includes("TPS Allowed Pressure %")
+    metricKeys.includes("TPS PBE")
   ) {
     els.xMetric.value = "Allowed Pressure %";
-    els.yMetric.value = "TPS Allowed Pressure %";
+    els.yMetric.value = "TPS PBE";
   } else {
     els.xMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0];
     els.yMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];

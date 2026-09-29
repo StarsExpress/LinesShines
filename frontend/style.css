@@ -304,7 +304,12 @@ body {
   outline-offset: 2px;
 }
 
-.control-slider { min-width: 220px; flex: 1 1 220px; }
+/* Shrunk from an original 220px — freeing horizontal room on this row for
+   .control-toggles' new third checkbox ("Include metric notes", wider than
+   Player Names/Team Logos) to fit without bumping Save Plot off the Apply
+   row. The number box next to the slider already gives exact-value control,
+   so a narrower drag track is an acceptable tradeoff. */
+.control-slider { min-width: 170px; flex: 1 1 170px; }
 
 .threshold-row {
   display: flex;
@@ -574,7 +579,12 @@ body {
    the one filter where "clear everything" can't live inside the dropdown
    like Teams' All/None row (there's no fixed checklist to reset, just
    whatever chips have accumulated), so it sits next to the label instead. */
-.players-label-row {
+/* .axis-label-row (X/Y axis metric-formula trigger, main.js) shares this
+   same flex-row shape — a <label> plus one small inline extra control —
+   without renaming this class, since Players' own semantics ("clear
+   everything" next to its label) are unrelated to axis controls'. */
+.players-label-row,
+.axis-label-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -649,6 +659,31 @@ body {
   font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.5;
+}
+/* The shared TPS_NOTE appended below a TPS-variant metric's own
+   formula/description (parts.extraText in info-popover.js) — visually
+   secondary (dimmer, separated by a rule) so it reads as a general aside
+   rather than part of the metric's own definition. */
+.info-popover-extra-text {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(240, 237, 228, 0.25);
+  color: var(--chalk-dim);
+}
+/* Formula popovers (X/Y axis metric-definition triggers, main.js) show an
+   <img> instead of .info-popover-text — the fixed 240px box above is sized
+   for prose and is too narrow for a rendered formula (PRP/PBE run wider
+   than that at a legible size). This variant drops the fixed width in
+   favor of a cap that still fits small screens, and the image itself scales
+   down to whatever that ends up being. */
+.info-popover-content--formula {
+  width: max-content;
+  max-width: min(90vw, 420px);
+}
+.info-popover-formula-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 .info-popover-close {
   appearance: none;
@@ -2834,12 +2869,12 @@ thead .linemate-table-frozen { z-index: 3; }
     margin-top: 8px;
     box-shadow: none;
   }
-  /* .control-slider's `flex: 1 1 220px` sizes it as a 220px-wide item in
+  /* .control-slider's `flex: 1 1 170px` sizes it as a 170px-wide item in
      the desktop row layout above. In this column-direction drawer, that
-     same flex-basis is read as a 220px *height* instead — the control's
+     same flex-basis is read as a 170px *height* instead — the control's
      actual content (label + slider row) is ~80px, so without this reset
-     it sits in a box ~140px taller than its content, which is exactly
-     the empty gap this rule fixes. */
+     it sits in a box taller than its content, which is exactly the empty
+     gap this rule fixes. */
   .filters-drawer .control-slider {
     flex: none;
     min-width: 0;

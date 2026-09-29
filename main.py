@@ -21,7 +21,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from config import ALLOWED_HAVOC_RATE_NOTE, HAVOC_RATE_NOTE, resolve_default_threshold
+from config import (
+    ALLOWED_HAVOC_RATE_NOTE,
+    HAVOC_RATE_NOTE,
+    PBE_NOTE,
+    PRP_NOTE,
+    TPS_NOTE,
+    resolve_default_threshold,
+)
 from database.db_models import (
     Base,
     PassBlockStat,
@@ -94,22 +101,28 @@ PASS_RUSH_METRICS = {
         "unit": "%",
         "higher_is_better": True,
         "note": HAVOC_RATE_NOTE,
+        "formula_svg": "/images/metric_formulas/havoc_rate.svg",
         "pff_note": "(Sacks + Hits) / pass rush opportunities",
     },
     "TPS Havoc Rate": {
         "unit": "%",
         "higher_is_better": True,
         "note": HAVOC_RATE_NOTE,
+        "formula_svg": "/images/metric_formulas/havoc_rate.svg",
         "pff_note": "Havoc rate on true pass sets",
     },
     "PRP": {
         "unit": "",
         "higher_is_better": True,
+        "formula_note": PRP_NOTE,
+        "formula_svg": "/images/metric_formulas/prp.svg",
         "pff_note": "PFF Pass Rush Productivity",
     },
     "TPS PRP": {
         "unit": "",
         "higher_is_better": True,
+        "formula_note": PRP_NOTE,
+        "formula_svg": "/images/metric_formulas/prp.svg",
         "pff_note": "Pass rush productivity on true pass sets",
     },
 }
@@ -129,22 +142,28 @@ PASS_BLOCK_METRICS = {
         "unit": "%",
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
+        "formula_svg": "/images/metric_formulas/allowed_havoc_rate.svg",
         "pff_note": "(Sacks + Hits) allowed / non-spike snaps",
     },
     "TPS Allowed Havoc %": {
         "unit": "%",
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
+        "formula_svg": "/images/metric_formulas/allowed_havoc_rate.svg",
         "pff_note": "Allowed havoc rate on true pass sets",
     },
     "PBE": {
         "unit": "",
         "higher_is_better": True,
+        "formula_note": PBE_NOTE,
+        "formula_svg": "/images/metric_formulas/pbe.svg",
         "pff_note": "PFF Pass Block Efficiency",
     },
     "TPS PBE": {
         "unit": "",
         "higher_is_better": True,
+        "formula_note": PBE_NOTE,
+        "formula_svg": "/images/metric_formulas/pbe.svg",
         "pff_note": "Pass block efficiency on true pass sets",
     },
 }
@@ -203,6 +222,12 @@ def metadata() -> dict:
         # with whatever this process actually resolved thresholds against,
         # e.g. across a stale page left open over a year boundary).
         "current_year": date.today().year,
+        # Shared across every "TPS "-prefixed metric, not a per-metric
+        # formula — exposed once here rather than duplicated into each
+        # metric's own note. The frontend appends this to a TPS metric's own
+        # formula/note whenever the selected axis metric name starts with
+        # "TPS " (see main.js's axisFormulaContent()).
+        "tps_note": TPS_NOTE,
         "pass_rush": {
             "positions": PASS_RUSH_POSITIONS,
             "metrics": PASS_RUSH_METRICS,

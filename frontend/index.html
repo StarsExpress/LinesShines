@@ -201,12 +201,18 @@
       </div>
 
       <div class="control control-axis">
-        <label for="x-metric-select">X axis</label>
+        <div class="axis-label-row">
+          <label for="x-metric-select">X axis</label>
+          <span class="info-popover-slot" id="x-axis-info-slot"></span>
+        </div>
         <select id="x-metric-select"></select>
       </div>
 
       <div class="control control-axis">
-        <label for="y-metric-select">Y axis</label>
+        <div class="axis-label-row">
+          <label for="y-metric-select">Y axis</label>
+          <span class="info-popover-slot" id="y-axis-info-slot"></span>
+        </div>
         <select id="y-metric-select"></select>
       </div>
 
@@ -240,6 +246,14 @@
         <label class="checkbox-label">
           <input type="checkbox" id="logos-toggle" checked />
           Team Logos
+        </label>
+        <!-- Default OFF, unlike the two above — an opt-in addition to every
+             PNG export (Save Plot + every card's own Save button), not a
+             view of the on-screen chart itself. See metric-notes.js /
+             chart-export.js's compositeFooterCanvas appendix support. -->
+        <label class="checkbox-label">
+          <input type="checkbox" id="metric-notes-toggle" />
+          Include metric notes
         </label>
       </div>
 

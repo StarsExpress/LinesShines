@@ -49,6 +49,7 @@ import {
   teamSwatch,
   findRecordByPlayer,
   thresholdFieldLabel,
+  metadata,
 } from "./data.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
@@ -69,6 +70,7 @@ import {
 import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
+import { categoryAppendixNotes } from "./metric-notes.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
@@ -621,7 +623,9 @@ export function mountMergeCardElement(entry, memberRecords) {
           const record = findRecordByPlayer(key);
           return sanitizeForFilename((record && (record.abbr_name || record.player)) || key);
         })
-        .join("_")}_${appliedFilters.season}`
+        .join("_")}_${appliedFilters.season}`,
+    undefined,
+    () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );
 
   updateScoutEmptyHint();

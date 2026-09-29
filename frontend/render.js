@@ -291,12 +291,6 @@ export function render() {
   const xMeta = cat.metrics[xKey] || {};
   const yMeta = cat.metrics[yKey] || {};
 
-  const activeNotes = [];
-  if (xMeta.note) activeNotes.push(xMeta.note);
-  if (yMeta.note && yMeta.note !== xMeta.note) {
-    activeNotes.push(yMeta.note); // avoid dup when both axes use the same metric family
-  }
-
   const xVals = currentFiltered.map((r) => r[xKey]);
   const yVals = currentFiltered.map((r) => r[yKey]);
   const colors = currentFiltered.map((r) => teamColor(r.team));
@@ -368,36 +362,17 @@ export function render() {
     },
   ];
 
-  // Metric definition callouts (e.g. what "Havoc Rate" means) — only shown
-  // when a Havoc-family metric is on an axis, see activeNotes above.
   const isMobile = window.innerWidth < 860;
-  const noteAnnotations = activeNotes.map((note, i) => ({
-    xref: "paper", yref: "paper",
-    x: 1, y: 1 - i * 0.05, // stack multiple notes vertically if both axes have notes
-    xanchor: "right", yanchor: "top",
-    text: `<i>ⓘ ${note}</i>`,
-    showarrow: false,
-    font: {
-      family: "IBM Plex Mono, monospace",
-      size: isMobile ? 9 : 11,
-      color: "#a9b6a9",
-    },
-    bgcolor: "rgba(15,33,25,0.85)", // turf-950 with alpha
-    bordercolor: "rgba(211,167,61,0.4)", // faint gold border
-    borderwidth: 1,
-    borderpad: 6,
-  }));
 
-  const annotations = [...medianAnnotations, ...noteAnnotations];
+  const annotations = medianAnnotations;
 
   // Reverse an axis whenever its own metric is lower-is-better — per-metric,
   // not per-category, since a category can mix directions (e.g. pass_block's
-  // PBE/TPS PBE are higher-is-better alongside its lower-is-better Allowed
-  // metrics).
+  // PBE/TPS PBE are higher-is-better alongside its lower-is-better Allowed metrics).
   const xReversed = xMeta.higher_is_better === false;
   const yReversed = yMeta.higher_is_better === false;
 
-  // total_selected counts everyone clearing threshold, not just highlighted teams;
+  // `total_selected` counts everyone clearing threshold, not just highlighted teams;
   // Teams dims players rather than removing them (see DIM_OPACITY above),
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
@@ -408,11 +383,13 @@ export function render() {
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: { family: "Inter, sans-serif", color: "#f1ecdd" },
-    // Extra headroom above the plot area (beyond what the title/subtitle
-    // text itself needs) so the metric-definition note box — pinned to the
-    // plot's own y:1 top edge, not the title block — doesn't sit flush
-    // against the subtitle.
-    margin: { l: 60, r: 24, t: isMobile ? 96 : 88, b: 56 },
+    // Metric definitions used to also live in an on-chart top-right callout
+    // (a note box pinned to the plot's own y:1 top edge) — retired in favor
+    // of the opt-in export appendix (metric-notes.js/chart-export.js's
+    // compositeFooterCanvas), which now covers every metric with a note,
+    // not just the Havoc family this used to special-case. Top margin below
+    // is just title/subtitle headroom now, no longer padded for that box.
+    margin: { l: 60, r: 24, t: isMobile ? 80 : 72, b: 56 },
     title: {
       text: titleText,
       font: { family: "Anton, Arial Narrow, sans-serif", size: isMobile ? 16 : 22, color: "#f1ecdd" },

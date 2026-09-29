@@ -49,6 +49,20 @@ export const EXPORT_FOOTER_PADDING_X = 16; // logical px, pre-scale
 export const EXPORT_FOOTER_BG = "#16301f"; // matches --turf-800, same swap render() does for export bg
 export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, muted so it doesn't compete with the plot
 
+// "Include metric notes" appendix (main.js's metric-notes checkbox) — a
+// strip of wrapped text lines drawn between the source image and the
+// credit footer, built by compositeFooterCanvas below whenever it's given
+// a non-empty `appendixNotes` array (frontend/metric-notes.js's
+// collectMetricNotes()/categoryAppendixNotes()). Slightly larger/brighter
+// than the footer's own text since it's substantive content, not just a
+// credit line, but still visually secondary to the export's main content.
+export const APPENDIX_FONT_SIZE = 12; // logical px, pre-scale
+export const APPENDIX_LINE_HEIGHT = 16; // logical px, pre-scale
+export const APPENDIX_PADDING_Y = 10; // logical px, pre-scale — top+bottom of the block
+export const APPENDIX_PADDING_X = 16; // logical px, pre-scale — matches the footer's own horizontal padding
+export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)"; // --chalk-dim, a touch brighter than the footer's 0.75 so multi-line text stays legible
+export const APPENDIX_FONT_FAMILY = "Inter, sans-serif"; // matches the footer's own font
+
 // Composites the credit-line footer onto a canvas already sized to include
 // the extra footerPx strip beneath sourceHeight — split out of
 // exportChartPngWithFooter so card-export.js's html2canvas-based exports can
@@ -76,17 +90,78 @@ function measureFooterTextWidth(scale) {
   return ctx.measureText(EXPORT_FOOTER_TEXT).width;
 }
 
+// Greedy word-wrap for a single note string against maxWidth (logical
+// canvas px, already scaled) — `ctx.font` must already be set to the
+// appendix's font before calling. No hyphenation/mid-word breaking (none of
+// the note text has a single word anywhere near maxWidth, so plain
+// whole-word wrapping is enough).
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let current = "";
+  words.forEach((word) => {
+    const attempt = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(attempt).width > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = attempt;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+}
+
+// Wraps every note in `notes` (in order) against the final canvas width,
+// returning one flat array of already-wrapped lines ready to draw — done
+// with a throwaway context (same approach as measureFooterTextWidth) so the
+// appendix's pixel height is known *before* the real canvas is created,
+// same ordering dependency compositeFooterCanvas already has for the
+// footer's minimum width.
+function wrapAppendixNotes(notes, canvasWidth, scale) {
+  if (!notes || notes.length === 0) return [];
+  const ctx = document.createElement("canvas").getContext("2d");
+  ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
+  const maxWidth = canvasWidth - Math.round(APPENDIX_PADDING_X * scale) * 2;
+  const lines = [];
+  notes.forEach((note) => lines.push(...wrapText(ctx, note, maxWidth)));
+  return lines;
+}
+
+function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
+  const paddingX = Math.round(APPENDIX_PADDING_X * scale);
+  const paddingY = Math.round(APPENDIX_PADDING_Y * scale);
+  const lineHeight = Math.round(APPENDIX_LINE_HEIGHT * scale);
+  ctx.fillStyle = APPENDIX_COLOR;
+  ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, paddingX, startY + paddingY + i * lineHeight);
+  });
+}
+
 // Returns a new canvas: `sourceCanvas` with EXPORT_FOOTER_BG behind it (so
-// any transparent source pixels don't fall back to white) and the credit
-// line drawn into the extra strip below. The main chart export is always
-// comfortably wider than the footer text needs, but a narrower per-card
-// export (card-export.js — a Player Card in particular, ~380px wide) can be
-// narrower than the footer's own rendered width, silently clipping its left
-// edge off the canvas entirely. Widening the canvas to at least fit the
-// footer (with the source image centered in the extra room, rather than
-// left-aligned with a lopsided gap on the right) fixes that for every card
-// type/width at once instead of hardcoding a wider minimum per card type.
-export function compositeFooterCanvas(sourceCanvas, scale) {
+// any transparent source pixels don't fall back to white), an optional
+// "Include metric notes" appendix strip, and the credit line drawn into the
+// extra strip below that. The main chart export is always comfortably wider
+// than the footer text needs, but a narrower per-card export (card-export.js
+// — a Player Card in particular, ~380px wide) can be narrower than the
+// footer's own rendered width, silently clipping its left edge off the
+// canvas entirely. Widening the canvas to at least fit the footer (with the
+// source image centered in the extra room, rather than left-aligned with a
+// lopsided gap on the right) fixes that for every card type/width at once
+// instead of hardcoding a wider minimum per card type.
+//
+// `appendixNotes` (frontend/metric-notes.js's collectMetricNotes()/
+// categoryAppendixNotes()) is empty/omitted whenever the "Include metric
+// notes" checkbox is off, or the export's metrics have no notes to show —
+// in either case this behaves exactly as it did before that feature
+// existed. Every export type (the chart's Plotly-rendered sourceCanvas, and
+// every card's html2canvas-rendered one) already funnels through this one
+// function for the footer, so the appendix rides along for free at every
+// call site rather than needing separate handling per export type.
+export function compositeFooterCanvas(sourceCanvas, scale, { appendixNotes } = {}) {
   const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
   const paddingPx = Math.round(EXPORT_FOOTER_PADDING_X * scale);
   // +4px/scale safety margin: measureText's result depends on Inter having
@@ -94,15 +169,23 @@ export function compositeFooterCanvas(sourceCanvas, scale) {
   // fractionally narrower than the real render shouldn't reintroduce a
   // hairline clip.
   const minWidthForFooter = Math.ceil(measureFooterTextWidth(scale)) + paddingPx * 2 + Math.round(4 * scale);
+  const canvasWidth = Math.max(sourceCanvas.width, minWidthForFooter);
+
+  const appendixLines = wrapAppendixNotes(appendixNotes, canvasWidth, scale);
+  const appendixPx = appendixLines.length
+    ? Math.round(APPENDIX_PADDING_Y * scale) * 2 + appendixLines.length * Math.round(APPENDIX_LINE_HEIGHT * scale)
+    : 0;
+
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(sourceCanvas.width, minWidthForFooter);
-  canvas.height = sourceCanvas.height + footerPx;
+  canvas.width = canvasWidth;
+  canvas.height = sourceCanvas.height + appendixPx + footerPx;
 
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = EXPORT_FOOTER_BG;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(sourceCanvas, Math.round((canvas.width - sourceCanvas.width) / 2), 0);
-  drawExportFooter(ctx, canvas.width, sourceCanvas.height, footerPx, scale);
+  if (appendixLines.length) drawAppendix(ctx, canvas.width, sourceCanvas.height, appendixLines, scale);
+  drawExportFooter(ctx, canvas.width, sourceCanvas.height + appendixPx, footerPx, scale);
   return canvas;
 }
 
@@ -263,7 +346,7 @@ async function buildExportClone(chartDiv, width, height) {
 // at all), then composites a footer strip onto a taller canvas before
 // triggering the download — keeps the credit line out of the on-screen/
 // exported-without-footer chart state.
-export async function exportChartPngWithFooter(chartDiv, { width, height, scale, filename }) {
+export async function exportChartPngWithFooter(chartDiv, { width, height, scale, filename, appendixNotes }) {
   const spotlightNames = new Set(captureSpotlightedLabelPositions(chartDiv).map((p) => p.name));
   const clone = await buildExportClone(chartDiv, width, height);
   try {
@@ -295,7 +378,7 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
     ctx.drawImage(img, 0, 0);
     await document.fonts.ready; // guards against a fallback-font flash if Oswald somehow hasn't finished loading yet
     drawLabelEmphasisOverlay(ctx, positions, scale);
-    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale), filename);
+    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale, { appendixNotes }), filename);
   } finally {
     Plotly.purge(clone);
     clone.remove();

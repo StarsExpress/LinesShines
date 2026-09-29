@@ -118,8 +118,11 @@ function buildExportClone(cardEl) {
 // Linemate Card uses it to force-render its full roster (bypassing "See
 // more") straight into the clone; Player/Merge Cards don't need it, since
 // nothing on them is conditionally left un-rendered the way a collapsed
-// roster is.
-export async function exportCardPng(cardEl, filename, prepareClone) {
+// roster is. `appendixNotes` (frontend/metric-notes.js's
+// categoryAppendixNotes(), or omitted/empty when "Include metric notes" is
+// off) rides along to compositeFooterCanvas exactly like the credit footer
+// already does — see that function's own header comment.
+export async function exportCardPng(cardEl, filename, prepareClone, appendixNotes) {
   const clone = buildExportClone(cardEl);
   try {
     if (prepareClone) prepareClone(clone);
@@ -128,7 +131,10 @@ export async function exportCardPng(cardEl, filename, prepareClone) {
       scale: CARD_EXPORT_SCALE,
       ignoreElements: shouldIgnoreForExport,
     });
-    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE), filename);
+    await downloadCanvasAsPng(
+      compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, { appendixNotes }),
+      filename
+    );
   } finally {
     clone.remove();
   }
@@ -139,15 +145,19 @@ export async function exportCardPng(cardEl, filename, prepareClone) {
 // open*Card()/mountMergeCardElement(). `getFilename` is called fresh on
 // every click (not captured once) so a Merge Card's filename reflects
 // whatever its current membership is, even after an Edit popup add/remove —
-// see the callers in merge-card.js.
-export function attachCardSave(cardEl, getFilename, prepareClone) {
+// see the callers in merge-card.js. `getAppendixNotes`, if given, is called
+// fresh on every click too, same reasoning — a card can sit open for a
+// while, and the "Include metric notes" checkbox (read inside each card
+// module's own callback, not here — this module stays dependency-free from
+// dom.js) can be toggled at any point before Save is actually clicked.
+export function attachCardSave(cardEl, getFilename, prepareClone, getAppendixNotes) {
   const btn = cardEl.querySelector(".card-save-btn");
   if (!btn) return;
   btn.addEventListener("click", async () => {
     if (btn.disabled) return;
     btn.disabled = true;
     try {
-      await exportCardPng(cardEl, getFilename(), prepareClone);
+      await exportCardPng(cardEl, getFilename(), prepareClone, getAppendixNotes && getAppendixNotes());
     } catch (err) {
       // Best-effort convenience feature — same swallow-and-log pattern as
       // loadMetadata()'s own top-level .catch() in main.js, not a popup.
