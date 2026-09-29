@@ -2049,7 +2049,7 @@ body {
 }
 .merge-table th,
 .merge-table td {
-  padding: 6px 8px;
+  padding: 11px 8px;
   text-align: right;
   white-space: nowrap;
   border-bottom: 1px solid var(--turf-600);
