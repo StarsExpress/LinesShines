@@ -364,7 +364,9 @@ export function render() {
     },
   ];
 
-  const isMobile = window.innerWidth < 860;
+  // clientWidth, not innerWidth — see cards-base.js's isDesktopScoutLayout()
+  // for why (pinch-zoom on iOS shrinks innerWidth, not the layout viewport).
+  const isMobile = document.documentElement.clientWidth < 860;
 
   // "Include metric notes" — live, not Apply-gated (main.js wires this
   // checkbox's "change" straight to render(), same as Player Names/Team
