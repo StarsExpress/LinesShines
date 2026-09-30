@@ -56,8 +56,8 @@ export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, 
 // collectMetricNotes()/categoryAppendixNotes()). Slightly larger/brighter
 // than the footer's own text since it's substantive content, not just a
 // credit line, but still visually secondary to the export's main content.
-export const APPENDIX_FONT_SIZE = 12; // logical px, pre-scale
-export const APPENDIX_LINE_HEIGHT = 16; // logical px, pre-scale
+export const APPENDIX_FONT_SIZE = 10; // logical px, pre-scale
+export const APPENDIX_LINE_HEIGHT = 14; // logical px, pre-scale
 export const APPENDIX_PADDING_Y = 10; // logical px, pre-scale — top+bottom of the block
 export const APPENDIX_PADDING_X = 16; // logical px, pre-scale — matches the footer's own horizontal padding
 export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)"; // --chalk-dim, a touch brighter than the footer's 0.75 so multi-line text stays legible
