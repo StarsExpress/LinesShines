@@ -103,8 +103,10 @@ export function logoSrc(team) {
 // width so a dense mobile chart doesn't inherit same visual scale as a 1100px desktop chart.
 // Mobile gets a smaller absolute size to cut overlap.
 // Player labels default to on, logos take up less room and collision is smaller.
+// clientWidth, not innerWidth — see cards-base.js's isDesktopScoutLayout()
+// for why (pinch-zoom on iOS shrinks innerWidth, not the layout viewport).
 export function targetLogoPx() {
-  return window.innerWidth < 860 ? 16 : 26;
+  return document.documentElement.clientWidth < 860 ? 16 : 26;
 }
 
 export function currentCategoryMeta() {

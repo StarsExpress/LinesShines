@@ -66,8 +66,8 @@ def seeded_db():
         )
 
         # Second position within same season/category as ED row above,
-        # so a no-position request has something real to aggregate (see
-        # test_pass_rush_no_position_returns_all_positions).
+        # so a no-position request has something real to aggregate.
+        # See `test_pass_rush_no_position_returns_all_positions`.
         sess.add(
             PassRushStat(
                 season=2025,
