@@ -4,6 +4,17 @@
 
 # 🏈LinesShines · 鋒光
 
+[![Installation Guide](https://img.shields.io/badge/📲%20Installation-Guide%20📖-0d1f17?style=for-the-badge)](./PWA.md)
+
+[![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://www.lines-shines.com)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.lines-shines.com)
+[![macOS](https://img.shields.io/badge/macOS-A2AAAD?style=for-the-badge&logo=apple&logoColor=black)](https://www.lines-shines.com)
+[![Windows](https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.lines-shines.com)
+
+---
+
+### 🛰️ Metadata
+
 [![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
 [![main Black Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
 [![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
