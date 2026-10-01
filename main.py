@@ -53,7 +53,7 @@ def _resolve_database_url() -> str:
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://") :]
 
-    # Force SQLAlchemy to use psycopg3, which is installed as psycopg[binary].
+    # Force SQLAlchemy to use psycopg3, which is installed as `psycopg[binary]`.
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://") :]
     return url
@@ -71,7 +71,7 @@ engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
 
-# ---- static metric/position descriptions (schema-level, not row-level) -----
+# ---- Static metric/position descriptions (schema-level, not row-level). -----
 
 PASS_RUSH_POSITIONS = {"ED": "Edge", "DI": "Defensive Interior"}
 PASS_BLOCK_POSITIONS = {"T": "Offensive Tackle", "G": "Guard", "C": "Center"}
