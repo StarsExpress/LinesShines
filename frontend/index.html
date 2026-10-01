@@ -83,6 +83,11 @@
 <link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="images/favicon-512x512.png">
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1f17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LinesShines">
 </head>
 <body>
 
@@ -633,5 +638,14 @@
 <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
 <script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
 <script type="module" src="main.js?v={{VERSION}}"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("SW registration failed:", err);
+      });
+    });
+  }
+</script>
 </body>
 </html>

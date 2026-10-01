@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -358,6 +358,25 @@ if _frontend_dir.exists():
     def serve_index() -> str:
         return _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA)
 
+    _sw_path = _frontend_dir / "sw.js"
+
+    @app.get("/sw.js")
+    def serve_sw() -> Response:
+        # sw.js carries {{VERSION}} placeholder just as index.html (both
+        # its cache name and its precache URLs' ?v= query strings), so it
+        # needs identical substitution — without this route it would
+        # fall through to plain StaticFiles mount below, which serves
+        # files byte-for-byte with no templating, leaving literal string
+        # "{{VERSION}}" in installed worker forever. Browsers already
+        # re-check a service worker script at most every 24h regardless of
+        # HTTP caching headers, but Cache-Control: no-cache is set anyway so
+        # an intermediate/CDN cache can't extend that window further.
+        return Response(
+            content=_sw_path.read_text().replace("{{VERSION}}", COMMIT_SHA),
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     app.mount(
         "/",
         StaticFiles(directory=str(_frontend_dir), html=True),
@@ -365,7 +384,6 @@ if _frontend_dir.exists():
     )
 
 else:
-
     @app.get("/")
     def _no_frontend() -> JSONResponse:
         return JSONResponse(
