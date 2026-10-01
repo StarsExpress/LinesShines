@@ -384,6 +384,7 @@ if _frontend_dir.exists():
     )
 
 else:
+
     @app.get("/")
     def _no_frontend() -> JSONResponse:
         return JSONResponse(

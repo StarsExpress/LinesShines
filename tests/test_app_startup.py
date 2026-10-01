@@ -36,8 +36,10 @@ def test_frontend_mounted_at_root(client):
 def test_sw_js_served_with_version_substituted(client):
     resp = client.get("/sw.js")
     assert resp.status_code == 200
+
     assert resp.headers["content-type"] == "application/javascript"
     assert resp.headers["cache-control"] == "no-cache"
+
     assert "{{VERSION}}" not in resp.text
     assert f'"lines-shines-{main.COMMIT_SHA}"' in resp.text
 
