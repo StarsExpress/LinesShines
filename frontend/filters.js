@@ -185,7 +185,6 @@ export function closeTeamsDropdown() {
   els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
-
 // Players filter's own search — no point suggesting a chip that already
 // exists, so it excludes whatever's already selected there.
 export function searchPlayers(query, pool, topK = 8) {
@@ -573,11 +572,7 @@ export function populateCategoryDependentControls() {
   });
   // Distinct defaults, mirroring the pipeline's canonical query pairs.
   // Anything else falls back to generic non-TPS-vs-TPS heuristic.
-  if (
-    els.category.value === "pass_rush" &&
-    metricKeys.includes("Win Rate") &&
-    metricKeys.includes("TPS PRP")
-  ) {
+  if (els.category.value === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("TPS PRP")) {
     els.xMetric.value = "Win Rate";
     els.yMetric.value = "TPS PRP";
   } else if (

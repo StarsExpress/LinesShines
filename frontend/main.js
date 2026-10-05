@@ -18,7 +18,6 @@ import {
 } from "./data.js";
 import {
   selectedPlayers,
-  resetThresholdOnNextRange,
   setResetThresholdOnNextRange,
   currentFilterState,
   populateCategoryDependentControls,
@@ -212,9 +211,7 @@ function attachEvents() {
     updatePlayerPool();
   });
 
-  [els.xMetric, els.yMetric].forEach((el) =>
-    el.addEventListener("change", updatePendingState)
-  );
+  [els.xMetric, els.yMetric].forEach((el) => el.addEventListener("change", updatePendingState));
 
   // Teams: pending-only like every other filter above — picking teams just
   // updates the summary label and lights up Apply; the chart doesn't

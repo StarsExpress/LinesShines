@@ -31,3 +31,19 @@ def test_logos_served_from_team_logos_dir(client):
 def test_frontend_mounted_at_root(client):
     resp = client.get("/")
     assert resp.status_code == 200
+
+
+def test_sw_js_served_with_version_substituted(client):
+    resp = client.get("/sw.js")
+    assert resp.status_code == 200
+
+    assert resp.headers["content-type"] == "application/javascript"
+    assert resp.headers["cache-control"] == "no-cache"
+
+    assert "{{VERSION}}" not in resp.text
+    assert f'"lines-shines-{main.COMMIT_SHA}"' in resp.text
+
+
+def test_index_html_registers_service_worker(client):
+    resp = client.get("/")
+    assert 'navigator.serviceWorker.register("/sw.js")' in resp.text

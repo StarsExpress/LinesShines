@@ -4,13 +4,27 @@
 
 # 🏈LinesShines · 鋒光
 
-[![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
-[![main Black Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+[![Installation Guide](https://img.shields.io/badge/📲%20Installation-Guide%20📖-0d1f17?style=for-the-badge)](./PWA.md)
+
+[![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://www.lines-shines.com)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.lines-shines.com)
+
+[![macOS](https://img.shields.io/badge/macOS-A2AAAD?style=for-the-badge&logo=apple&logoColor=black)](https://www.lines-shines.com)
+[![Windows](https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.lines-shines.com)
+
+---
+
+### ⛑️ Health Report
+
 [![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
+[![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+
+[![main JavaScript Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/javascript-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
+[![main Black Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
 
 ![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
 ![Season](https://img.shields.io/badge/Season-2026-crimson)
-![Week](https://img.shields.io/badge/Week-3-gold)
+![Week](https://img.shields.io/badge/Week-4-gold)
 
 ![Oldest](https://img.shields.io/badge/Oldest-Data-brown?labelColor=brown&style=flat)
 ![Season](https://img.shields.io/badge/Season-2022-crimson)

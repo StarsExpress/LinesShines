@@ -13,10 +13,10 @@ import { els } from "./dom.js";
 
 export const LOGO_PATH = (team) => `logos/${team}.png`;
 
-export let metadata = null;                 // /api/metadata payload
-export const sliceCache = new Map();        // key = `${category}:${season}:${position}` → records[]
-export let currentRecords = [];             // records for the current slice (all threshold values)
-export let currentFiltered = [];            // records >= threshold (what the chart shows)
+export let metadata = null; // /api/metadata payload
+export const sliceCache = new Map(); // key = `${category}:${season}:${position}` → records[]
+export let currentRecords = []; // records for the current slice (all threshold values)
+export let currentFiltered = []; // records >= threshold (what the chart shows)
 
 // Which category's schema currentRecords actually matches. Tracked
 // separately from els.category.value because a pending (not-yet-Applied)
@@ -103,8 +103,10 @@ export function logoSrc(team) {
 // width so a dense mobile chart doesn't inherit same visual scale as a 1100px desktop chart.
 // Mobile gets a smaller absolute size to cut overlap.
 // Player labels default to on, logos take up less room and collision is smaller.
+// clientWidth, not innerWidth — see cards-base.js's isDesktopScoutLayout()
+// for why (pinch-zoom on iOS shrinks innerWidth, not the layout viewport).
 export function targetLogoPx() {
-  return window.innerWidth < 860 ? 16 : 26;
+  return document.documentElement.clientWidth < 860 ? 16 : 26;
 }
 
 export function currentCategoryMeta() {

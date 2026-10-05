@@ -131,10 +131,7 @@ export async function exportCardPng(cardEl, filename, prepareClone, appendixNote
       scale: CARD_EXPORT_SCALE,
       ignoreElements: shouldIgnoreForExport,
     });
-    await downloadCanvasAsPng(
-      compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, { appendixNotes }),
-      filename
-    );
+    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, { appendixNotes }), filename);
   } finally {
     clone.remove();
   }

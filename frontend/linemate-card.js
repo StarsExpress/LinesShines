@@ -376,10 +376,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       // #rank/N is still hover-only (attachAppTooltip), since the column
       // header already labels which metric this is — nothing left for a
       // "tooltip each percentile" disclaimer to explain.
-      attachAppTooltip(
-        td,
-        rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key
-      );
+      attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key);
       tr.appendChild(td);
     });
 
@@ -478,9 +475,7 @@ export function renderLinemateSummary(entry, roster, summaryTable) {
   const cat = appliedCategoryMeta();
   const summary = computeThreeMRSWA(roster, cat);
   const summaryRows = Object.keys(cat.metrics).map((key) => ({ key, ...summary[key] }));
-  const sortedRows = sortRows(summaryRows, entry.summarySort, (row) =>
-    summarySortValue(row, entry.summarySort.key)
-  );
+  const sortedRows = sortRows(summaryRows, entry.summarySort, (row) => summarySortValue(row, entry.summarySort.key));
 
   summaryTable.innerHTML = "";
   const RSWA_TOOLTIP =
@@ -645,7 +640,8 @@ export function openLinemateCard(anchorRecord) {
     // abbr_name shortens the first name to an initial, keeping the last name
     // intact (e.g. "D. Hall") — same convention already shown on the card's
     // own title, just applied to the downloaded filename too.
-    () => `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+    () =>
+      `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
     // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
     // in the first place (see renderLinemateRoster) — a collapsed roster's
     // hidden rows don't exist for html2canvas to reveal via CSS. Re-render

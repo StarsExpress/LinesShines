@@ -21,8 +21,6 @@ import {
   logoSrc,
   targetLogoPx,
   thresholdFieldLabel,
-  allTeamCodes,
-  teamName,
   metadata,
 } from "./data.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
@@ -112,10 +110,14 @@ export function computeLogoImages(chartDiv, records, xKey, yKey, isDimmed) {
 
   return records.map((r, i) => ({
     source: logoSrc(r.team),
-    xref: "x", yref: "y",
-    x: r[xKey], y: r[yKey],
-    sizex, sizey,
-    xanchor: "center", yanchor: "middle",
+    xref: "x",
+    yref: "y",
+    x: r[xKey],
+    y: r[yKey],
+    sizex,
+    sizey,
+    xanchor: "center",
+    yanchor: "middle",
     layer: "above",
     opacity: isDimmed && isDimmed[i] ? DIM_OPACITY.logo : 1,
   }));
@@ -144,7 +146,7 @@ export function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField,
   const FONT_SCALE = POINT_LABEL_FONT_SIZE / 10;
   const CHAR_WIDTH = 6.5 * FONT_SCALE; // Approx advance width @ 10px baseline.
   const LABEL_HEIGHT = 12 * FONT_SCALE;
-  const LABEL_GAP = 10 * FONT_SCALE;   // vertical offset from marker center to "bottom center" text
+  const LABEL_GAP = 10 * FONT_SCALE; // vertical offset from marker center to "bottom center" text
   // Shrink each box by this fraction on every side before the collision test,
   // so two labels have to genuinely overlap (not just sit close) to bump one
   // another — trades a bit of edge-touching/kerning overlap for showing more
@@ -162,8 +164,10 @@ export function computeKeptLabels(chartDiv, records, xKey, yKey, thresholdField,
     const shrinkX = halfWidth * OVERLAP_TOLERANCE;
     const shrinkY = (LABEL_HEIGHT / 2) * OVERLAP_TOLERANCE;
     return {
-      left: cx - halfWidth + shrinkX, right: cx + halfWidth - shrinkX,
-      top: top + shrinkY, bottom: top + LABEL_HEIGHT - shrinkY,
+      left: cx - halfWidth + shrinkX,
+      right: cx + halfWidth - shrinkX,
+      top: top + shrinkY,
+      bottom: top + LABEL_HEIGHT - shrinkY,
       priority: (isDimmed && isDimmed[i] ? 0 : HIGHLIGHT_BOOST) + (r[thresholdField] ?? 0),
     };
   });
@@ -217,37 +221,11 @@ export function applyLabelEmphasis(chartDiv, spotlightNames) {
   });
 }
 
-// Teams and Players both only dim, never exclude (see the isDimmed comment
-// in render()), so unlike the old Teams-only subtitle this can't just count
-// currentFiltered — a reader needs to know *why* a non-highlighted-team
-// player might still be sitting on the chart. Falls back to the plain
-// "N players ≥ threshold" line when nothing is actually being highlighted
-// (all teams selected, no players added) so the common case stays terse.
-export function highlightSubtitle(cat, records, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold) {
+// Plain "N players with at least X <field>." line. Teams/Players only dim
+// (see the isDimmed comment in render()), so the on-screen point count never
+// changes with them and the subtitle doesn't mention the highlight at all.
+export function highlightSubtitle(cat, records, minThreshold) {
   const fieldLabel = thresholdFieldLabel(cat);
-  const totalTeams = allTeamCodes().length;
-  const allTeamsSelected = selectedTeams.size === totalTeams;
-
-  const parts = [];
-  if (allTeamsSelected) {
-    // Every team already selected — Players is the only real filter, no
-    // point naming "32 Teams".
-  } else if (selectedTeams.size === 0) {
-    parts.push("no teams");
-  } else if (selectedTeams.size <= 2) {
-    parts.push(Array.from(selectedTeams).map(teamName).join(" + "));
-  } else {
-    parts.push(`${selectedTeams.size} teams`);
-  }
-
-  const playerRecords = records.filter((r) => selectedPlayerKeys.has(r.player));
-  if (playerRecords.length) {
-    const names = playerRecords.map((r) => r.abbr_name || r.player);
-    parts.push(names.length <= 2 ? names.join(" + ") : `${names.length} players`);
-  }
-
-  const highlightedCount = records.length - isDimmed.filter(Boolean).length;
-  const clause = parts.length ? parts.join(" + ") : "nothing";
   return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
 }
 
@@ -342,29 +320,54 @@ export function render() {
 
   const shapes = [
     {
-      type: "line", xref: "x", yref: "paper", x0: xMedian, x1: xMedian, y0: 0, y1: 1,
+      type: "line",
+      xref: "x",
+      yref: "paper",
+      x0: xMedian,
+      x1: xMedian,
+      y0: 0,
+      y1: 1,
       line: { color: "#a9b6a9", width: 1, dash: "dash" },
     },
     {
-      type: "line", xref: "paper", yref: "y", x0: 0, x1: 1, y0: yMedian, y1: yMedian,
+      type: "line",
+      xref: "paper",
+      yref: "y",
+      x0: 0,
+      x1: 1,
+      y0: yMedian,
+      y1: yMedian,
       line: { color: "#a9b6a9", width: 1, dash: "dash" },
     },
   ];
 
   const medianAnnotations = [
     {
-      x: xMedian, y: 0, yref: "paper", yanchor: "top", yshift: -6,
-      text: `Median: ${xMedian}`, showarrow: false,
+      x: xMedian,
+      y: 0,
+      yref: "paper",
+      yanchor: "top",
+      yshift: -6,
+      text: `Median: ${xMedian}`,
+      showarrow: false,
       font: { color: "#a9b6a9", size: 10, family: "IBM Plex Mono, monospace" },
     },
     {
-      x: 0, xref: "paper", xanchor: "right", xshift: -6, y: yMedian,
-      text: `Median: ${yMedian}`, showarrow: false, textangle: -90,
+      x: 0,
+      xref: "paper",
+      xanchor: "right",
+      xshift: -6,
+      y: yMedian,
+      text: `Median: ${yMedian}`,
+      showarrow: false,
+      textangle: -90,
       font: { color: "#a9b6a9", size: 10, family: "IBM Plex Mono, monospace" },
     },
   ];
 
-  const isMobile = window.innerWidth < 860;
+  // clientWidth, not innerWidth — see cards-base.js's isDesktopScoutLayout()
+  // for why (pinch-zoom on iOS shrinks innerWidth, not the layout viewport).
+  const isMobile = document.documentElement.clientWidth < 860;
 
   // "Include metric notes" — live, not Apply-gated (main.js wires this
   // checkbox's "change" straight to render(), same as Player Names/Team
@@ -377,9 +380,7 @@ export function render() {
   // itself, so Save Plot's export clone picks it up automatically — see
   // main.js's Save Plot handler, which deliberately does NOT also pass
   // appendixNotes to exportChartPngWithFooter, to avoid drawing it twice.
-  const metricNoteLines = els.metricNotesToggle.checked
-    ? collectMetricNotes(cat, [xKey, yKey], metadata.tps_note)
-    : [];
+  const metricNoteLines = els.metricNotesToggle.checked ? collectMetricNotes(cat, [xKey, yKey], metadata.tps_note) : [];
   // BASE_MARGIN_B is the plot's own bottom margin — already sized (and
   // proven, pre-dating this feature) to comfortably fit the x-axis tick
   // labels + axis title with no overlap. Rather than re-guessing how tall
@@ -393,8 +394,12 @@ export function render() {
   const NOTE_LINE_HEIGHT = 14;
   const NOTE_TOP_PADDING = 8; // gap between the axis title and the first note line
   const metricNoteAnnotations = metricNoteLines.map((note, i) => ({
-    xref: "paper", x: 0, xanchor: "left",
-    yref: "paper", y: 0, yanchor: "top",
+    xref: "paper",
+    x: 0,
+    xanchor: "left",
+    yref: "paper",
+    y: 0,
+    yanchor: "top",
     yshift: -(BASE_MARGIN_B + NOTE_TOP_PADDING + i * NOTE_LINE_HEIGHT),
     text: `<i>ⓘ ${note}</i>`,
     showarrow: false,
@@ -415,7 +420,7 @@ export function render() {
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
   const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
-  const subtitleText = highlightSubtitle(cat, currentFiltered, isDimmed, selectedTeams, selectedPlayerKeys, minThreshold);
+  const subtitleText = highlightSubtitle(cat, currentFiltered, minThreshold);
 
   const layout = {
     paper_bgcolor: "transparent",
@@ -490,17 +495,13 @@ export function render() {
     if (!showLabels) return;
     const labelName = (r) => r.abbr_name || r.player;
     if (!showLogos) {
-      const spotlightNames = new Set(
-        currentFiltered.filter((r, i) => !isDimmed[i]).map(labelName)
-      );
+      const spotlightNames = new Set(currentFiltered.filter((r, i) => !isDimmed[i]).map(labelName));
       applyLabelEmphasis(els.chart, spotlightNames);
       return;
     }
     const kept = computeKeptLabels(els.chart, currentFiltered, xKey, yKey, cat.threshold_field, isDimmed);
     const text = currentFiltered.map((r, i) => (kept[i] ? labelName(r) : ""));
-    const spotlightNames = new Set(
-      currentFiltered.filter((r, i) => kept[i] && !isDimmed[i]).map(labelName)
-    );
+    const spotlightNames = new Set(currentFiltered.filter((r, i) => kept[i] && !isDimmed[i]).map(labelName));
     Plotly.restyle(els.chart, { text: [text] }, [0]).then(() => {
       applyLabelEmphasis(els.chart, spotlightNames);
     });
@@ -515,17 +516,14 @@ export function render() {
     responsive: true,
     scrollZoom: false,
     doubleClick: false,
-  })
-    .then(() => {
-      applyLogoImages();
-      applyLabelDeclutter();
-    });
+  }).then(() => {
+    applyLogoImages();
+    applyLabelDeclutter();
+  });
 
   // Clear stale listeners each render — Plotly.react reuses the same graph
   // div, and every call otherwise adds another copy of the click handler.
-  ["plotly_click", "plotly_relayout"].forEach((evt) =>
-    els.chart.removeAllListeners?.(evt)
-  );
+  ["plotly_click", "plotly_relayout"].forEach((evt) => els.chart.removeAllListeners?.(evt));
 
   // Zoom/pan/resize change the axis range, so sizex/sizey (data units) need
   // recomputing to keep logos a constant on-screen size, and label overlaps
