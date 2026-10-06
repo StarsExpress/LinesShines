@@ -42,6 +42,7 @@ import {
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { createInfoPopover } from "./info-popover.js";
+import { PLATFORM_ICONS } from "./config.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
 import {
   openCreateMergePopup,
@@ -128,7 +129,52 @@ function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
       "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
-      { label: "Players", labelId: "players-label" }
+      { ariaLabel: "Players filter info", label: "ⓘ" }
+    )
+  );
+
+  // Header Install button — the shared info popover, extended with a `links`
+  // list (info-popover.js). Anchors are GitHub's slugs for PWA.md's headings
+  // ("## 📱iOS" etc. — no space after the emoji, so no leading hyphen).
+  const pwaDoc = "https://github.com/StarsExpress/LinesShines/blob/main/PWA.md";
+  els.heroInstallSlot.appendChild(
+    createInfoPopover(
+      {
+        links: [
+          {
+            href: `${pwaDoc}#ios`,
+            label: "iOS",
+            icon: PLATFORM_ICONS.ios,
+            hint: "Safari: Share → Add to Home Screen",
+          },
+          {
+            href: `${pwaDoc}#android`,
+            label: "Android",
+            icon: PLATFORM_ICONS.android,
+            hint: "Chrome: ⋮ → Install app",
+          },
+          {
+            href: `${pwaDoc}#macos`,
+            label: "macOS",
+            icon: PLATFORM_ICONS.macos,
+            hint: "Safari: File → Add to Dock",
+          },
+          {
+            href: `${pwaDoc}#windows`,
+            label: "Windows",
+            icon: PLATFORM_ICONS.windows,
+            hint: "Edge/Chrome: Install icon",
+          },
+        ],
+      },
+      { ariaLabel: "Install the app", label: "Install", alignRight: true }
+    )
+  );
+
+  els.teamsInfoSlot.appendChild(
+    createInfoPopover(
+      "Select teams to highlight their players in the plot. Everyone else stays in the comparison pool, so percentiles don't change.",
+      { ariaLabel: "Teams filter info", label: "ⓘ" }
     )
   );
 

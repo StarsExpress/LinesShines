@@ -11,20 +11,28 @@
  * survive being triggered from inside a scrolling ancestor
  * (.linemate-summary-wrap) without getting clipped.
  *
+ * The header Install button (main.js) passes `{ links: [{href, label, hint}] }`
+ * and `alignRight: true` so its popup opens down-and-left from the right edge.
+ *
  * Content is normally a static string. The axis triggers instead pass a
  * function returning `{ imgSrc, imgAlt }` — see createInfoPopover()'s own
  * comment for why (the underlying <select>'s value can change after the
  * trigger button is built).
  */
 
+import { placePopup, watchViewport } from "./popup-position.js";
+
 let openPopup = null;
 let openTrigger = null;
+let unwatchViewport = null;
 
 function closeInfoPopover() {
   if (openPopup) openPopup.remove();
   if (openTrigger) openTrigger.setAttribute("aria-expanded", "false");
   openPopup = null;
   openTrigger = null;
+  if (unwatchViewport) unwatchViewport();
+  unwatchViewport = null;
   document.removeEventListener("mousedown", onDocMouseDown, true);
   document.removeEventListener("keydown", onDocKeyDown, true);
 }
@@ -39,17 +47,7 @@ function onDocKeyDown(e) {
   if (e.key === "Escape") closeInfoPopover();
 }
 
-function positionInfoPopover(triggerEl, popupEl) {
-  const triggerRect = triggerEl.getBoundingClientRect();
-  const popupRect = popupEl.getBoundingClientRect();
-  const left = Math.min(Math.max(triggerRect.left, 8), window.innerWidth - popupRect.width - 8);
-  const above = triggerRect.top - popupRect.height - 8;
-  const top = above >= 8 ? above : triggerRect.bottom + 8;
-  popupEl.style.left = `${left}px`;
-  popupEl.style.top = `${top}px`;
-}
-
-function openInfoPopover(triggerEl, content, { formula } = {}) {
+function openInfoPopover(triggerEl, content, { formula, alignRight } = {}) {
   const popup = document.createElement("div");
   popup.className = formula ? "info-popover-content info-popover-content--formula" : "info-popover-content";
   popup.setAttribute("role", "dialog");
@@ -84,7 +82,7 @@ function openInfoPopover(triggerEl, content, { formula } = {}) {
     // `src` triggers the load, so it's set last, after this listener is
     // already attached — reposition once true dimensions are known.
     img.addEventListener("load", () => {
-      if (openPopup === popup) positionInfoPopover(triggerEl, popup);
+      if (openPopup === popup) placePopup(triggerEl, popup, { align: alignRight ? "right" : "left" });
     });
     img.src = parts.imgSrc;
     popup.appendChild(img);
@@ -93,6 +91,49 @@ function openInfoPopover(triggerEl, content, { formula } = {}) {
     body.className = "info-popover-text";
     body.textContent = parts.text;
     popup.appendChild(body);
+  }
+  if (parts.links) {
+    popup.classList.add("info-popover-content--links");
+    // A list of {href, label, hint} — each opens in a new tab, and picking
+    // one closes the popup (on a phone it'd otherwise stay covering the page
+    // when the user returns from the new tab).
+    const list = document.createElement("ul");
+    list.className = "info-popover-links";
+    for (const { href, label, hint, icon } of parts.links) {
+      const item = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = href;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.className = "info-popover-link";
+      if (icon) {
+        // Decorative platform mark: one <path> per {d, fill} shape, filled via
+        // the --logo-* CSS variables (config.js's PLATFORM_ICONS); the text
+        // label carries the accessible name.
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("aria-hidden", "true");
+        svg.setAttribute("class", "info-popover-link-icon");
+        for (const { d, fill } of icon) {
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("fill", fill);
+          path.setAttribute("d", d);
+          svg.appendChild(path);
+        }
+        a.appendChild(svg);
+      }
+      a.appendChild(document.createTextNode(label));
+      a.addEventListener("click", closeInfoPopover);
+      item.appendChild(a);
+      if (hint) {
+        const small = document.createElement("span");
+        small.className = "info-popover-link-hint";
+        small.textContent = hint;
+        item.appendChild(small);
+      }
+      list.appendChild(item);
+    }
+    popup.appendChild(list);
   }
   if (parts.extraText) {
     const extra = document.createElement("p");
@@ -110,7 +151,7 @@ function openInfoPopover(triggerEl, content, { formula } = {}) {
   popup.appendChild(closeBtn);
 
   document.body.appendChild(popup);
-  positionInfoPopover(triggerEl, popup);
+  placePopup(triggerEl, popup, { align: alignRight ? "right" : "left" });
 
   openPopup = popup;
   openTrigger = triggerEl;
@@ -118,6 +159,9 @@ function openInfoPopover(triggerEl, content, { formula } = {}) {
 
   document.addEventListener("mousedown", onDocMouseDown, true);
   document.addEventListener("keydown", onDocKeyDown, true);
+  // A pinch-zoom or pan moves the visual viewport out from under a placed
+  // popup; close it rather than re-placing it mid-gesture.
+  unwatchViewport = watchViewport(closeInfoPopover);
 }
 
 // Builds a button that toggles a click-dismissible popup showing `content`.
@@ -142,7 +186,7 @@ function openInfoPopover(triggerEl, content, { formula } = {}) {
 // header, a table header cell, etc. Only one popover is open at a time
 // app-wide; opening a second (or re-clicking the open one's own trigger)
 // closes whatever's open first.
-export function createInfoPopover(content, { ariaLabel, label, labelId, formula } = {}) {
+export function createInfoPopover(content, { ariaLabel, label, labelId, formula, alignRight } = {}) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "info-popover-trigger";
@@ -169,7 +213,7 @@ export function createInfoPopover(content, { ariaLabel, label, labelId, formula 
     e.stopPropagation();
     const reopening = openTrigger === btn;
     closeInfoPopover();
-    if (!reopening) openInfoPopover(btn, content, { formula });
+    if (!reopening) openInfoPopover(btn, content, { formula, alignRight });
   });
   return btn;
 }

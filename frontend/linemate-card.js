@@ -38,6 +38,7 @@ import {
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
+import { placePopup } from "./popup-position.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
@@ -84,16 +85,7 @@ export function showAppTooltip(triggerEl, text) {
   tip.textContent = text;
   document.body.appendChild(tip);
 
-  const triggerRect = triggerEl.getBoundingClientRect();
-  const tipRect = tip.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(triggerRect.left + triggerRect.width / 2 - tipRect.width / 2, 8),
-    window.innerWidth - tipRect.width - 8
-  );
-  const above = triggerRect.top - tipRect.height - 8;
-  const top = above >= 8 ? above : triggerRect.bottom + 8;
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
+  placePopup(triggerEl, tip, { align: "center" });
   appTooltipEl = tip;
 }
 
