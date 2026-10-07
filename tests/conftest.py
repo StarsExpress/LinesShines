@@ -7,13 +7,17 @@ var inside a fixture would be too late for the first `from main import ...`.
 
 from __future__ import annotations
 import os
+import socket
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 _TEST_DB_DIR = tempfile.mkdtemp(prefix="lines_shines_test_")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
 
 import pytest
+import uvicorn
 from fastapi.testclient import TestClient
 from database.db_models import Base, PassBlockStat, PassRushStat, Team
 from main import app, engine, SessionLocal
@@ -131,3 +135,26 @@ def seeded_db():
         sess.commit()
 
     yield
+
+
+@pytest.fixture()
+def live_server_url(seeded_db):
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    )
+
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit = True
+    thread.join(timeout=5)

@@ -8,23 +8,19 @@ const PRECACHE_URLS = [
   "/vendor/html2canvas.min.js?v={{VERSION}}",
   "/manifest.json",
   "/images/favicon-192x192.png",
-  "/images/favicon-512x512.png"
+  "/images/favicon-512x512.png",
 ];
 
 const NEVER_CACHE_PREFIXES = ["/api/metadata", "/api/pass_rush", "/api/pass_block", "/health"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
   );
   self.clients.claim();
 });

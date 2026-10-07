@@ -23,13 +23,7 @@ import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./sear
 import { MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
 import { withTrailingPeriod, isDesktopScoutLayout, updateScoutEmptyHint } from "./cards-base.js";
-import {
-  scoutCards,
-  closeScoutCard,
-  closeAllScoutCards,
-  openScoutCard,
-  flashFloatingCard,
-} from "./scout-card.js";
+import { scoutCards, closeScoutCard, closeAllScoutCards, openScoutCard, flashFloatingCard } from "./scout-card.js";
 import {
   workspaceSingles,
   mergeCards,

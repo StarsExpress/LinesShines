@@ -1,4 +1,4 @@
-# 📲Installation as an App
+# 📲Install LinesShines App
 
 LinesShines is a PWA — Progressive Web App.
 
@@ -10,7 +10,7 @@ No browser address bar, and has offline-aware caching for static assets.
 
 ## 📱iOS
 
-1. Open [lines-shines.com](https://www.lines-shines.com) in Safari.
+1. Open [www.lines-shines.com](https://www.lines-shines.com) in Safari.
 2. Tap the **Share** button — square with an arrow one.
 3. Scroll down and tap **Add to Home Screen**.
 4. Confirm — icon lands on your home screen, like any other app.
@@ -20,7 +20,7 @@ No browser address bar, and has offline-aware caching for static assets.
 ## 💻macOS
 
 **🧭Safari**
-1. Open [lines-shines.com](https://www.lines-shines.com).
+1. Open [www.lines-shines.com](https://www.lines-shines.com).
 
 2. Menu bar → **File → Add to Dock**.
    
@@ -29,7 +29,7 @@ No browser address bar, and has offline-aware caching for static assets.
 3. LinesShines appears in your Dock as a standalone app.
 
 **🌈Chrome**
-1. Open [lines-shines.com](https://www.lines-shines.com).
+1. Open [www.lines-shines.com](https://www.lines-shines.com).
 
 2. Click **Install** icon on address bar's right side.
 
@@ -41,7 +41,7 @@ No browser address bar, and has offline-aware caching for static assets.
 
 ## 🤖Android
 
-1. Open [lines-shines.com](https://www.lines-shines.com) in Chrome.
+1. Open [www.lines-shines.com](https://www.lines-shines.com) in Chrome.
 
 2. Tap the **⋮** menu → **Install app**.
 
@@ -54,7 +54,7 @@ No browser address bar, and has offline-aware caching for static assets.
 ## 🪟Windows
 
 **Edge** — best support
-1. Open [lines-shines.com](https://www.lines-shines.com).
+1. Open [www.lines-shines.com](https://www.lines-shines.com).
 
 2. Click **Install** icon on address bar's right side.
 
@@ -63,7 +63,7 @@ No browser address bar, and has offline-aware caching for static assets.
 3. LinesShines opens in its own window and is added to Start Menu.
 
 **🌈Chrome**
-1. Open [lines-shines.com](https://www.lines-shines.com).
+1. Open [www.lines-shines.com](https://www.lines-shines.com).
 
 2. Click **Install** icon on address bar's right side.
 

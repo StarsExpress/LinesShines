@@ -13,10 +13,10 @@ import { els } from "./dom.js";
 
 export const LOGO_PATH = (team) => `logos/${team}.png`;
 
-export let metadata = null;                 // /api/metadata payload
-export const sliceCache = new Map();        // key = `${category}:${season}:${position}` → records[]
-export let currentRecords = [];             // records for the current slice (all threshold values)
-export let currentFiltered = [];            // records >= threshold (what the chart shows)
+export let metadata = null; // /api/metadata payload
+export const sliceCache = new Map(); // key = `${category}:${season}:${position}` → records[]
+export let currentRecords = []; // records for the current slice (all threshold values)
+export let currentFiltered = []; // records >= threshold (what the chart shows)
 
 // Which category's schema currentRecords actually matches. Tracked
 // separately from els.category.value because a pending (not-yet-Applied)

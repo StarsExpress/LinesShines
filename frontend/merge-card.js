@@ -514,7 +514,10 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
       // Displayed text stays percentile-only (BLUEPRINT.md §1.2); the exact
       // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
       // Cards' percentile cells.
-      attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[record.position] || record.position}` : key);
+      attachAppTooltip(
+        td,
+        rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[record.position] || record.position}` : key
+      );
       tr.appendChild(td);
     });
 

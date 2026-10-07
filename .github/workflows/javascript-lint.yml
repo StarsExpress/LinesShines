@@ -1,4 +1,4 @@
-name: Black Lint
+name: JavaScript Lint
 
 on:
   push:
@@ -17,6 +17,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: jpetrucciani/black-check@master
+      - uses: actions/setup-node@v4
         with:
-          black_flags: '-S'
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm run format:js:check

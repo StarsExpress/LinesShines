@@ -32,7 +32,10 @@ import {
 // safe/clean in a downloaded filename — collapse any run of non-alphanumeric
 // characters to a single underscore.
 export function sanitizeForFilename(value) {
-  return String(value).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return String(value)
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 // Credit strip baked into exported PNGs only — the on-screen chart never
@@ -44,11 +47,11 @@ export function sanitizeForFilename(value) {
 // regardless of what layout produced it.
 
 export const EXPORT_FOOTER_TEXT = "LinesShines · www.lines-shines.com · Source: PFF Premium Stats";
-export const EXPORT_FOOTER_HEIGHT = 30;    // Logical px, pre-scale.
+export const EXPORT_FOOTER_HEIGHT = 30; // Logical px, pre-scale.
 export const EXPORT_FOOTER_FONT_SIZE = 12; // Logical px, pre-scale — chart-annotation size.
 export const EXPORT_FOOTER_PADDING_X = 16; // Logical px, pre-scale.
 
-export const EXPORT_FOOTER_BG = "#16301f";  // Matches --turf-800, same swap `render()` does for export bg.
+export const EXPORT_FOOTER_BG = "#16301f"; // Matches --turf-800, same swap `render()` does for export bg.
 
 // `--chalk-dim`, muted so it doesn't compete with the plot.
 export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)";
@@ -61,10 +64,10 @@ export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)";
 // than the footer's own text since it's substantive content, not just a
 // credit line, but still visually secondary to the export's main content.
 
-export const APPENDIX_FONT_SIZE = 10;   // Logical px, pre-scale.
+export const APPENDIX_FONT_SIZE = 10; // Logical px, pre-scale.
 export const APPENDIX_LINE_HEIGHT = 14; // Logical px, pre-scale.
-export const APPENDIX_PADDING_Y = 10;   // Logical px, pre-scale — top+bottom of the block.
-export const APPENDIX_PADDING_X = 16;   // Logical px, pre-scale — matches footer's own horizontal padding.
+export const APPENDIX_PADDING_Y = 10; // Logical px, pre-scale — top+bottom of the block.
+export const APPENDIX_PADDING_X = 16; // Logical px, pre-scale — matches footer's own horizontal padding.
 
 // `--chalk-dim`, a touch brighter than the footer's 0.75 so multi-line text stays legible.
 export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)";
