@@ -541,14 +541,12 @@
      showMergeInvalidationConfirm() in app.js. -->
 <div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
   <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
-    <p class="merge-confirm-title" id="merge-confirm-title">Clear your Pinned Players?</p>
-    <p class="merge-confirm-body">
-      Some players in your Pinned Players don’t fit the new filters, so Pinned Players and Comparisons
-      will be cleared. This can’t be undone.
-    </p>
+    <p class="merge-confirm-title" id="merge-confirm-title">New Filters Cause Removals</p>
+    <!-- Filled by showMergeInvalidationConfirm() (workspace.js) from impactConfirmMessage(), textContent only. -->
+    <div class="merge-confirm-body" id="merge-confirm-body"></div>
     <div class="merge-confirm-actions">
       <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
-      <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Clear &amp; Apply</button>
+      <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Remove &amp; Apply</button>
     </div>
   </div>
 </div>

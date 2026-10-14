@@ -58,6 +58,8 @@ export const els = {
   mergeCardTemplate: document.getElementById("merge-card-template"),
   linemateCardTemplate: document.getElementById("linemate-card-template"),
   mergeConfirmOverlay: document.getElementById("merge-confirm-overlay"),
+  mergeConfirmTitle: document.getElementById("merge-confirm-title"),
+  mergeConfirmBody: document.getElementById("merge-confirm-body"),
   mergeConfirmCancel: document.getElementById("merge-confirm-cancel"),
   mergeConfirmClear: document.getElementById("merge-confirm-clear"),
   workspaceNoticeOverlay: document.getElementById("workspace-notice-overlay"),

@@ -23,6 +23,7 @@ import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./sear
 import { MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
 import { withTrailingPeriod, isDesktopScoutLayout, updateScoutEmptyHint } from "./cards-base.js";
+import { closeLinemateCard } from "./linemate-card.js";
 import { scoutCards, closeScoutCard, closeAllScoutCards, openScoutCard, flashFloatingCard } from "./scout-card.js";
 import {
   workspaceSingles,
@@ -346,15 +347,103 @@ export function clearWorkspace() {
   clearMergeCards(); // already calls renderPlayerCardsSpace()
 }
 
+// Partial removal (pinned-impact.js "partial"): drops only `removed` players —
+// their Single Cards rows, Player Cards and Linemate Cards — shrinks the
+// Comparisons in `comparisons.shrunk` to their surviving members, and
+// dissolves `comparisons.dissolved` (floating card closed, row gone). A
+// surviving member of a dissolved Comparison goes back to Single Cards, the
+// same as the Edit popup's auto-dissolve. The quota frees itself:
+// distinctWorkspacePlayers() is derived from these two maps. Card bodies and
+// season data are refreshed afterwards by applyFilters()'s refresh pass.
+export function removePinnedPlayers({ removed, comparisons }) {
+  removed.forEach((key) => {
+    workspaceSingles.delete(key);
+    closeScoutCard(key);
+    closeLinemateCard(key);
+  });
+  comparisons.shrunk.forEach(({ id, kept }) => {
+    const entry = mergeCards.get(id);
+    if (entry) entry.memberKeys = kept;
+  });
+  comparisons.dissolved.forEach(({ id, survivors }) => {
+    const entry = mergeCards.get(id);
+    if (!entry) return;
+    if (entry.el) entry.el.remove();
+    mergeCards.delete(id);
+    survivors.forEach((key) => {
+      const record = findRecordByPlayer(key);
+      if (record && !workspaceSingles.has(key)) workspaceSingles.set(key, record);
+    });
+  });
+  updateScoutEmptyHint();
+  renderPlayerCardsSpace();
+}
+
 // --- Pool-change confirm modal (BLUEPRINT.md §4) -----------------------------
+
+// Builds the dialog from impactConfirmMessage()'s structured result. Every
+// player name goes in via textContent and is wrapped in a nowrap span, so a
+// long list wraps between names, never inside one.
+function renderConfirmContent(content) {
+  const el = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  };
+  // Names joined by `sep`, each in its own nowrap span; the separator sits
+  // outside the spans so it is where a line may break.
+  const nameLine = (parent, names, sep) => {
+    names.forEach((name, i) => {
+      if (i) parent.appendChild(document.createTextNode(sep));
+      parent.appendChild(el("span", "merge-confirm-name", name));
+    });
+  };
+  const section = (labelText) => {
+    const sec = el("section", "merge-confirm-section");
+    sec.appendChild(el("h4", "merge-confirm-label", labelText));
+    return sec;
+  };
+
+  els.mergeConfirmTitle.textContent = content.title;
+  els.mergeConfirmClear.textContent = content.confirmLabel;
+  els.mergeConfirmBody.replaceChildren();
+
+  const removed = section(content.removedLabel);
+  const names = el("p", "merge-confirm-names");
+  nameLine(names, content.removedNames, ", ");
+  if (content.removedMore) names.appendChild(document.createTextNode(` and ${content.removedMore} more`));
+  removed.appendChild(names);
+  els.mergeConfirmBody.appendChild(removed);
+
+  if (content.comparisonRows.length) {
+    const comparisons = section("COMPARISONS");
+    content.comparisonRows.forEach((row) => {
+      const item = el("div", "merge-confirm-row");
+      const before = el("p", "merge-confirm-before");
+      nameLine(before, row.before, " + ");
+      const after = el("p", "merge-confirm-after", row.after ? "→ " : `→ ${row.status}`);
+      if (row.after) nameLine(after, row.after, " + ");
+      item.append(before, after);
+      comparisons.appendChild(item);
+    });
+    if (content.comparisonMore) {
+      comparisons.appendChild(el("p", "merge-confirm-more", `and ${content.comparisonMore} more`));
+    }
+    els.mergeConfirmBody.appendChild(comparisons);
+  }
+
+  els.mergeConfirmBody.appendChild(el("p", "merge-confirm-note", content.note));
+}
 
 // Resolves true (proceed) or false (cancel). Only ever shown when the
 // Workspace (Single Cards and/or Merged Cards, BLUEPRINT_PinnedPlayers.md
 // §9) is non-empty — Linemate Cards refresh in place instead of being
 // dissolved on a threshold-only change (see refreshOpenLinemateCards() in
 // applyFilters()), so they don't warrant interrupting Apply on their own.
-export function showMergeInvalidationConfirm() {
+export function showMergeInvalidationConfirm(content) {
   return new Promise((resolve) => {
+    if (content) renderConfirmContent(content);
     els.mergeConfirmOverlay.hidden = false;
     const cleanup = (result) => {
       els.mergeConfirmOverlay.hidden = true;

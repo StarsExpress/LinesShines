@@ -32,6 +32,7 @@ import {
   teamSwatch,
   teamName,
   allTeamCodes,
+  findRecordByPlayer,
 } from "./data.js";
 import { searchPlayersExcluding, qualifyingPlayerPool, fullPlayerPool } from "./search.js";
 import { CONFERENCES } from "./config.js";
@@ -45,8 +46,13 @@ import {
   retargetLinemateCard,
 } from "./linemate-card.js";
 import { workspaceSingles, mergeCards, refreshOpenMergeCards, distinctWorkspacePlayers } from "./merge-card.js";
-import { clearWorkspace, showMergeInvalidationConfirm, renderPlayerCardsSpace } from "./workspace.js";
-import { evaluatePinnedImpact } from "./pinned-impact.js";
+import {
+  clearWorkspace,
+  showMergeInvalidationConfirm,
+  renderPlayerCardsSpace,
+  removePinnedPlayers,
+} from "./workspace.js";
+import { evaluatePinnedImpact, mayApplyWithoutConfirm, impactConfirmMessage } from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
 // where the threshold should snap to that category's configured default
@@ -530,14 +536,19 @@ function quickSetPlayersThreshold(value) {
       pendingPoolState(),
       distinctWorkspacePlayers(),
       playerPoolRecords,
-      metadata[appliedFilters.category].threshold_field
+      metadata[appliedFilters.category].threshold_field,
+      openComparisons()
     );
-    if (impact !== "reset") {
+    if (mayApplyWithoutConfirm(impact.outcome)) {
       commitPendingThreshold();
       return;
     }
   }
   updatePendingState();
+}
+
+function openComparisons() {
+  return Array.from(mergeCards.values(), (e) => ({ id: e.id, memberKeys: e.memberKeys }));
 }
 
 // The final category/season/position/threshold combination the controls
@@ -898,6 +909,7 @@ export async function applyFilters() {
     els.category.value !== appliedFilters.category ||
     els.season.value !== appliedFilters.season ||
     els.position.value !== appliedFilters.position;
+  const seasonChanged = els.season.value !== appliedFilters.season;
   const pinned = distinctWorkspacePlayers();
   const workspaceNonEmpty = workspaceSingles.size > 0 || mergeCards.size > 0;
 
@@ -922,16 +934,28 @@ export async function applyFilters() {
     pendingPoolState(),
     pinned,
     playerPoolRecords,
-    metadata[els.category.value].threshold_field
+    metadata[els.category.value].threshold_field,
+    openComparisons()
   );
+  const outcome = impact.outcome;
 
-  if (impact === "reset") {
+  if (outcome === "reset" || outcome === "partial") {
     if (workspaceNonEmpty) {
-      const proceed = await showMergeInvalidationConfirm();
+      const label = (key) => {
+        const r = findRecordByPlayer(key);
+        return (r && (r.abbr_name || r.player)) || key;
+      };
+      const proceed = await showMergeInvalidationConfirm(impactConfirmMessage(impact, label));
       if (!proceed) return; // Cancel aborts entirely — pending controls stay lit, nothing is fetched or cleared.
     }
-    clearWorkspace();
-    if (sliceChanged) clearLinemateCards();
+    if (outcome === "reset") {
+      clearWorkspace();
+      if (sliceChanged) clearLinemateCards();
+    } else {
+      // Only the players who don't fit go; survivors are re-pointed at the
+      // new slice by reconcileCarriedCards() below, same as a "refresh".
+      removePinnedPlayers(impact);
+    }
   }
 
   if (sliceChanged) {
@@ -957,6 +981,7 @@ export async function applyFilters() {
   refreshOpenLinemateCards();
   refreshOpenMergeCards();
   renderPlayerCardsSpace();
-  if (impact === "refresh" && pinned.size) showPinnedRefreshNotice(appliedFilters.season);
+  if (seasonChanged && (outcome === "refresh" || outcome === "partial") && pinned.size)
+    showPinnedRefreshNotice(appliedFilters.season);
   updatePendingState();
 }
