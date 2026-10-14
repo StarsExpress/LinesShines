@@ -54,8 +54,8 @@ DEFAULT_THRESHOLDS: dict[str, int] = {
 # Key, which means current season, must be "renamed" when a new season comes.
 DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 60,  # Min PR Opp for pass rush filter.
-        "pass_block": 80,  # Min Non Spike PB Snaps for pass block filter.
+        "pass_rush": 70,  # Min PR Opp for pass rush filter.
+        "pass_block": 100,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
 
