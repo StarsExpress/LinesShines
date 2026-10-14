@@ -38,6 +38,7 @@ import {
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
+import { placePopup } from "./popup-position.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
@@ -54,9 +55,10 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // only ever reads it, never resets it.
 export const linemateCards = new Map();
 
-// Closes every Linemate Card — only for a season/category/position change
-// (BLUEPRINT.md §4). A threshold-only change no longer dissolves them; see
-// refreshOpenLinemateCards(), called from applyFilters() instead.
+// Closes every Linemate Card — for a slice change that resets the Workspace
+// (see applyFilters()). A threshold-only change, or a season change that
+// pinned-impact.js judges "refresh", keeps them: they are re-pointed
+// (retargetLinemateCard()) and recomputed by refreshOpenLinemateCards().
 export function clearLinemateCards() {
   linemateCards.forEach((entry) => entry.el.remove());
   linemateCards.clear();
@@ -84,16 +86,7 @@ export function showAppTooltip(triggerEl, text) {
   tip.textContent = text;
   document.body.appendChild(tip);
 
-  const triggerRect = triggerEl.getBoundingClientRect();
-  const tipRect = tip.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(triggerRect.left + triggerRect.width / 2 - tipRect.width / 2, 8),
-    window.innerWidth - tipRect.width - 8
-  );
-  const above = triggerRect.top - tipRect.height - 8;
-  const top = above >= 8 ? above : triggerRect.bottom + 8;
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
+  placePopup(triggerEl, tip, { align: "center" });
   appTooltipEl = tip;
 }
 
@@ -376,10 +369,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       // #rank/N is still hover-only (attachAppTooltip), since the column
       // header already labels which metric this is — nothing left for a
       // "tooltip each percentile" disclaimer to explain.
-      attachAppTooltip(
-        td,
-        rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key
-      );
+      attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key);
       tr.appendChild(td);
     });
 
@@ -478,9 +468,7 @@ export function renderLinemateSummary(entry, roster, summaryTable) {
   const cat = appliedCategoryMeta();
   const summary = computeThreeMRSWA(roster, cat);
   const summaryRows = Object.keys(cat.metrics).map((key) => ({ key, ...summary[key] }));
-  const sortedRows = sortRows(summaryRows, entry.summarySort, (row) =>
-    summarySortValue(row, entry.summarySort.key)
-  );
+  const sortedRows = sortRows(summaryRows, entry.summarySort, (row) => summarySortValue(row, entry.summarySort.key));
 
   summaryTable.innerHTML = "";
   const RSWA_TOOLTIP =
@@ -543,25 +531,11 @@ export function refreshOpenLinemateCards() {
   linemateCards.forEach((entry) => renderLinemateCardBody(entry));
 }
 
-export function openLinemateCard(anchorRecord) {
-  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
-
-  const closeBtn = cardEl.querySelector(".scout-close");
-  const foldBtn = cardEl.querySelector(".scout-fold");
-  const dragHandle = cardEl.querySelector(".scout-drag-handle");
-  const tableEl = cardEl.querySelector(".linemate-table");
-  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
-  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
-  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+// Logo/badge + team · season line. Team and season are fixed until a "refresh"
+// Apply carries the card to another season (retargetLinemateCard()).
+function setLinemateCardIdentity(cardEl, anchorRecord) {
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
-  const metaEl = cardEl.querySelector(".linemate-card-meta");
-
-  // Team/season are fixed for this card's lifetime (a season/category/
-  // position change dissolves every Linemate Card — see clearLinemateCards()
-  // — so unlike the title, this never needs to be re-set by
-  // renderLinemateCardBody()'s refresh path). Mirrors openScoutCard()'s own
-  // logo/badge wiring.
   const color = teamColor(anchorRecord.team);
   logoImg.src = logoSrc(anchorRecord.team);
   logoImg.alt = `${anchorRecord.team} logo`;
@@ -573,10 +547,33 @@ export function openLinemateCard(anchorRecord) {
     badge.textContent = anchorRecord.team;
     badge.style.background = color;
   };
-  metaEl.textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
-  // Anchor name is fixed for the card's lifetime too — same reasoning as
-  // logo/badge/metaEl above, set once here rather than in
-  // renderLinemateCardBody()'s refresh path.
+  cardEl.querySelector(".linemate-card-meta").textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
+}
+
+// Re-points an open Linemate Card at the anchor's row in another season. The
+// roster/summary are recomputed by the refreshOpenLinemateCards() that follows
+// (the roster derives from the anchor + applied filters, so teammates are
+// never checked individually).
+export function retargetLinemateCard(entry, anchorRecord) {
+  entry.anchorRecord = anchorRecord;
+  setLinemateCardIdentity(entry.el, anchorRecord);
+}
+
+export function openLinemateCard(anchorRecord) {
+  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const tableEl = cardEl.querySelector(".linemate-table");
+  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
+  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
+  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+
+  // Team/season only change via retargetLinemateCard() (a "refresh" Apply);
+  // a category/position change or a "reset" dissolves the card instead.
+  setLinemateCardIdentity(cardEl, anchorRecord);
+  // Anchor name is fixed for the card's lifetime — set once here.
   anchorToggleLabel.textContent = `Include ${anchorRecord.player} into tables.`;
 
   const id = nextCardId();
@@ -645,7 +642,8 @@ export function openLinemateCard(anchorRecord) {
     // abbr_name shortens the first name to an initial, keeping the last name
     // intact (e.g. "D. Hall") — same convention already shown on the card's
     // own title, just applied to the downloaded filename too.
-    () => `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+    () =>
+      `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
     // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
     // in the first place (see renderLinemateRoster) — a collapsed roster's
     // hidden rows don't exist for html2canvas to reveal via CSS. Re-render

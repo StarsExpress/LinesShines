@@ -26,6 +26,7 @@ import {
   setPlayerPool,
   setAppliedFilters,
   currentCategoryMeta,
+  appliedCategoryMeta,
   thresholdFieldLabel,
   logoSrc,
   teamSwatch,
@@ -35,10 +36,17 @@ import {
 import { searchPlayersExcluding, qualifyingPlayerPool, fullPlayerPool } from "./search.js";
 import { CONFERENCES } from "./config.js";
 import { render } from "./render.js";
-import { refreshOpenScoutCards } from "./scout-card.js";
-import { refreshOpenLinemateCards, clearLinemateCards } from "./linemate-card.js";
-import { workspaceSingles, mergeCards, refreshOpenMergeCards } from "./merge-card.js";
-import { clearWorkspace, showMergeInvalidationConfirm } from "./workspace.js";
+import { refreshOpenScoutCards, scoutCards, closeScoutCard, retargetScoutCard } from "./scout-card.js";
+import {
+  refreshOpenLinemateCards,
+  clearLinemateCards,
+  linemateCards,
+  closeLinemateCard,
+  retargetLinemateCard,
+} from "./linemate-card.js";
+import { workspaceSingles, mergeCards, refreshOpenMergeCards, distinctWorkspacePlayers } from "./merge-card.js";
+import { clearWorkspace, showMergeInvalidationConfirm, renderPlayerCardsSpace } from "./workspace.js";
+import { evaluatePinnedImpact } from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
 // where the threshold should snap to that category's configured default
@@ -185,7 +193,6 @@ export function closeTeamsDropdown() {
   els.teamsBtn.setAttribute("aria-expanded", "false");
 }
 
-
 // Players filter's own search — no point suggesting a chip that already
 // exists, so it excludes whatever's already selected there.
 export function searchPlayers(query, pool, topK = 8) {
@@ -267,11 +274,7 @@ export function renderPlayersDropdown(matches) {
     toggle.textContent = `Below Threshold Matches (${belowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
       openBelowThresholdPopup(belowThresholdMatches, metadata[playerPoolCategory], (value) => {
-        // Players filter stays Apply-gated, same as every other batched
-        // control here — see setThresholdTo()'s own comment for why this
-        // only stages a pending value rather than committing it the way
-        // applyThresholdImmediately() does for Pinned Players below.
-        setThresholdTo(value);
+        quickSetPlayersThreshold(value);
         runPlayersSearch();
       })
     );
@@ -482,6 +485,13 @@ export function setThresholdTo(value) {
 // the way a normal Apply's threshold change does.
 export function applyThresholdImmediately(value) {
   syncThresholdControls(value);
+  commitPendingThreshold();
+}
+
+// Commits whatever is now in els.thresholdNumber into appliedFilters (a
+// threshold-only merge) and refreshes the open cards in place. Shared by
+// applyThresholdImmediately() and quickSetPlayersThreshold().
+function commitPendingThreshold() {
   // Read back els.thresholdNumber.value (a string) rather than restating
   // `clamped` here, so appliedFilters.threshold is byte-for-byte what
   // currentFilterState() would have produced — that's what keeps
@@ -490,10 +500,100 @@ export function applyThresholdImmediately(value) {
   setAppliedFilters({ ...appliedFilters, threshold: els.thresholdNumber.value });
   prunePlayerSelections();
   render();
+  reconcileCarriedCards();
   refreshOpenScoutCards();
   refreshOpenLinemateCards();
   refreshOpenMergeCards();
   updatePendingState();
+}
+
+// The Players filter's Below Threshold "Set Threshold". Takes the Pinned
+// Players fast lane (commit straight into appliedFilters, no confirm) only
+// when the pending pool fields (season/category/position) equal the applied
+// ones — otherwise the new threshold would be judged against a pool the chart
+// isn't showing, so it just stays staged for Apply like every other pending
+// edit. Teams / Players / axes edits don't matter here: Teams only highlights,
+// and the commit is a threshold-only merge that leaves every other pending
+// field untouched. Even then it must pass evaluatePinnedImpact(); "reset"
+// (a pinned player would fall under the bar) also falls back to staging, so
+// the normal Apply flow shows its usual confirm.
+function quickSetPlayersThreshold(value) {
+  syncThresholdControls(value);
+  prunePlayerSelections();
+  const poolMatchesApplied =
+    els.category.value === appliedFilters.category &&
+    els.season.value === appliedFilters.season &&
+    els.position.value === appliedFilters.position;
+  if (poolMatchesApplied && playerPoolCategory === appliedFilters.category) {
+    const impact = evaluatePinnedImpact(
+      appliedFilters,
+      pendingPoolState(),
+      distinctWorkspacePlayers(),
+      playerPoolRecords,
+      metadata[appliedFilters.category].threshold_field
+    );
+    if (impact !== "reset") {
+      commitPendingThreshold();
+      return;
+    }
+  }
+  updatePendingState();
+}
+
+// The final category/season/position/threshold combination the controls
+// would apply right now (threshold already clamped by the controls).
+function pendingPoolState() {
+  return {
+    category: els.category.value,
+    season: els.season.value,
+    position: els.position.value,
+    threshold: Number(els.thresholdNumber.value),
+  };
+}
+
+// After the applied slice/threshold moved but the Workspace was kept: re-point
+// every surviving card at the player's row in the NEW applied slice (a player
+// can change team between seasons), and drop floating cards whose player no
+// longer exists at the applied position or clears the threshold (an unpinned
+// plot-click card is the only kind that can be left over). Pinned players are
+// guaranteed to resolve — evaluatePinnedImpact() checked them first.
+function reconcileCarriedCards() {
+  const field = appliedCategoryMeta().threshold_field;
+  const threshold = Number(appliedFilters.threshold);
+  const resolve = (name) => {
+    const r = currentRecords.find((x) => x.player === name && x.position === appliedFilters.position);
+    return r && r[field] != null && r[field] >= threshold ? r : null;
+  };
+  Array.from(scoutCards.entries()).forEach(([key, entry]) => {
+    const r = resolve(key);
+    if (r) retargetScoutCard(entry, r);
+    else closeScoutCard(key);
+  });
+  Array.from(linemateCards.entries()).forEach(([key, entry]) => {
+    const r = resolve(key);
+    if (r) retargetLinemateCard(entry, r);
+    else closeLinemateCard(key);
+  });
+  workspaceSingles.forEach((_, key) => {
+    const r = resolve(key);
+    if (r) workspaceSingles.set(key, r);
+  });
+}
+
+let refreshNoticeTimer = null;
+function showPinnedRefreshNotice(season) {
+  let el = document.getElementById("pinned-refresh-notice");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "pinned-refresh-notice";
+    el.className = "pinned-refresh-notice";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = `Pinned players updated to ${season} season data.`;
+  el.classList.add("is-visible");
+  clearTimeout(refreshNoticeTimer);
+  refreshNoticeTimer = setTimeout(() => el.classList.remove("is-visible"), 4000);
 }
 
 // Called whenever the qualifying pool can have shrunk — live threshold
@@ -573,11 +673,7 @@ export function populateCategoryDependentControls() {
   });
   // Distinct defaults, mirroring the pipeline's canonical query pairs.
   // Anything else falls back to generic non-TPS-vs-TPS heuristic.
-  if (
-    els.category.value === "pass_rush" &&
-    metricKeys.includes("Win Rate") &&
-    metricKeys.includes("TPS PRP")
-  ) {
+  if (els.category.value === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("TPS PRP")) {
     els.xMetric.value = "Win Rate";
     els.yMetric.value = "TPS PRP";
   } else if (
@@ -802,35 +898,43 @@ export async function applyFilters() {
     els.category.value !== appliedFilters.category ||
     els.season.value !== appliedFilters.season ||
     els.position.value !== appliedFilters.position;
-  // Threshold isn't part of sliceChanged (no refetch needed — currentRecords
-  // already holds every threshold value), but it does change which rows
-  // clear the bar, so it still invalidates the Workspace (Single Cards +
-  // Merged Cards) exactly like a slice change does
-  // (BLUEPRINT_PinnedPlayers.md §9 — a broader rule than the base
-  // BLUEPRINT.md §4's Merge-Card-only version it supersedes). Axes/Teams/
-  // Players deliberately don't participate here — none of them affect
-  // currentFiltered/positionPool, see the "do NOT invalidate" list in §4/§9.
-  const thresholdChanged = els.thresholdNumber.value !== appliedFilters.threshold;
-  const poolChanged = sliceChanged || thresholdChanged;
-
+  const pinned = distinctWorkspacePlayers();
   const workspaceNonEmpty = workspaceSingles.size > 0 || mergeCards.size > 0;
-  if (poolChanged && workspaceNonEmpty) {
-    const proceed = await showMergeInvalidationConfirm();
-    if (!proceed) return; // Cancel aborts entirely — pending controls stay lit, nothing is fetched or cleared.
-  }
-  if (poolChanged) {
-    clearWorkspace();
+
+  // Same category + position, so whether pinned players carry over depends on
+  // data: make sure playerPoolRecords is the pending season's slice (memoized
+  // by sliceCache — the same fetch loadCurrentSlice() would make) and the
+  // threshold control already holds the clamped/defaulted value for it
+  // (updatePendingThresholdMax() runs inside updatePlayerPool()).
+  if (
+    els.category.value === appliedFilters.category &&
+    els.position.value === appliedFilters.position &&
+    (els.season.value !== appliedFilters.season || els.thresholdNumber.value !== appliedFilters.threshold)
+  ) {
+    await updatePlayerPool();
   }
 
-  // A season/category/position change invalidates Linemate Cards outright
-  // (different roster of possible linemates entirely) — a threshold-only
-  // change doesn't get the same treatment: refreshOpenLinemateCards() below
-  // recomputes each open one's roster/percentiles in place instead. Player
-  // Cards no longer get a separate closeAllScoutCards() call here — they're
-  // already covered by clearWorkspace() above whenever poolChanged, and
-  // sliceChanged is always a poolChanged too.
+  // Judge the FINAL combination about to be applied, not each edit on its own
+  // (see pinned-impact.js and CLAUDE.md's "Pool-change invalidation"). Axes /
+  // Teams / Players never participate — none affect positionPool().
+  const impact = evaluatePinnedImpact(
+    appliedFilters,
+    pendingPoolState(),
+    pinned,
+    playerPoolRecords,
+    metadata[els.category.value].threshold_field
+  );
+
+  if (impact === "reset") {
+    if (workspaceNonEmpty) {
+      const proceed = await showMergeInvalidationConfirm();
+      if (!proceed) return; // Cancel aborts entirely — pending controls stay lit, nothing is fetched or cleared.
+    }
+    clearWorkspace();
+    if (sliceChanged) clearLinemateCards();
+  }
+
   if (sliceChanged) {
-    clearLinemateCards();
     await loadCurrentSlice(); // may also reset/clamp the threshold controls
   }
 
@@ -844,13 +948,15 @@ export async function applyFilters() {
   setAppliedFilters(currentFilterState());
   closeFiltersDrawer();
   render();
-  // Refreshes whatever Player/Linemate Cards are still open against the
-  // filters just applied — covers the threshold-only case above (ranks are
-  // computed against currentFiltered, which a threshold change moves).
-  // No-ops cleanly if sliceChanged already closed everything, and on a pure
-  // axes-only Apply too, since a Player Card's stat rows don't depend on
-  // which metrics are currently plotted.
+  // Carry surviving cards to the applied slice, then refresh their numbers
+  // against it. All no-ops after a "reset" (everything already closed), and
+  // for a pure axes-only Apply (a card's stat rows don't depend on which
+  // metrics are plotted).
+  reconcileCarriedCards();
   refreshOpenScoutCards();
   refreshOpenLinemateCards();
+  refreshOpenMergeCards();
+  renderPlayerCardsSpace();
+  if (impact === "refresh" && pinned.size) showPinnedRefreshNotice(appliedFilters.season);
   updatePendingState();
 }

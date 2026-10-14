@@ -28,8 +28,16 @@ import { linemateCards } from "./linemate-card.js";
 // the @media (max-width: 860px) rules in style.css), not floating overlays
 // — dragging/cascading only makes sense above that breakpoint, same cutoff
 // targetLogoPx() already uses for the desktop/mobile split.
+// document.documentElement.clientWidth, not window.innerWidth: on iOS Safari
+// (the phone-layout target this breakpoint is meant to gate — see
+// index.html's "desktop layout, shrunk to fit" viewport hack, which relies on
+// pinching in for chart detail), innerWidth tracks the zoomed *visual*
+// viewport and shrinks below 860 mid-pinch, firing the window "resize"
+// listener (main.js) and flipping this false — which hid Pinned Players
+// (and dropped card drag positions) on pinch-zoom alone, no real layout
+// change. clientWidth stays pinned to the layout viewport regardless of zoom.
 export function isDesktopScoutLayout() {
-  return window.innerWidth >= 860;
+  return document.documentElement.clientWidth >= 860;
 }
 
 export function ordinal(n) {

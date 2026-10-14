@@ -40,6 +40,7 @@ def test_pass_rush_returns_seeded_row(client, seeded_db):
 
     assert body["season"] == 2025
     assert body["position"] == "ED"
+
     assert len(body["records"]) == 1
     assert body["records"][0]["team"] == "BUF"
     assert body["records"][0]["PR Opp"] == 300

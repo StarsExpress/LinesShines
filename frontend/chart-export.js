@@ -32,7 +32,10 @@ import {
 // safe/clean in a downloaded filename — collapse any run of non-alphanumeric
 // characters to a single underscore.
 export function sanitizeForFilename(value) {
-  return String(value).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return String(value)
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 // Credit strip baked into exported PNGs only — the on-screen chart never
@@ -42,12 +45,16 @@ export function sanitizeForFilename(value) {
 // fragile to keep in sync with render()'s own margin.b — layering a
 // fixed-height strip onto the finished raster is simpler and pixel-exact
 // regardless of what layout produced it.
+
 export const EXPORT_FOOTER_TEXT = "LinesShines · www.lines-shines.com · Source: PFF Premium Stats";
-export const EXPORT_FOOTER_HEIGHT = 30; // logical px, pre-scale
-export const EXPORT_FOOTER_FONT_SIZE = 12; // logical px, pre-scale — chart-annotation size
-export const EXPORT_FOOTER_PADDING_X = 16; // logical px, pre-scale
-export const EXPORT_FOOTER_BG = "#16301f"; // matches --turf-800, same swap render() does for export bg
-export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, muted so it doesn't compete with the plot
+export const EXPORT_FOOTER_HEIGHT = 30; // Logical px, pre-scale.
+export const EXPORT_FOOTER_FONT_SIZE = 12; // Logical px, pre-scale — chart-annotation size.
+export const EXPORT_FOOTER_PADDING_X = 16; // Logical px, pre-scale.
+
+export const EXPORT_FOOTER_BG = "#16301f"; // Matches --turf-800, same swap `render()` does for export bg.
+
+// `--chalk-dim`, muted so it doesn't compete with the plot.
+export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)";
 
 // "Include metric notes" appendix (main.js's metric-notes checkbox) — a
 // strip of wrapped text lines drawn between the source image and the
@@ -56,12 +63,15 @@ export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)"; // --chalk-dim, 
 // collectMetricNotes()/categoryAppendixNotes()). Slightly larger/brighter
 // than the footer's own text since it's substantive content, not just a
 // credit line, but still visually secondary to the export's main content.
-export const APPENDIX_FONT_SIZE = 12; // logical px, pre-scale
-export const APPENDIX_LINE_HEIGHT = 16; // logical px, pre-scale
-export const APPENDIX_PADDING_Y = 10; // logical px, pre-scale — top+bottom of the block
-export const APPENDIX_PADDING_X = 16; // logical px, pre-scale — matches the footer's own horizontal padding
-export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)"; // --chalk-dim, a touch brighter than the footer's 0.75 so multi-line text stays legible
-export const APPENDIX_FONT_FAMILY = "Inter, sans-serif"; // matches the footer's own font
+
+export const APPENDIX_FONT_SIZE = 10; // Logical px, pre-scale.
+export const APPENDIX_LINE_HEIGHT = 14; // Logical px, pre-scale.
+export const APPENDIX_PADDING_Y = 10; // Logical px, pre-scale — top+bottom of the block.
+export const APPENDIX_PADDING_X = 16; // Logical px, pre-scale — matches footer's own horizontal padding.
+
+// `--chalk-dim`, a touch brighter than the footer's 0.75 so multi-line text stays legible.
+export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)";
+export const APPENDIX_FONT_FAMILY = "Inter, sans-serif"; // Matches footer's own font.
 
 // Composites the credit-line footer onto a canvas already sized to include
 // the extra footerPx strip beneath sourceHeight — split out of
@@ -99,8 +109,10 @@ function wrapText(ctx, text, maxWidth) {
   const words = text.split(" ");
   const lines = [];
   let current = "";
+
   words.forEach((word) => {
     const attempt = current ? `${current} ${word}` : word;
+
     if (current && ctx.measureText(attempt).width > maxWidth) {
       lines.push(current);
       current = word;
@@ -108,6 +120,7 @@ function wrapText(ctx, text, maxWidth) {
       current = attempt;
     }
   });
+
   if (current) lines.push(current);
   return lines;
 }
@@ -121,8 +134,10 @@ function wrapText(ctx, text, maxWidth) {
 function wrapAppendixNotes(notes, canvasWidth, scale) {
   if (!notes || notes.length === 0) return [];
   const ctx = document.createElement("canvas").getContext("2d");
+
   ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
   const maxWidth = canvasWidth - Math.round(APPENDIX_PADDING_X * scale) * 2;
+
   const lines = [];
   notes.forEach((note) => lines.push(...wrapText(ctx, note, maxWidth)));
   return lines;
@@ -132,10 +147,12 @@ function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
   const paddingX = Math.round(APPENDIX_PADDING_X * scale);
   const paddingY = Math.round(APPENDIX_PADDING_Y * scale);
   const lineHeight = Math.round(APPENDIX_LINE_HEIGHT * scale);
+
   ctx.fillStyle = APPENDIX_COLOR;
   ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
+
   lines.forEach((line, i) => {
     ctx.fillText(line, paddingX, startY + paddingY + i * lineHeight);
   });
@@ -164,10 +181,10 @@ function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
 export function compositeFooterCanvas(sourceCanvas, scale, { appendixNotes } = {}) {
   const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
   const paddingPx = Math.round(EXPORT_FOOTER_PADDING_X * scale);
+
   // +4px/scale safety margin: measureText's result depends on Inter having
   // actually finished loading by click time — a fallback-font measurement
-  // fractionally narrower than the real render shouldn't reintroduce a
-  // hairline clip.
+  // fractionally narrower than the real render shouldn't reintroduce a hairline clip.
   const minWidthForFooter = Math.ceil(measureFooterTextWidth(scale)) + paddingPx * 2 + Math.round(4 * scale);
   const canvasWidth = Math.max(sourceCanvas.width, minWidthForFooter);
 
@@ -184,6 +201,7 @@ export function compositeFooterCanvas(sourceCanvas, scale, { appendixNotes } = {
   ctx.fillStyle = EXPORT_FOOTER_BG;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(sourceCanvas, Math.round((canvas.width - sourceCanvas.width) / 2), 0);
+
   if (appendixLines.length) drawAppendix(ctx, canvas.width, sourceCanvas.height, appendixLines, scale);
   drawExportFooter(ctx, canvas.width, sourceCanvas.height + appendixPx, footerPx, scale);
   return canvas;
@@ -196,13 +214,17 @@ export function downloadCanvasAsPng(canvas, filename) {
         reject(new Error("canvas.toBlob returned null"));
         return;
       }
+
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
+
       anchor.href = url;
       anchor.download = `${filename}.png`;
       document.body.appendChild(anchor);
+
       anchor.click();
       anchor.remove();
+
       URL.revokeObjectURL(url);
       resolve();
     }, "image/png");
@@ -239,20 +261,25 @@ export function downloadCanvasAsPng(canvas, filename) {
 function captureSpotlightedLabelPositions(chartDiv, filterNames) {
   const nodes = chartDiv.querySelectorAll(".scatterlayer text");
   const positions = [];
+
   nodes.forEach((node) => {
     const name = node.getAttribute("data-unformatted");
     if (!name) return;
+
     const spotlighted = filterNames ? filterNames.has(name) : !!node.style.stroke;
     if (!spotlighted) return;
+
     const localX = parseFloat(node.getAttribute("x"));
     const localY = parseFloat(node.getAttribute("y"));
     const ctm = node.getCTM();
+
     positions.push({
       name,
       x: ctm.a * localX + ctm.c * localY + ctm.e,
       y: ctm.b * localX + ctm.d * localY + ctm.f,
     });
   });
+
   return positions;
 }
 
@@ -267,16 +294,21 @@ function drawLabelEmphasisOverlay(ctx, positions, scale) {
   ctx.save();
   ctx.textAlign = "center";
   ctx.font = `${LABEL_EMPHASIS_WEIGHT} ${POINT_LABEL_FONT_SIZE * scale}px Oswald, sans-serif`;
+
   ctx.lineJoin = "round";
   ctx.lineWidth = LABEL_HALO_WIDTH * scale;
+
   ctx.strokeStyle = LABEL_HALO_COLOR;
   ctx.shadowBlur = LABEL_GLOW_BLUR * scale;
   ctx.shadowColor = LABEL_GLOW_COLOR;
+
   positions.forEach(({ name, x, y }) => {
-    ctx.strokeText(name, x * scale, y * scale); // halo (+ glow, via shadowBlur) first
+    ctx.strokeText(name, x * scale, y * scale); // halo (+ glow, via shadowBlur) first.
   });
-  ctx.shadowBlur = 0; // fill pass shouldn't double the glow on top of the stroke pass's
+
+  ctx.shadowBlur = 0; // Fill pass shouldn't double the glow on top of stroke pass's.
   ctx.fillStyle = `rgb(${LABEL_FILL_RGB})`;
+
   positions.forEach(({ name, x, y }) => {
     ctx.fillText(name, x * scale, y * scale);
   });
@@ -328,15 +360,19 @@ async function buildExportClone(chartDiv, width, height) {
   clone.style.position = "fixed";
   clone.style.left = "-99999px";
   clone.style.top = "0";
+
   clone.style.width = `${width}px`;
   clone.style.height = `${height}px`;
+
   document.body.appendChild(clone);
+
   await Plotly.newPlot(
     clone,
     deepClone(chartDiv.data),
     { ...deepClone(chartDiv.layout), width, height },
     { displayModeBar: false, responsive: false, staticPlot: true }
   );
+
   return clone;
 }
 
@@ -349,8 +385,10 @@ async function buildExportClone(chartDiv, width, height) {
 export async function exportChartPngWithFooter(chartDiv, { width, height, scale, filename, appendixNotes }) {
   const spotlightNames = new Set(captureSpotlightedLabelPositions(chartDiv).map((p) => p.name));
   const clone = await buildExportClone(chartDiv, width, height);
+
   try {
     const positions = captureSpotlightedLabelPositions(clone, spotlightNames);
+
     // Blank the clone's own native rendering for exactly these labels before
     // rasterizing — otherwise Plotly's thinner, non-bold native text is
     // still there underneath our bold+haloed overlay, and even pixel-perfect
@@ -363,20 +401,26 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
     const transparentColors = clone.data[0].textfont.color.map((color, i) =>
       spotlightNames.has(cloneText[i]) ? "rgba(0,0,0,0)" : color
     );
+
     await Plotly.restyle(clone, { "textfont.color": [transparentColors] }, [0]);
     const dataUrl = await Plotly.toImage(clone, { format: "png", scale });
+
     const img = await new Promise((resolve, reject) => {
       const el = new Image();
       el.onload = () => resolve(el);
       el.onerror = () => reject(new Error("Failed to load rendered chart image"));
       el.src = dataUrl;
     });
+
     const sourceCanvas = document.createElement("canvas");
     sourceCanvas.width = img.width;
     sourceCanvas.height = img.height;
+
     const ctx = sourceCanvas.getContext("2d");
     ctx.drawImage(img, 0, 0);
-    await document.fonts.ready; // guards against a fallback-font flash if Oswald somehow hasn't finished loading yet
+
+    await document.fonts.ready; // Guards against a fallback-font flash if Oswald somehow hasn't finished loading yet.
+
     drawLabelEmphasisOverlay(ctx, positions, scale);
     await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale, { appendixNotes }), filename);
   } finally {

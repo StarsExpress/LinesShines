@@ -132,18 +132,12 @@ export function refreshOpenScoutCards() {
   scoutCards.forEach((entry) => renderScoutCardStats(entry.el, entry.record));
 }
 
-export function openScoutCard(record) {
-  const cardEl = els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
-
-  const closeBtn = cardEl.querySelector(".scout-close");
-  const foldBtn = cardEl.querySelector(".scout-fold");
-  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+// Logo/badge + team · position · season line — the parts of a card header that
+// depend on the record's team and the applied season (a player can change
+// team between seasons). Shared by open and retargetScoutCard().
+function setScoutCardIdentity(cardEl, record) {
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
-  const nameEl = cardEl.querySelector(".scout-name");
-  const metaEl = cardEl.querySelector(".scout-meta");
-  const linemateBtn = cardEl.querySelector(".card-linemate-toggle");
-
   const color = teamColor(record.team);
   logoImg.src = logoSrc(record.team);
   logoImg.alt = `${record.team} logo`;
@@ -155,9 +149,29 @@ export function openScoutCard(record) {
     badge.textContent = record.team;
     badge.style.background = color;
   };
+  cardEl.querySelector(".scout-meta").textContent =
+    `${teamName(record.team)} · ${record.position} · ${appliedFilters.season}`;
+}
+
+// Re-points an open Player Card at another season's row for the same player
+// (a "refresh" Apply, see pinned-impact.js). Stats are re-rendered by the
+// refreshOpenScoutCards() that follows.
+export function retargetScoutCard(entry, record) {
+  entry.record = record;
+  setScoutCardIdentity(entry.el, record);
+}
+
+export function openScoutCard(record) {
+  const cardEl = els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const nameEl = cardEl.querySelector(".scout-name");
+  const linemateBtn = cardEl.querySelector(".card-linemate-toggle");
 
   nameEl.textContent = record.player;
-  metaEl.textContent = `${teamName(record.team)} · ${record.position} · ${appliedFilters.season}`;
+  setScoutCardIdentity(cardEl, record);
 
   renderScoutCardStats(cardEl, record);
 
@@ -178,13 +192,15 @@ export function openScoutCard(record) {
   // Raises a card even on a plain click, not just a drag, so tapping an
   // overlapped card's stats brings it to front too.
   cardEl.addEventListener("pointerdown", () => bringScoutCardToFront(cardEl));
-  linemateBtn.addEventListener("click", () => toggleLinemateCard(record));
+  // entry.record, not the closed-over `record`: retargetScoutCard() swaps it
+  // when a season change carries this card to another season's row.
+  linemateBtn.addEventListener("click", () => toggleLinemateCard(entry.record));
   // abbr_name shortens the first name to an initial, keeping the last name
   // intact (e.g. "D. Hall") — same convention already shown on every card
   // title/table cell, just applied to the downloaded filename too.
   attachCardSave(
     cardEl,
-    () => `LinesShines_${sanitizeForFilename(record.abbr_name || record.player)}_${appliedFilters.season}`,
+    () => `LinesShines_${sanitizeForFilename(entry.record.abbr_name || entry.record.player)}_${appliedFilters.season}`,
     undefined,
     () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );

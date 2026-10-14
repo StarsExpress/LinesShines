@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -53,7 +53,7 @@ def _resolve_database_url() -> str:
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://") :]
 
-    # Force SQLAlchemy to use psycopg3, which is installed as psycopg[binary].
+    # Force SQLAlchemy to use psycopg3, which is installed as `psycopg[binary]`.
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://") :]
     return url
@@ -71,7 +71,7 @@ engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
 
-# ---- static metric/position descriptions (schema-level, not row-level) -----
+# ---- Static metric/position descriptions (schema-level, not row-level). -----
 
 PASS_RUSH_POSITIONS = {"ED": "Edge", "DI": "Defensive Interior"}
 PASS_BLOCK_POSITIONS = {"T": "Offensive Tackle", "G": "Guard", "C": "Center"}
@@ -357,6 +357,25 @@ if _frontend_dir.exists():
     @app.get("/", response_class=HTMLResponse)
     def serve_index() -> str:
         return _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA)
+
+    _sw_path = _frontend_dir / "sw.js"
+
+    @app.get("/sw.js")
+    def serve_sw() -> Response:
+        # sw.js carries {{VERSION}} placeholder just as index.html (both
+        # its cache name and its precache URLs' ?v= query strings), so it
+        # needs identical substitution — without this route it would
+        # fall through to plain StaticFiles mount below, which serves
+        # files byte-for-byte with no templating, leaving literal string
+        # "{{VERSION}}" in installed worker forever. Browsers already
+        # re-check a service worker script at most every 24h regardless of
+        # HTTP caching headers, but Cache-Control: no-cache is set anyway so
+        # an intermediate/CDN cache can't extend that window further.
+        return Response(
+            content=_sw_path.read_text().replace("{{VERSION}}", COMMIT_SHA),
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     app.mount(
         "/",

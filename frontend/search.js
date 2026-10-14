@@ -44,7 +44,9 @@ export function parsePlayerName(fullName) {
 // typos is overkill. Only reached for short (name-token-length) strings, so
 // O(n*m) cost here is negligible.
 export function longestMatchSize(a, b, alo, ahi, blo, bhi) {
-  let besti = alo, bestj = blo, bestsize = 0;
+  let besti = alo,
+    bestj = blo,
+    bestsize = 0;
   let j2len = {};
 
   for (let i = alo; i < ahi; i++) {
@@ -170,9 +172,7 @@ export function qualifyingPlayerPool() {
   if (!playerPoolCategory) return [];
   const cat = metadata[playerPoolCategory];
   const minThreshold = Number(els.thresholdNumber.value);
-  return playerPoolRecords.filter(
-    (r) => r.position === els.position.value && r[cat.threshold_field] >= minThreshold
-  );
+  return playerPoolRecords.filter((r) => r.position === els.position.value && r[cat.threshold_field] >= minThreshold);
 }
 
 // Same pool as qualifyingPlayerPool() but without the threshold cut — the
