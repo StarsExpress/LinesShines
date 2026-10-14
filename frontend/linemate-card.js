@@ -55,9 +55,10 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // only ever reads it, never resets it.
 export const linemateCards = new Map();
 
-// Closes every Linemate Card — only for a season/category/position change
-// (BLUEPRINT.md §4). A threshold-only change no longer dissolves them; see
-// refreshOpenLinemateCards(), called from applyFilters() instead.
+// Closes every Linemate Card — for a slice change that resets the Workspace
+// (see applyFilters()). A threshold-only change, or a season change that
+// pinned-impact.js judges "refresh", keeps them: they are re-pointed
+// (retargetLinemateCard()) and recomputed by refreshOpenLinemateCards().
 export function clearLinemateCards() {
   linemateCards.forEach((entry) => entry.el.remove());
   linemateCards.clear();
@@ -530,25 +531,11 @@ export function refreshOpenLinemateCards() {
   linemateCards.forEach((entry) => renderLinemateCardBody(entry));
 }
 
-export function openLinemateCard(anchorRecord) {
-  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
-
-  const closeBtn = cardEl.querySelector(".scout-close");
-  const foldBtn = cardEl.querySelector(".scout-fold");
-  const dragHandle = cardEl.querySelector(".scout-drag-handle");
-  const tableEl = cardEl.querySelector(".linemate-table");
-  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
-  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
-  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+// Logo/badge + team · season line. Team and season are fixed until a "refresh"
+// Apply carries the card to another season (retargetLinemateCard()).
+function setLinemateCardIdentity(cardEl, anchorRecord) {
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
-  const metaEl = cardEl.querySelector(".linemate-card-meta");
-
-  // Team/season are fixed for this card's lifetime (a season/category/
-  // position change dissolves every Linemate Card — see clearLinemateCards()
-  // — so unlike the title, this never needs to be re-set by
-  // renderLinemateCardBody()'s refresh path). Mirrors openScoutCard()'s own
-  // logo/badge wiring.
   const color = teamColor(anchorRecord.team);
   logoImg.src = logoSrc(anchorRecord.team);
   logoImg.alt = `${anchorRecord.team} logo`;
@@ -560,10 +547,33 @@ export function openLinemateCard(anchorRecord) {
     badge.textContent = anchorRecord.team;
     badge.style.background = color;
   };
-  metaEl.textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
-  // Anchor name is fixed for the card's lifetime too — same reasoning as
-  // logo/badge/metaEl above, set once here rather than in
-  // renderLinemateCardBody()'s refresh path.
+  cardEl.querySelector(".linemate-card-meta").textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
+}
+
+// Re-points an open Linemate Card at the anchor's row in another season. The
+// roster/summary are recomputed by the refreshOpenLinemateCards() that follows
+// (the roster derives from the anchor + applied filters, so teammates are
+// never checked individually).
+export function retargetLinemateCard(entry, anchorRecord) {
+  entry.anchorRecord = anchorRecord;
+  setLinemateCardIdentity(entry.el, anchorRecord);
+}
+
+export function openLinemateCard(anchorRecord) {
+  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const tableEl = cardEl.querySelector(".linemate-table");
+  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
+  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
+  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+
+  // Team/season only change via retargetLinemateCard() (a "refresh" Apply);
+  // a category/position change or a "reset" dissolves the card instead.
+  setLinemateCardIdentity(cardEl, anchorRecord);
+  // Anchor name is fixed for the card's lifetime — set once here.
   anchorToggleLabel.textContent = `Include ${anchorRecord.player} into tables.`;
 
   const id = nextCardId();

@@ -68,6 +68,8 @@ export const APPENDIX_FONT_SIZE = 10; // Logical px, pre-scale.
 export const APPENDIX_LINE_HEIGHT = 14; // Logical px, pre-scale.
 export const APPENDIX_PADDING_Y = 10; // Logical px, pre-scale — top+bottom of the block.
 export const APPENDIX_PADDING_X = 16; // Logical px, pre-scale — matches footer's own horizontal padding.
+export const APPENDIX_BULLET = "•";
+export const APPENDIX_BULLET_INDENT = 10; // Logical px, pre-scale — bullet column; wrapped lines hang under the text.
 
 // `--chalk-dim`, a touch brighter than the footer's 0.75 so multi-line text stays legible.
 export const APPENDIX_COLOR = "rgba(169, 182, 169, 0.9)";
@@ -136,10 +138,14 @@ function wrapAppendixNotes(notes, canvasWidth, scale) {
   const ctx = document.createElement("canvas").getContext("2d");
 
   ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
-  const maxWidth = canvasWidth - Math.round(APPENDIX_PADDING_X * scale) * 2;
+  // Text sits to the right of a bullet column, so it wraps narrower.
+  const maxWidth =
+    canvasWidth - Math.round(APPENDIX_PADDING_X * scale) * 2 - Math.round(APPENDIX_BULLET_INDENT * scale);
 
+  // One bullet per note: only a note's first line carries the bullet, its
+  // wrapped continuation lines hang under the text.
   const lines = [];
-  notes.forEach((note) => lines.push(...wrapText(ctx, note, maxWidth)));
+  notes.forEach((note) => wrapText(ctx, note, maxWidth).forEach((text, i) => lines.push({ text, bullet: i === 0 })));
   return lines;
 }
 
@@ -153,8 +159,11 @@ function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
-  lines.forEach((line, i) => {
-    ctx.fillText(line, paddingX, startY + paddingY + i * lineHeight);
+  const textX = paddingX + Math.round(APPENDIX_BULLET_INDENT * scale);
+  lines.forEach(({ text, bullet }, i) => {
+    const y = startY + paddingY + i * lineHeight;
+    if (bullet) ctx.fillText(APPENDIX_BULLET, paddingX, y);
+    ctx.fillText(text, textX, y);
   });
 }
 
