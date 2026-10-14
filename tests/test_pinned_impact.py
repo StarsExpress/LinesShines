@@ -135,7 +135,7 @@ def test_season_change_nobody_pinned_is_refresh(page):
     assert _evaluate(page, _state(), _state(season=2024), [], []) == "refresh"
 
 
-# --- Partial removal -------------------------------------------------------
+# --- Partial removal. -------------------------------------------------------
 
 NEXT = _state(
     threshold=240
@@ -175,6 +175,7 @@ def test_category_and_position_change_reset_with_everyone_removed(page):
 def test_comparison_shrinks_to_two_members_boundary(page):
     pool = _partial_pool(A=300, B=250, C=100)
     r = _full(page, _state(), NEXT, ["A", "B", "C"], pool, [("m1", ["A", "B", "C"])])
+
     assert r["comparisons"]["dissolved"] == []
     (s,) = r["comparisons"]["shrunk"]
     assert s["id"] == "m1" and s["kept"] == ["A", "B"] and s["removed"] == ["C"]
@@ -191,6 +192,7 @@ def test_comparison_with_one_left_is_dissolved(page):
 def test_comparison_with_none_left_is_dissolved(page):
     pool = _partial_pool(A=300, B=100, C=100)
     r = _full(page, _state(), NEXT, ["A", "B", "C"], pool, [("m1", ["B", "C"])])
+
     (d,) = r["comparisons"]["dissolved"]
     assert d["survivors"] == []
 
@@ -198,16 +200,20 @@ def test_comparison_with_none_left_is_dissolved(page):
 def test_same_player_in_several_comparisons(page):
     pool = _partial_pool(A=300, B=250, C=100, D=260)
     comps = [("m1", ["A", "B", "C"]), ("m2", ["C", "D"]), ("m3", ["A", "D"])]
+
     r = _full(page, _state(), NEXT, ["A", "B", "C", "D"], pool, comps)
+
     assert [s["id"] for s in r["comparisons"]["shrunk"]] == ["m1"]
-    assert [d["id"] for d in r["comparisons"]["dissolved"]] == ["m2"]  # m3 untouched
+    assert [d["id"] for d in r["comparisons"]["dissolved"]] == ["m2"]  # m3 untouched.
 
 
 def test_shrunk_comparison_duplicating_another_is_dissolved(page):
     pool = _partial_pool(A=300, B=250, C=100)
     comps = [("m1", ["A", "B", "C"]), ("m2", ["A", "B"])]
+
     r = _full(page, _state(), NEXT, ["A", "B", "C"], pool, comps)
     assert r["comparisons"]["shrunk"] == []
+
     (d,) = r["comparisons"]["dissolved"]
     assert d["id"] == "m1" and d["duplicate"] is True
 
@@ -219,8 +225,10 @@ def test_shrunk_comparisons_equal_to_each_other_keep_only_the_first(page):
         ("m2", ["A", "B", "D"]),
         ("m3", ["B", "A", "C", "D"]),
     ]
+
     r = _full(page, _state(), NEXT, ["A", "B", "C", "D"], pool, comps)
     assert [s["id"] for s in r["comparisons"]["shrunk"]] == ["m1"]
+
     dissolved = r["comparisons"]["dissolved"]
     assert [d["id"] for d in dissolved] == ["m2", "m3"]
     assert all(d["duplicate"] for d in dissolved)
@@ -231,10 +239,11 @@ def test_quick_set_only_commits_without_confirm_on_unaffected_or_refresh(page):
             const m = await import('/pinned-impact.js');
             return ['unaffected', 'refresh', 'partial', 'reset'].map(m.mayApplyWithoutConfirm);
         }""")
+
     assert out == [True, True, False, False]
 
 
-# --- Confirm copy ----------------------------------------------------------
+# --- Confirm copy. ----------------------------------------------------------
 
 
 def _message(page, result):
@@ -271,41 +280,38 @@ def test_message_title_and_button_fixed_in_every_case(page):
             comparisons={"shrunk": [], "dissolved": []},
         ),
     ]
+
     for case in cases:
         msg = _message(page, case)
         assert msg["title"] == "New Filters Cause Removals"
         assert msg["confirmLabel"] == "REMOVE & APPLY"
         assert msg["removedLabel"] == "REMOVED"
+        assert msg["comparisonsLabel"] == "AFFECTED COMPARISONS"
         assert msg["note"] == "This can’t be undone."
 
 
 def test_message_lists_only_removed_players(page):
     msg = _message(page, _result(["A. Smith", "B. Jones"]))
     assert msg["removedNames"] == ["A. Smith", "B. Jones"]
-    assert msg["removedMore"] == 0
-    assert msg["comparisonRows"] == [] and msg["comparisonMore"] == 0
+    assert msg["comparisonRows"] == []
 
 
-def test_message_three_names_not_truncated(page):
-    msg = _message(page, _result(["A", "B", "C"]))
-    assert msg["removedNames"] == ["A", "B", "C"] and msg["removedMore"] == 0
+def test_message_never_truncates_players(page):
+    names = [f"P{i}" for i in range(12)]
+    assert _message(page, _result(names))["removedNames"] == names
 
 
-def test_message_truncates_beyond_three_names(page):
-    msg = _message(page, _result(["A", "B", "C", "D", "E"]))
-    assert msg["removedNames"] == ["A", "B", "C"] and msg["removedMore"] == 2
-
-
-def test_reset_lists_all_pinned_players_with_same_truncation(page):
-    everyone = ["A", "B", "C", "D", "E", "F"]
+def test_reset_lists_all_pinned_players(page):
+    everyone = [f"P{i}" for i in range(8)]
     result = dict(
         outcome="reset",
         kept=[],
         removed=everyone,
         comparisons={"shrunk": [], "dissolved": []},
     )
+
     msg = _message(page, result)
-    assert msg["removedNames"] == ["A", "B", "C"] and msg["removedMore"] == 3
+    assert msg["removedNames"] == everyone
     assert msg["comparisonRows"] == []
 
 
@@ -345,12 +351,11 @@ def test_comparison_row_merged_because_duplicate(page):
     ]
 
 
-def test_comparison_rows_truncate_beyond_three(page):
+def test_many_comparisons_are_not_truncated(page):
     shrunk = [
-        dict(id=str(i), members=["A", "B", "X"], kept=["A", "B"]) for i in range(5)
+        dict(id=str(i), members=["A", "B", "X"], kept=["A", "B"]) for i in range(7)
     ]
-    msg = _message(page, _result(["X"], shrunk=shrunk))
-    assert len(msg["comparisonRows"]) == 3 and msg["comparisonMore"] == 2
+    assert len(_message(page, _result(["X"], shrunk=shrunk))["comparisonRows"]) == 7
 
 
 def test_message_uses_display_names(page):
@@ -364,43 +369,114 @@ def test_message_uses_display_names(page):
     assert msg["removedNames"] == ["A"]
 
 
-def test_confirm_dialog_renders_structured_content(page):
-    out = page.evaluate("""async () => {
-            const msg = await import('/pinned-impact.js');
-            const ws = await import('/workspace.js');
-            const content = msg.impactConfirmMessage({
-                outcome: 'partial', kept: ['K'],
-                removed: ['<b>x</b>', 'B', 'C', 'D'],
-                comparisons: {
-                    shrunk: [{ id: '1', members: ['A', 'B', 'C'], kept: ['A'] }],
-                    dissolved: [{ id: '2', members: ['D', 'B'], survivors: ['D'], duplicate: true }],
-                },
-            });
-            const pending = ws.showMergeInvalidationConfirm(content);
-            const body = document.getElementById('merge-confirm-body');
-            const snap = {
-                title: document.getElementById('merge-confirm-title').textContent,
-                button: document.getElementById('merge-confirm-clear').textContent,
-                labels: [...body.querySelectorAll('.merge-confirm-label')].map(e => e.textContent),
-                injected: body.querySelectorAll('b').length,
-                nowrap: getComputedStyle(body.querySelector('.merge-confirm-name')).whiteSpace,
-                names: body.querySelector('.merge-confirm-names').textContent,
-                after: [...body.querySelectorAll('.merge-confirm-after')].map(e => e.textContent),
-                note: body.querySelector('.merge-confirm-note').textContent,
-            };
-            document.getElementById('merge-confirm-cancel').click();
-            snap.resolved = await pending;
-            return snap;
-        }""")
-    assert out["title"] == "New Filters Cause Removals"
-    assert out["button"] == "REMOVE & APPLY"
-    assert out["labels"] == ["REMOVED", "COMPARISONS"]
+_RENDER_JS = """async content => {
+    const ws = await import('/workspace.js');
+    const pending = ws.showMergeInvalidationConfirm(content);
+    const body = document.getElementById('merge-confirm-body');
+    const scroll = document.getElementById('merge-confirm-scroll');
+    const snap = {
+        labels: [...body.querySelectorAll('.merge-confirm-label')].map(e => e.textContent),
+        removedItems: [...body.querySelectorAll('section:first-child li')].map(e => e.textContent),
+        comparisonItems: [...body.querySelectorAll('.merge-confirm-comparison')].map(li => ({
+            lines: [...li.children].map(c => c.textContent),
+            bulletsInside: li.querySelectorAll('li').length,
+        })),
+        sections: body.querySelectorAll('section').length,
+        injected: body.querySelectorAll('b').length,
+        nowrap: getComputedStyle(body.querySelector('.merge-confirm-name')).whiteSpace,
+        overflowY: getComputedStyle(body).overflowY,
+        overscroll: getComputedStyle(body).overscrollBehaviorY,
+        tabindex: body.getAttribute('tabindex'),
+        ariaLabel: body.getAttribute('aria-label'),
+        noteInBody: body.contains(document.getElementById('merge-confirm-note')),
+        note: document.getElementById('merge-confirm-note').textContent,
+        noteColor: getComputedStyle(document.getElementById('merge-confirm-note')).color,
+        hasMore: scroll.classList.contains('has-more'),
+        maxHeight: parseFloat(getComputedStyle(body).maxHeight),
+        viewport: innerHeight,
+    };
+    document.getElementById('merge-confirm-cancel').click();
+    snap.resolved = await pending;
+    return snap;
+}"""
+
+
+def _content(page, removed, shrunk=(), dissolved=()):
+    return page.evaluate(
+        """async r => {
+            const m = await import('/pinned-impact.js');
+            return m.impactConfirmMessage(r);
+        }""",
+        _result(removed, shrunk, dissolved),
+    )
+
+
+def test_confirm_dialog_renders_bullets_counts_and_fixed_parts(page):
+    content = _content(
+        page,
+        ["<b>x</b>", "B", "C", "D", "E"],
+        shrunk=[dict(id="1", members=["A", "B", "C"], kept=["A"])],
+        dissolved=[dict(id="2", members=["D", "B"], survivors=["D"], duplicate=True)],
+    )
+    out = page.evaluate(_RENDER_JS, content)
+
+    assert out["labels"] == ["REMOVED · 5", "AFFECTED COMPARISONS · 2"]
+    assert out["removedItems"] == [
+        "<b>x</b>",
+        "B",
+        "C",
+        "D",
+        "E",
+    ]  # All 5, no "and N more".
+
     assert out["injected"] == 0  # textContent, never innerHTML.
+
+    # One bullet per Comparison, the outcome line inside the same bullet.
+    assert out["comparisonItems"] == [
+        {"lines": ["A + B + C", "→ A"], "bulletsInside": 0},
+        {
+            "lines": ["D + B", "→ merged into an identical comparison"],
+            "bulletsInside": 0,
+        },
+    ]
+
     assert out["nowrap"] == "nowrap"
-    assert out["names"] == "<b>x</b>, B, C and 1 more"
-    assert out["after"] == ["→ A", "→ merged into an identical comparison"]
+    assert out["overflowY"] == "auto" and out["overscroll"] == "contain"
+    assert out["tabindex"] == "0" and out["ariaLabel"]
+    assert out["maxHeight"] <= out["viewport"] * 0.6 + 1
+
+    assert out["noteInBody"] is False  # Fixed area, outside the scroller.
     assert out["note"] == "This can’t be undone."
+    assert out["noteColor"] == "rgb(255, 138, 117)"
     assert out["resolved"] is False
+
+
+def test_confirm_dialog_omits_comparisons_block_when_none(page):
+    out = page.evaluate(_RENDER_JS, _content(page, ["A", "B"]))
+    assert out["labels"] == ["REMOVED · 2"]
+    assert out["sections"] == 1
+    assert out["comparisonItems"] == []
+
+
+def test_confirm_dialog_shows_fade_only_when_content_overflows(page):
+    few = page.evaluate(_RENDER_JS, _content(page, ["A"]))
+    many = page.evaluate(_RENDER_JS, _content(page, [f"Player {i}" for i in range(60)]))
+    assert few["hasMore"] is False
+    assert many["hasMore"] is True
+
+
+def test_alert_coral_meets_contrast_on_lightest_box_background():
+    def lum(hex_):
+        chans = [int(hex_[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+        lin = [
+            c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in chans
+        ]
+        return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+    hi, lo = sorted(
+        (lum("#ff8a75"), lum("#1e3d28")), reverse=True
+    )  # --turf-700 is the lightest stop.
+    assert (hi + 0.05) / (lo + 0.05) >= 4.5
 
 
 def test_app_boots_without_module_errors(live_server_url):

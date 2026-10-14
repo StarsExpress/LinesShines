@@ -59,6 +59,8 @@ export const els = {
   linemateCardTemplate: document.getElementById("linemate-card-template"),
   mergeConfirmOverlay: document.getElementById("merge-confirm-overlay"),
   mergeConfirmTitle: document.getElementById("merge-confirm-title"),
+  mergeConfirmScroll: document.getElementById("merge-confirm-scroll"),
+  mergeConfirmNote: document.getElementById("merge-confirm-note"),
   mergeConfirmBody: document.getElementById("merge-confirm-body"),
   mergeConfirmCancel: document.getElementById("merge-confirm-cancel"),
   mergeConfirmClear: document.getElementById("merge-confirm-clear"),

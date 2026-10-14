@@ -542,8 +542,18 @@
 <div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
   <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
     <p class="merge-confirm-title" id="merge-confirm-title">New Filters Cause Removals</p>
-    <!-- Filled by showMergeInvalidationConfirm() (workspace.js) from impactConfirmMessage(), textContent only. -->
-    <div class="merge-confirm-body" id="merge-confirm-body"></div>
+    <!-- Scrollable content area, filled by showMergeInvalidationConfirm() (workspace.js)
+         from impactConfirmMessage(), textContent only. Title, note and buttons stay fixed. -->
+    <div class="merge-confirm-scroll" id="merge-confirm-scroll">
+      <div
+        class="merge-confirm-body"
+        id="merge-confirm-body"
+        tabindex="0"
+        role="region"
+        aria-label="Pinned Players affected by the new filters"
+      ></div>
+    </div>
+    <p class="merge-confirm-note" id="merge-confirm-note">This can’t be undone.</p>
     <div class="merge-confirm-actions">
       <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
       <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Remove &amp; Apply</button>

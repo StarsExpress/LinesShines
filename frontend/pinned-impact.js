@@ -112,47 +112,37 @@ export function mayApplyWithoutConfirm(outcome) {
 export const CONFIRM_TITLE = "New Filters Cause Removals";
 export const CONFIRM_LABEL = "REMOVE & APPLY";
 export const CONFIRM_NOTE = "This can’t be undone.";
-export const CONFIRM_MAX_NAMES = 3;
-export const CONFIRM_MAX_COMPARISONS = 3;
 export const STATUS_DISSOLVED = "dissolved";
 export const STATUS_MERGED = "merged into an identical comparison";
-
-// Splits a list into what is shown (first `max`) and how many are cut.
-export function formatNameList(items, max = CONFIRM_MAX_NAMES) {
-  return { shown: items.slice(0, max), more: Math.max(0, items.length - max) };
-}
 
 // Structured copy for the confirm dialog (rendered by workspace.js with
 // textContent only). `displayName` maps a player string to the label shown to
 // the user (e.g. abbr_name). Title and confirm label are the same for
 // "partial" and "reset"; "reset" lists every pinned player and no Comparisons.
+// Nothing is truncated — the dialog's content area scrolls instead.
 //
-//   removedNames    first <= 3 display names (array, so each can be kept on one line)
-//   removedMore     how many were cut ("and N more"), 0 if none
+//   removedLabel / comparisonsLabel   section tags (the renderer appends " · N")
+//   removedNames    every removed player's display name
 //   comparisonRows  [{ before: [names], after: [names] | null, status: string | null }]
-//                   shrunk → after = remaining members; dissolved/merged → status text.
-//                   A Comparison has no title of its own, so rows are labelled by
-//                   their original members (rendered joined with " + ").
-//   comparisonMore  Comparisons cut beyond 3
+//                   one per affected Comparison. shrunk → after = remaining members;
+//                   dissolved / merged → status text. A Comparison has no title of
+//                   its own, so rows are labelled by their original members
+//                   (rendered joined with " + ").
 export function impactConfirmMessage(result, displayName = (k) => k) {
-  const names = formatNameList(result.removed.map(displayName));
   const label = (keys) => keys.map(displayName);
-  const rows = [
-    ...result.comparisons.shrunk.map((c) => ({ before: label(c.members), after: label(c.kept), status: null })),
-    ...result.comparisons.dissolved.map((c) => ({
-      before: label(c.members),
-      after: null,
-      status: c.duplicate ? STATUS_MERGED : STATUS_DISSOLVED,
-    })),
-  ];
-  const shownRows = formatNameList(rows, CONFIRM_MAX_COMPARISONS);
   return {
     title: CONFIRM_TITLE,
     removedLabel: "REMOVED",
-    removedNames: names.shown,
-    removedMore: names.more,
-    comparisonRows: shownRows.shown,
-    comparisonMore: shownRows.more,
+    removedNames: label(result.removed),
+    comparisonsLabel: "AFFECTED COMPARISONS",
+    comparisonRows: [
+      ...result.comparisons.shrunk.map((c) => ({ before: label(c.members), after: label(c.kept), status: null })),
+      ...result.comparisons.dissolved.map((c) => ({
+        before: label(c.members),
+        after: null,
+        status: c.duplicate ? STATUS_MERGED : STATUS_DISSOLVED,
+      })),
+    ],
     note: CONFIRM_NOTE,
     confirmLabel: CONFIRM_LABEL,
   };

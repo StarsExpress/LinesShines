@@ -23,6 +23,7 @@
   --logo-windows-yellow: #ffb900;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --alert-coral: #ff8a75; /* warning text on turf; 5.2:1 on --turf-700 */
   --instant-replay-blue: #4a90d9;
   --instant-replay-blue-bright: #6fa8e6;
   --font-display: "Anton", "Arial Narrow", sans-serif;
@@ -2517,16 +2518,44 @@ thead .linemate-table-frozen { z-index: 3; }
   font-size: 18px;
   color: var(--chalk);
 }
+/* Only this wrapper's inner body scrolls; title, note and buttons stay put. */
+.merge-confirm-scroll {
+  position: relative;
+  margin: 0 0 12px;
+}
 .merge-confirm-body {
-  margin: 0 0 18px;
+  max-height: min(60vh, calc(100vh - 240px));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.4;
   color: var(--chalk);
+}
+.merge-confirm-body:focus-visible {
+  outline: 1px solid var(--flag-gold);
+  outline-offset: 2px;
+}
+/* Fade hint: only while more content sits below the fold (toggled by JS). */
+.merge-confirm-scroll::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  background: linear-gradient(to bottom, rgba(22, 48, 31, 0), var(--turf-800));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.merge-confirm-scroll.has-more::after {
+  opacity: 1;
 }
 /* Small tag-style section labels — same look as the filter-bar labels
    (.control label). */
 .merge-confirm-label {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-family: var(--font-oswald);
   font-weight: 600;
   font-size: 11px;
@@ -2535,28 +2564,52 @@ thead .linemate-table-frozen { z-index: 3; }
   color: var(--chalk-dim);
 }
 .merge-confirm-section {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
 }
-.merge-confirm-section p {
+.merge-confirm-section:last-child {
+  margin-bottom: 0;
+}
+.merge-confirm-list {
   margin: 0;
+  padding: 0 0 0 18px;
+  list-style: disc;
+}
+.merge-confirm-list li::marker {
+  color: var(--chalk-dim);
+}
+.merge-confirm-item {
+  margin: 0 0 3px;
+  padding: 0;
+}
+/* A Comparison is one bullet (members + outcome line); a wide gap between
+   bullets and a tight one inside makes the grouping obvious. */
+.merge-confirm-comparison {
+  margin: 0 0 12px;
+}
+.merge-confirm-comparison:last-child {
+  margin-bottom: 0;
+}
+.merge-confirm-before,
+.merge-confirm-after {
+  margin: 0;
+}
+.merge-confirm-after {
+  margin-top: 2px;
+  padding-left: 14px;
+  color: var(--chalk-dim);
 }
 /* A player name never breaks across lines; a long list wraps between names. */
 .merge-confirm-name {
   white-space: nowrap;
 }
-.merge-confirm-row {
-  margin: 0 0 8px;
-}
-.merge-confirm-after {
-  padding-left: 14px;
-  color: var(--chalk-dim);
-}
-.merge-confirm-more {
-  color: var(--chalk-dim);
-}
+/* Consequence line, fixed above the buttons. Coral #ff8a75 on the box's
+   lightest gradient stop (#1e3d28) is 5.2:1 (>= 4.5:1); the sentence itself
+   states the consequence, colour is only reinforcement. Not --rush-clay
+   (the button fill, 2.2:1 as text). */
 .merge-confirm-note {
-  margin: 0;
-  color: var(--chalk-dim);
+  margin: 0 0 14px;
+  font-weight: 600;
+  color: var(--alert-coral);
 }
 .merge-confirm-actions {
   display: flex;
@@ -2593,6 +2646,21 @@ thead .linemate-table-frozen { z-index: 3; }
 .merge-confirm-clear:focus-visible {
   filter: brightness(1.1);
   outline: none;
+}
+@media (max-width: 480px) {
+  .merge-confirm-overlay {
+    padding: 12px;
+  }
+  .merge-confirm-box {
+    padding: 16px;
+  }
+  /* Buttons wrap instead of overflowing a narrow box; the gap keeps them apart. */
+  .merge-confirm-actions {
+    flex-wrap: wrap;
+  }
+  .merge-confirm-actions button {
+    flex: 1 1 auto;
+  }
 }
 
 /* --- Merge Card popups: Create + Edit (BLUEPRINT_PinnedPlayers.md v1.2.0

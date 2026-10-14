@@ -399,41 +399,51 @@ function renderConfirmContent(content) {
       parent.appendChild(el("span", "merge-confirm-name", name));
     });
   };
-  const section = (labelText) => {
+  const section = (labelText, count) => {
     const sec = el("section", "merge-confirm-section");
-    sec.appendChild(el("h4", "merge-confirm-label", labelText));
-    return sec;
+    sec.appendChild(el("h4", "merge-confirm-label", `${labelText} · ${count}`));
+    const list = el("ul", "merge-confirm-list");
+    sec.appendChild(list);
+    return { sec, list };
   };
 
   els.mergeConfirmTitle.textContent = content.title;
   els.mergeConfirmClear.textContent = content.confirmLabel;
+  els.mergeConfirmNote.textContent = content.note;
   els.mergeConfirmBody.replaceChildren();
+  els.mergeConfirmBody.scrollTop = 0;
 
-  const removed = section(content.removedLabel);
-  const names = el("p", "merge-confirm-names");
-  nameLine(names, content.removedNames, ", ");
-  if (content.removedMore) names.appendChild(document.createTextNode(` and ${content.removedMore} more`));
-  removed.appendChild(names);
-  els.mergeConfirmBody.appendChild(removed);
+  const removed = section(content.removedLabel, content.removedNames.length);
+  content.removedNames.forEach((name) => {
+    const li = el("li", "merge-confirm-item");
+    nameLine(li, [name], "");
+    removed.list.appendChild(li);
+  });
+  els.mergeConfirmBody.appendChild(removed.sec);
 
+  // The whole block is omitted when no Comparison is affected.
   if (content.comparisonRows.length) {
-    const comparisons = section("COMPARISONS");
+    const comparisons = section(content.comparisonsLabel, content.comparisonRows.length);
     content.comparisonRows.forEach((row) => {
-      const item = el("div", "merge-confirm-row");
-      const before = el("p", "merge-confirm-before");
+      // One bullet per Comparison: original members, then (same bullet) the outcome line.
+      const li = el("li", "merge-confirm-item merge-confirm-comparison");
+      const before = el("div", "merge-confirm-before");
       nameLine(before, row.before, " + ");
-      const after = el("p", "merge-confirm-after", row.after ? "→ " : `→ ${row.status}`);
+      const after = el("div", "merge-confirm-after", row.after ? "→ " : `→ ${row.status}`);
       if (row.after) nameLine(after, row.after, " + ");
-      item.append(before, after);
-      comparisons.appendChild(item);
+      li.append(before, after);
+      comparisons.list.appendChild(li);
     });
-    if (content.comparisonMore) {
-      comparisons.appendChild(el("p", "merge-confirm-more", `and ${content.comparisonMore} more`));
-    }
-    els.mergeConfirmBody.appendChild(comparisons);
+    els.mergeConfirmBody.appendChild(comparisons.sec);
   }
+}
 
-  els.mergeConfirmBody.appendChild(el("p", "merge-confirm-note", content.note));
+// Fade hint at the bottom of the scroll area: shown only while content is
+// still hidden below the fold, gone once scrolled to the end (or if it fits).
+function updateConfirmScrollHint() {
+  const b = els.mergeConfirmBody;
+  const more = b.scrollHeight - b.scrollTop - b.clientHeight > 2;
+  els.mergeConfirmScroll.classList.toggle("has-more", more);
 }
 
 // Resolves true (proceed) or false (cancel). Only ever shown when the
@@ -445,6 +455,8 @@ export function showMergeInvalidationConfirm(content) {
   return new Promise((resolve) => {
     if (content) renderConfirmContent(content);
     els.mergeConfirmOverlay.hidden = false;
+    els.mergeConfirmBody.onscroll = updateConfirmScrollHint;
+    updateConfirmScrollHint(); // after unhiding: hidden elements measure 0
     const cleanup = (result) => {
       els.mergeConfirmOverlay.hidden = true;
       els.mergeConfirmCancel.removeEventListener("click", onCancel);
