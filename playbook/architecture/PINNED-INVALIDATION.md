@@ -1,7 +1,8 @@
 # Pool-change invalidation (Pinned Players, confirm dialog)
 
 > **Load when:** changing filters that can remove Pinned Players, the confirm dialog, or Comparison shrink/dissolve rules.
-> Moved verbatim from the former CLAUDE.md "Architecture" section on 2026-10-17; the text is unchanged.
+> Split from the former CLAUDE.md "Architecture" section on 2026-10-17. The original text is kept, apart from a few small later edits and
+> appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
 **Pool-change invalidation is judged on the FINAL filter combination, and removes only who doesn't fit**

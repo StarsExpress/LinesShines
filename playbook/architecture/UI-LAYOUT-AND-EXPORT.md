@@ -1,7 +1,8 @@
 # UI layout, card positioning, fuzzy search, PNG export, table sizing
 
 > **Load when:** touching control-bar CSS, breakpoints, card drag/resize/fold, fuzzy matching, or PNG export.
-> Moved verbatim from the former CLAUDE.md "Architecture" section on 2026-10-17; the text is unchanged.
+> Split from the former CLAUDE.md "Architecture" section on 2026-10-17. The original text is kept, apart from a few small later edits and
+> appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
 **Control-bar sizing** (`frontend/style.css`): the 7 filters in row 1 (Season, Teams, Players, Category,
@@ -144,7 +145,7 @@ applied as a blanket table restyle. Every percentile chip cell (`.merge-metric-c
 /`.linemate-table td.linemate-metric-cell { text-align: center; }` — note the compound selector: a
 bare `.merge-metric-cell { text-align: center; }` has lower specificity (one class) than the base
 `.merge-table td { text-align: right; }` rule (class + element) and would silently lose regardless of
-source order, the same specificity trap CLAUDE.md already calls out for the control-bar block above.
+source order, the same specificity trap this file already calls out for the control-bar block above.
 Any future per-cell override on these tables needs at least `.merge-table td.<class>` /
 `.linemate-table td.<class>` to actually win.
 

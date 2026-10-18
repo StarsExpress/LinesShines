@@ -58,15 +58,21 @@ Detail for each item lives in `architecture/` (see `architecture/INDEX.md`); thi
 ## 3. Process conventions
 
 - The working rules (git, order of work, definition of done, PFF data, frontend limits, versioning) live in `INVARIANTS.md`, section "Working rules".
-- Work tracking: `playbook/DISCUSSIONS.md` holds topics still being discussed; `playbook/NEXT_STEPS.md` holds decided work with enough
-  detail to start. Neither is numbered or ordered, because relative priority changes at any time. Claude Code acts only on `NEXT_STEPS.md`,
-  and only on the item the owner names. A topic moves from DISCUSSIONS to NEXT_STEPS once it is decided, and out of NEXT_STEPS once done.
+- Work tracking: each topic still being discussed is its own file in `playbook/discussions/`; each decided piece of work, with enough detail to start,
+  is its own file in `playbook/next_steps/`. Deciding a topic means moving its file from `discussions/` to `next_steps/` (rename nothing); finishing
+  means deleting it from `next_steps/`. Nothing is numbered or ordered, because relative priority changes at any time. Claude Code acts only on the
+  `next_steps/` file the owner names.
+- Release notes: the title is `🏈LinesShines vX.Y.Z — 2026 Week N`, and the version in the title must match the tag before publishing. Use the exact terms
+  `Pinned Players` and `Linemates`, and singular verbs for the product name. Write what the user gets, not the mechanism.
+- Cap the time spent on tooling and process work. It supports the product and is not the product.
 
 ## 4. Direction
 
 - v2.0.0 is led by NCAAF (college) data; the Insight Explorer (IE) recommender is deferred to a later release.
 - `/` stays the NFL page (external links and the PWA `start_url` depend on it). College data lives under `/ncaaf`.
 - College and pro charts stay separate.
+- Analysis is per player, not per team aggregate. The snap threshold sets the comparison-pool size and screens out garbage-time snaps; it is not a quality filter.
+- Keep domain configuration separate from the engine where that is cheap, but do not abstract in advance for sites that do not exist yet.
 
 ## 5. Log
 
@@ -79,3 +85,8 @@ Detail for each item lives in `architecture/` (see `architecture/INDEX.md`); thi
 - 2026-10-17: the "must NOT invalidate" list from `BLUEPRINT.md` §4 moved into `architecture/PINNED-INVALIDATION.md`, with a matching row (16) in `INVARIANTS.md`.
 - 2026-10-17: design rationale and rejected approaches from `BLUEPRINT.md` §1–§4 carried into this file, `architecture/CARDS.md` and `architecture/UI-LAYOUT-AND-EXPORT.md`.
 - 2026-10-17: `BLUEPRINT.md` and the `archive/` folder deleted after its unique rationale was carried into `DECISIONS.md`, `architecture/CARDS.md`, `architecture/PINNED-INVALIDATION.md` and `architecture/UI-LAYOUT-AND-EXPORT.md`.
+- 2026-10-17: the single `NEXT_STEPS.md` and `DISCUSSIONS.md` files were replaced by one file per item in `next_steps/` and `discussions/`.
+- 2026-10-17: `next_steps/` and `discussions/` items are both written in English, so a file moves between them with no rename and no rewrite.
+- 2026-10-17: `HANDOFF.md` retired. Its open items became files in `discussions/` and `next_steps/`, its settled rules were already in `INVARIANTS.md`, `DECISIONS.md` and `architecture/`.
+- 2026-10-17: added the private `MEMORANDUM.md` for the owner's standing stances. Wording across `playbook/` was checked against the current layout and corrected where it still described the old one.
+- 2026-10-17: `discussions/` and `next_steps/` are visible in the public repo through a `.gitkeep` placeholder each; every other file inside them stays local-only.

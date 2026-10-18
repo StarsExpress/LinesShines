@@ -10,7 +10,7 @@ These apply to every task. Read them before starting.
 
 - **Git**: the owner reviews, pushes and opens PRs. Never run git commands.
 - **Order of work**: explore (read-only) → design → implement → verify → report. If the task contradicts the code or `playbook/`, stop and report; do not redesign on your own.
-- **What to work on**: only an item the owner names from `NEXT_STEPS.md`. Never act on `DISCUSSIONS.md`.
+- **What to work on**: only the file in `next_steps/` that the owner names. Never act on anything in `discussions/`.
 - **Done means the whole CI set passes locally**: `pytest -v`, `black -S .`, `npm run lint:js`, `npm run format:js:check`. Not a single test file.
 - **Say what you could not verify** (touch, pinch-zoom, standalone mode, real phone). The owner tests those by hand over the LAN IP.
 - **PFF data**: raw CSV/xlsx never enters the repo; test fixtures are synthetic only.

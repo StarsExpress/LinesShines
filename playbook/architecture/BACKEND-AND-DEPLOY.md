@@ -1,7 +1,8 @@
 # Backend, data pipeline, deploy and tests
 
 > **Load when:** changing ingestion, DB schema/models, API routes, team codes, deploy, or tests.
-> Moved verbatim from the former CLAUDE.md "Architecture" section on 2026-10-17; the text is unchanged.
+> Split from the former CLAUDE.md "Architecture" section on 2026-10-17. The original text is kept, apart from a few small later edits and
+> appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
 **Pipeline: raw PFF export → preprocessing → xlsx → ingestion → DB → API → frontend.**

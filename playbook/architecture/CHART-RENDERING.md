@@ -1,7 +1,8 @@
 # Chart rendering: dimming, labels, axis inversion
 
 > **Load when:** touching render.js, label decluttering/emphasis, or axis direction.
-> Moved verbatim from the former CLAUDE.md "Architecture" section on 2026-10-17; the text is unchanged.
+> Split from the former CLAUDE.md "Architecture" section on 2026-10-17. The original text is kept, apart from a few small later edits and
+> appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
 **Teams/Players filtering dims non-matching players on the chart; it never removes them**
