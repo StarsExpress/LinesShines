@@ -25,10 +25,52 @@
  * ({ id, members, survivors }). A shrunk card whose remaining membership
  * equals another card's (cards must stay unique) is dissolved too, with
  * `duplicate: true`; unchanged cards keep priority over shrunk ones.
+ *
+ * partitionByEligibility() is the one eligibility rule, shared with the
+ * Players filter (filters.js's prunePlayerSelections()): who stays and who
+ * goes when the pool, position or threshold changes. removedPlayersNotice()
+ * is the toast text for the Players filter's removals.
  */
 export const COMPARISON_MIN_MEMBERS = 2;
 
 const NO_COMPARISONS = { shrunk: [], dissolved: [] };
+
+// Who stays and who goes: a player is eligible when they exist in `records`
+// at exactly `position` and their `thresholdField` value is at least
+// `threshold` (inclusive). A player missing from the pool, or with no value,
+// is not eligible. `threshold` must already be the FINAL one (clamped or
+// defaulted for the pool being judged). Shared by evaluatePinnedImpact() and
+// the Players filter so the two can never disagree about eligibility.
+// Returns { kept, removed }, each in the order of `names`.
+export function partitionByEligibility(names, records, position, threshold, thresholdField) {
+  const byPlayer = new Map();
+  (records || []).forEach((r) => {
+    if (r.position === position) byPlayer.set(r.player, r);
+  });
+  const kept = [];
+  const removed = [];
+  Array.from(names).forEach((name) => {
+    const record = byPlayer.get(name);
+    const value = record ? record[thresholdField] : null;
+    if (value == null || value < threshold) removed.push(name);
+    else kept.push(name);
+  });
+  return { kept, removed };
+}
+
+export const REMOVED_PLAYERS_NOTICE_MAX_NAMES = 3;
+
+// Toast text when the Players filter drops selected players. Lists up to
+// REMOVED_PLAYERS_NOTICE_MAX_NAMES names, then "and N more". `displayNames`
+// are the labels to show (e.g. abbr_name); returns "" when nobody was removed.
+export function removedPlayersNotice(displayNames) {
+  const names = Array.from(displayNames);
+  if (!names.length) return "";
+  const shown = names.slice(0, REMOVED_PLAYERS_NOTICE_MAX_NAMES);
+  const extra = names.length - shown.length;
+  const list = extra > 0 ? `${shown.join(", ")} and ${extra} more` : shown.join(", ");
+  return `Removed from Players: ${list} — no longer eligible.`;
+}
 
 export function evaluatePinnedImpact(
   applied,
@@ -56,18 +98,13 @@ export function evaluatePinnedImpact(
 
   // Every pinned player must exist in the pool at that exact position and
   // clear the (clamped) new threshold (inclusive).
-  const byPlayer = new Map();
-  (playerPoolRecords || []).forEach((r) => {
-    if (r.position === pending.position) byPlayer.set(r.player, r);
-  });
-  const kept = [];
-  const removed = [];
-  pinned.forEach((name) => {
-    const record = byPlayer.get(name);
-    const value = record ? record[thresholdField] : null;
-    if (value == null || value < pendingThreshold) removed.push(name);
-    else kept.push(name);
-  });
+  const { kept, removed } = partitionByEligibility(
+    pinned,
+    playerPoolRecords,
+    pending.position,
+    pendingThreshold,
+    thresholdField
+  );
 
   if (!removed.length) {
     return { outcome: seasonChanged ? "refresh" : "unaffected", kept, removed, comparisons: NO_COMPARISONS };

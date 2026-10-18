@@ -21,7 +21,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
 | How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
 | Which players the chart plots or highlights from Teams, Players and the threshold | `test_filters.py` ([doc](TEST_FILTERS.md)) | browser |
-| What happens to Pinned Players and Comparisons when filters change | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
+| What happens to Pinned Players and Comparisons when filters change, and who stays eligible in the Players filter | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
@@ -50,6 +50,7 @@ These invariants (see `INVARIANTS.md`) have no test today. If you change one of 
 - Invariant 10: Merge Card display rules, the 5-player cap and the 8-player quota.
 - Invariant 11: the Linemate roster excludes the anchor by default; RSWA uses uncapped raw snaps.
 - Invariant 16: axis controls, display toggles, fold state and dragging never reset cards (the handler wiring).
+- Invariant 17 (wiring only): the Players filter re-checks selections on commit, not while dragging or typing, and shows the toast. The shared function and the toast text are tested; the event wiring is not.
 
 ## Deliberately untested
 

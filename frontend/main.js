@@ -368,10 +368,16 @@ function attachEvents() {
     // category switch stomp it back to that category's default at Apply
     // time (see the resetThresholdOnNextRange comment above its declaration).
     setResetThresholdOnNextRange(false);
-    // The Players pool is threshold-gated live (not just at Apply) — see
-    // qualifyingPlayerPool() — so a chip that no longer clears the new
-    // value should disappear the moment the slider moves, not linger until
-    // Apply.
+    // Selected Players are deliberately NOT re-checked here: while the slider
+    // is still being dragged the value is not final. The "change" listener
+    // below does it once the slider is released.
+    updatePendingState();
+  });
+
+  // Fires once, on release (or after a keyboard step): the threshold is now a
+  // committed value, so selected players who no longer qualify are dropped
+  // and the user is told who (see prunePlayerSelections()).
+  els.threshold.addEventListener("change", () => {
     prunePlayerSelections();
     updatePendingState();
   });
@@ -390,6 +396,13 @@ function attachEvents() {
     // visually — filtering below still uses the exact typed number.
     els.threshold.value = min + Math.round((raw - min) / step) * step;
     setResetThresholdOnNextRange(false);
+    // Not re-checking selected Players per keystroke — see the slider's
+    // "input" handler above; the "change" listener below does it on commit.
+    updatePendingState();
+  });
+
+  // Fires when the typed value is committed (Enter or leaving the field).
+  els.thresholdNumber.addEventListener("change", () => {
     prunePlayerSelections();
     updatePendingState();
   });

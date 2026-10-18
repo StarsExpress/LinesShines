@@ -106,3 +106,20 @@ circular imports — `workspace.js` <-> `filters.js` and `merge-card.js` <-> `fi
 function-body-only (a dropdown's toggle click, or `applyThresholdImmediately()` itself, never at
 module-evaluation time), the same safety argument as every other documented cycle in this codebase;
 see the header comments in `workspace.js` and `merge-card.js`.
+
+**Selected Players are kept while they are still eligible, and re-checked only on commit**
+
+- `prunePlayerSelections()` keeps the selected players who are still eligible and drops the rest, using the same rule as the Pinned Players invalidation:
+  `partitionByEligibility()` in `pinned-impact.js`. A player is eligible when they exist in the pending category and season pool at exactly the pending position and
+  meet the current (already clamped) threshold, inclusive.
+- It runs only when a value is committed: the slider's `change` (on release), the number box's `change` (Enter or leaving the field), Apply, either Set Threshold lane,
+  and a category, season or position change through `updatePlayerPool()`. It does **not** run on the slider's or the number box's `input` events, so dragging or typing
+  never removes anyone halfway.
+- A removed selection is not restored if the value later moves back.
+- The user is told through the shared toast, `showNotice()`, with text from `removedPlayersNotice()`: up to three names, then "and N more". In `applyFilters()` the Players
+  message is joined with the pinned-players refresh message into a single toast, so one cannot replace the other.
+- A removal notice uses the yellow warning variant (`.is-warning`: dark text on `--flag-gold-bright`, with a leading warning sign from `::before`, so colour is not the only cue).
+  The pinned-players refresh message stays on the neutral dark-green toast. A joined message is yellow whenever it includes a removal.
+- The shared rule treats a record with no threshold value as not eligible. The old pool check let such a record through at a threshold of 0; it only matters if a record
+  ever lacks its threshold column.
+

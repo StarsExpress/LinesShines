@@ -95,6 +95,9 @@ and `els.thresholdNumber` holds the clamped value.
   always "unaffected".
 - 
 
+The eligibility check inside `evaluatePinnedImpact()` is `partitionByEligibility()` in `pinned-impact.js`, shared with the Players filter
+(see `FILTERS-AND-SEARCH.md`, "Selected Players are kept while they are still eligible"), so the two cannot disagree about who qualifies.
+
 **Things that must NOT invalidate, clear or reset any card** (carried over from the retired `BLUEPRINT.md` §4, 2026-10-17)
 
 - **X / Y axis selection**: plot controls, not filters. The pool has not changed, and the user may well be switching axes

@@ -92,3 +92,5 @@ Detail for each item lives in `architecture/` (see `architecture/INDEX.md`); thi
 - 2026-10-17: `discussions/` and `next_steps/` are visible in the public repo through a `.gitkeep` placeholder each; every other file inside them stays local-only.
 - 2026-10-17: `playbook/tests/` added (public): one document per test script, plus `INDEX.md` saying which test file to extend. A new test script ships with its document in the same change.
 - 2026-10-18: invariants 1, 2, 3 and 8 got tests (`test_percentiles.py`, `test_filters.py`, `test_app_startup.py`). Invariants 12 and 13 are deliberately untested, with the reasons recorded in `INVARIANTS.md` and `tests/INDEX.md`.
+- 2026-10-18: the Players filter keeps selected players who are still eligible, using the same eligibility function as Pinned Players (`partitionByEligibility()`). It re-checks them only on commit, and a toast names up to three removed players.
+- 2026-10-18: notices about removals use a yellow warning variant of the toast (`--flag-gold-bright` with dark text and a warning sign); the pinned-players refresh notice stays dark green.

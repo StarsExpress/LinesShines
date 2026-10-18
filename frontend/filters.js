@@ -52,7 +52,13 @@ import {
   renderPlayerCardsSpace,
   removePinnedPlayers,
 } from "./workspace.js";
-import { evaluatePinnedImpact, mayApplyWithoutConfirm, impactConfirmMessage } from "./pinned-impact.js";
+import {
+  evaluatePinnedImpact,
+  mayApplyWithoutConfirm,
+  impactConfirmMessage,
+  partitionByEligibility,
+  removedPlayersNotice,
+} from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
 // where the threshold should snap to that category's configured default
@@ -591,8 +597,14 @@ function reconcileCarriedCards() {
   });
 }
 
-let refreshNoticeTimer = null;
-function showPinnedRefreshNotice(season) {
+// One neutral, non-blocking toast shared by every notice. Several messages
+// raised together are joined into one, so a later notice never replaces an
+// earlier one before it can be read.
+let noticeTimer = null;
+// `warning` switches to the yellow variant, for notices about something being removed.
+function showNotice(messages, { warning = false } = {}) {
+  const text = messages.filter(Boolean).join(" ");
+  if (!text) return;
   let el = document.getElementById("pinned-refresh-notice");
   if (!el) {
     el = document.createElement("div");
@@ -601,29 +613,44 @@ function showPinnedRefreshNotice(season) {
     el.setAttribute("role", "status");
     document.body.appendChild(el);
   }
-  el.textContent = `Pinned players updated to ${season} season data.`;
+  el.textContent = text;
+  el.classList.toggle("is-warning", warning);
   el.classList.add("is-visible");
-  clearTimeout(refreshNoticeTimer);
-  refreshNoticeTimer = setTimeout(() => el.classList.remove("is-visible"), 4000);
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => el.classList.remove("is-visible"), 4000);
 }
 
-// Called whenever the qualifying pool can have shrunk — live threshold
-// edits, and live category/season/position changes via updatePlayerPool()
-// (e.g. switching Position from ED to DI drops any ED-only chip immediately,
-// since it's no longer in the new position's pool) — so a selected player
-// who no longer clears the bar (or no longer exists in the new slice)
-// silently loses their chip instead of lingering as a selection that can't
-// actually take effect.
-export function prunePlayerSelections() {
-  const poolKeys = new Set(qualifyingPlayerPool().map((r) => r.player));
-  let changed = false;
-  selectedPlayers.forEach((_, key) => {
-    if (!poolKeys.has(key)) {
-      selectedPlayers.delete(key);
-      changed = true;
-    }
+const pinnedRefreshNotice = (season) => `Pinned players updated to ${season} season data.`;
+
+// Keeps the selected players who are still eligible and drops the rest, using
+// the same eligibility rule as the Pinned Players invalidation
+// (partitionByEligibility()), judged against the pending position and the
+// current (already clamped) threshold. Call it only when a value has been
+// COMMITTED: a slider release or number change, an Apply, a Set Threshold,
+// or a category/season/position change via updatePlayerPool(). Never while a
+// value is still being dragged or typed. A removed selection is not restored
+// if the value moves back. Tells the user who was removed (toast) unless
+// `notify` is false, in which case the caller shows the message itself.
+// Returns the display names of the removed players.
+export function prunePlayerSelections({ notify = true } = {}) {
+  const hasPool = Boolean(playerPoolCategory);
+  const { removed } = partitionByEligibility(
+    Array.from(selectedPlayers.keys()),
+    hasPool ? playerPoolRecords : [],
+    els.position.value,
+    Number(els.thresholdNumber.value),
+    hasPool ? metadata[playerPoolCategory].threshold_field : null
+  );
+  if (!removed.length) return [];
+
+  const names = removed.map((key) => {
+    const record = selectedPlayers.get(key);
+    return (record && (record.abbr_name || record.player)) || key;
   });
-  if (changed) renderPlayerChips();
+  removed.forEach((key) => selectedPlayers.delete(key));
+  renderPlayerChips();
+  if (notify) showNotice([removedPlayersNotice(names)], { warning: true });
+  return names;
 }
 
 export function filtersArePending() {
@@ -966,7 +993,8 @@ export async function applyFilters() {
   // without a live prune) can leave stale chips pointing at players outside
   // the new qualifying pool — drop them before snapshotting into
   // appliedFilters so the chart never highlights a player who isn't there.
-  prunePlayerSelections();
+  // The toast is held back so it can be joined with the pinned-players one.
+  const removedByApply = prunePlayerSelections({ notify: false });
   // setAppliedFilters() replaces the original's direct `appliedFilters =`
   // assignment — see the comment in loadCurrentSlice() above for why.
   setAppliedFilters(currentFilterState());
@@ -981,7 +1009,14 @@ export async function applyFilters() {
   refreshOpenLinemateCards();
   refreshOpenMergeCards();
   renderPlayerCardsSpace();
-  if (seasonChanged && (outcome === "refresh" || outcome === "partial") && pinned.size)
-    showPinnedRefreshNotice(appliedFilters.season);
+  showNotice(
+    [
+      removedPlayersNotice(removedByApply),
+      seasonChanged && (outcome === "refresh" || outcome === "partial") && pinned.size
+        ? pinnedRefreshNotice(appliedFilters.season)
+        : "",
+    ],
+    { warning: removedByApply.length > 0 }
+  );
   updatePendingState();
 }

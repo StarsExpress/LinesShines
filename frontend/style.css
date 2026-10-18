@@ -3096,8 +3096,9 @@ thead .linemate-table-frozen { z-index: 3; }
   }
 }
 
-/* Neutral, non-blocking notice shown after an Apply carries every pinned
-   player to another season (filters.js's showPinnedRefreshNotice()). */
+/* Neutral, non-blocking notice (filters.js's showNotice()): shown after an Apply
+   carries pinned players to another season, and when the Players filter drops
+   selections that no longer qualify. */
 .pinned-refresh-notice {
   position: fixed;
   left: 50%;
@@ -3122,4 +3123,18 @@ thead .linemate-table-frozen { z-index: 3; }
 .pinned-refresh-notice.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+/* Warning variant, a "yellow flag", for notices about something being taken away
+   (the Players filter dropping selections). Dark text on --flag-gold-bright keeps
+   contrast high, and the leading warning sign means colour is not the only cue.
+   The second `content` declaration marks the sign as decorative for screen readers
+   that support it; browsers that do not just keep the first one. */
+.pinned-refresh-notice.is-warning {
+  background: var(--flag-gold-bright);
+  border-color: var(--flag-gold);
+  color: var(--turf-950);
+}
+.pinned-refresh-notice.is-warning::before {
+  content: "\26A0\00a0";
+  content: "\26A0\00a0" / "";
 }
