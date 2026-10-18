@@ -490,7 +490,7 @@ function attachEvents() {
   window.addEventListener("resize", () => {
     if (!isDesktopScoutLayout()) clearScoutCardDragPositions();
     // Merge/Linemate cards and Pinned Players are desktop/tablet-only
-    // (BLUEPRINT.md §0) — a resize across the 860px breakpoint needs to
+    // — a resize across the 860px breakpoint needs to
     // re-evaluate Pinned Players' own visibility either way.
     renderPlayerCardsSpace();
   });
@@ -584,8 +584,7 @@ function attachEvents() {
     closeFiltersDrawer();
   });
 
-  // Refresh/close silently wipes the whole Workspace (BLUEPRINT_PinnedPlayers.md
-  // §7) — warn first so that isn't a silent loss of deliberate work. Skipped
+  // Refresh/close silently wipes the whole Workspace — warn first so that isn't a silent loss of deliberate work. Skipped
   // when the Workspace is empty (nothing to lose), same "skip unless
   // non-empty" convention as showMergeInvalidationConfirm() above.
   window.addEventListener("beforeunload", (e) => {

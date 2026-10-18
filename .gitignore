@@ -22,5 +22,11 @@ data/*.db-wal
 node_modules/
 
 .claude/
-CLAUDE.md
-BLUEPRINT.md
+
+# playbook/ is private by default; the allow-list below publishes only what is meant to be public.
+# Use `playbook/*` (not `playbook/`): git cannot re-include a path whose parent directory is excluded.
+playbook/*
+!playbook/ROSTER.md
+!playbook/DECISIONS.md
+!playbook/INVARIANTS.md
+!playbook/architecture/

@@ -81,7 +81,7 @@ function buildExportClone(cardEl) {
   if (panelEl) panelEl.style.cssText = "height: auto; max-height: none; overflow: visible;";
 
   // Merge Card's frozen Player/Team/Linemates columns and Linemate Card's
-  // frozen Player column (both BLUEPRINT.md's Excel frozen-pane treatment)
+  // frozen Player column (both Excel-style frozen panes)
   // are position:sticky — turns out that does NOT gracefully fall back to
   // their normal flow position once their scroll container stops scrolling,
   // at least not for this off-screen fixed-position clone: measured

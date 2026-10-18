@@ -1313,7 +1313,7 @@ body {
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
      Rate". Fixed, not resizable — see .is-folded below for the two-state
-     Fold/Unfold that replaced the old free edge-resize (BLUEPRINT.md §1.3). */
+     Fold/Unfold that replaced the old free edge-resize. */
   width: 380px;
   min-width: 260px;
   max-width: 640px;
@@ -1404,7 +1404,7 @@ body {
   overflow-y: auto;
 }
 
-/* Fold/Unfold (BLUEPRINT.md §1.3) — two discrete states only, no continuous
+/* Fold/Unfold — two discrete states only, no continuous
    resize, shared by all three card types. Folding hides the card's metric
    body and leaves just the header (.scout-card-top) — and, for a Player
    Card, its always-visible .scout-card-actions row (merge-select + linemate
@@ -1507,7 +1507,7 @@ body {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
 
-/* Edge/corner resize handles (BLUEPRINT.md-style: shared by every card type
+/* Edge/corner resize handles (shared by every card type
    via .scout-card, wired in app.js's attachScoutResize()). Straddle the
    panel's border like a native window's resize grips — invisible until
    hovered so they don't clutter the card, but wide enough (10-14px) to grab
@@ -1554,13 +1554,13 @@ body {
 .scout-resize-handle.scout-resize-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
 .scout-resize-handle.scout-resize-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
 /* Disables the panel's open/close max-height transition while an active
-   drag would otherwise fight it every frame (BLUEPRINT.md pattern: same
+   drag would otherwise fight it every frame (same
    reasoning as .is-dragging above, just for the panel's own height). */
 .scout-card.is-resizing .scout-card-panel { transition: none; }
 .scout-card.is-resizing { user-select: none; }
 
 /* Flashes a floating card when the user re-clicks a player already in the
-   Workspace (BLUEPRINT_PinnedPlayers.md §4) — mirrors .pcs-row.is-flash's
+   Workspace — mirrors .pcs-row.is-flash's
    pulse, scoped to the card's panel rather than the whole absolutely-
    positioned .scout-card so it doesn't fight bringScoutCardToFront()'s
    z-index bump. */
@@ -1659,12 +1659,12 @@ body {
 .scout-pct-darkblue { background: #1f618d; color: #f0ede4; }
 .scout-pct-violet { background: #a569bd; color: #f0ede4; }
 
-/* --- Player Card actions: linemate toggle (BLUEPRINT.md §2) ---
+/* --- Player Card actions: linemate toggle ---
    Sits between the header and the stats table, always visible — including
    while the card is folded, see .is-folded above — so a card doesn't need
    to be unfolded to pull up its linemates. Merge selection moved to this
    player's Single Cards row in the Pinned Players (see .pcs-row-merge
-   below) — BLUEPRINT_PinnedPlayers.md §4 — so this row now holds just the
+   below) — so this row now holds just the
    one action; flex-start keeps the button snug against the left edge
    (rather than the old two-item space-between layout's flex-end) and the
    tightened padding keeps a single-button row from reading as an
@@ -1733,7 +1733,7 @@ body {
   outline: none;
 }
 
-/* --- Pinned Players (BLUEPRINT_PinnedPlayers.md) ---
+/* --- Pinned Players ---
    Persistent Workspace management region — replaces the old merge-toolbar.
    Lives outside .board (see the comment on #player-cards-space in
    index.html), styled after .apply-btn/.png-btn's conventions. */
@@ -1883,7 +1883,7 @@ body {
 }
 .pcs-column-header .pcs-column-title { margin: 0; flex: none; }
 
-/* Single Cards' add-search box (BLUEPRINT_PinnedPlayers.md v1.2.0 §4) —
+/* Single Cards' add-search box —
    .merge-edit-add/.merge-edit-input/.merge-edit-dropdown are reused wholesale
    here (same fuzzy-match look as the Players filter and the Create/Edit
    merge popups). Lives in the column header row now, alongside the title
@@ -1974,7 +1974,7 @@ body {
 }
 .pcs-row:last-child { border-bottom: none; }
 /* Single Cards rows double as a reopen/focus control for their floating
-   card (BLUEPRINT_PinnedPlayers.md §4) — Merged Cards rows don't get
+   card — Merged Cards rows don't get
    this, they only act through their Edit/Dismiss buttons. */
 .pcs-row.is-clickable { cursor: pointer; }
 .pcs-row.is-clickable:hover { background: var(--turf-700); }
@@ -2070,7 +2070,7 @@ body {
 }
 
 /* --- Merge Card table --- one row per player, one column per metric,
-   percentile-only cells (BLUEPRINT.md §1.2). */
+   percentile-only cells. */
 /* Below the .scout-card-top divider: the shared-pool sentence (Pool
    column dropped from the table below, see renderMergeCardBody() — falls
    back to listing each member's own pool if the card mixes positions), then
@@ -2255,7 +2255,7 @@ thead .merge-table-frozen { z-index: 3; }
 .merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
 
 /* --- Linemate Association Card --- roster table + 3M/RSWA summary
-   (BLUEPRINT.md §2). Header now mirrors the Player Card's two-row layout
+  . Header now mirrors the Player Card's two-row layout
    (.scout-card-top logo+name+meta, then a second bordered row) — see
    openLinemateCard()/renderLinemateCardBody(). .linemate-card-notes is that
    second row's own modifier on .scout-card-actions, swapping its single-
@@ -2279,11 +2279,11 @@ thead .merge-table-frozen { z-index: 3; }
   color: var(--flag-gold);
 }
 /* Roster table — same DataFrame column style as Merge Card's .merge-table
-   (BLUEPRINT.md §2.1/§1.2: one row per teammate, one column per metric,
+   (one row per teammate, one column per metric,
    percentile-only cells), just without its Team column (redundant here —
    every row already shares the anchor's team, see computeLinemateRoster())
    or its Linemates-toggle column (no per-row drill-down on this card type,
-   BLUEPRINT.md §2.3's recursion guard). */
+   the recursion guard). */
 .linemate-table-wrap { overflow-x: auto; margin-bottom: 10px; }
 .linemate-table {
   width: 100%;
@@ -2378,8 +2378,7 @@ thead .linemate-table-frozen { z-index: 3; }
   font-family: var(--font-mono);
   font-size: 11px;
 }
-/* Every column, header and data alike, shares one alignment (BLUEPRINT.md
-   §2.5's summary is a stat grid, not a label-then-numbers report — mixing
+/* Every column, header and data alike, shares one alignment (the summary is a stat grid, not a label-then-numbers report — mixing
    left-aligned metric names against right-aligned figures read as two
    different tables stitched together). Metric column gets a fixed, narrower
    width than table-layout:auto would give its longest label ("TPS Allowed
@@ -2420,7 +2419,7 @@ thead .linemate-table-frozen { z-index: 3; }
 .linemate-summary-table td:nth-child(5) {
   width: 12%;
 }
-/* The RSWA header's InfoPopover trigger (BLUEPRINT.md §2.5's formula) —
+/* The RSWA header's InfoPopover trigger —
    shared .info-popover-trigger component (info-popover.js), same one the
    Players filter header uses, standing in for that column's plain-text
    label (see renderLinemateSummary()'s replaceChild). Sized down from the
@@ -2489,7 +2488,7 @@ thead .linemate-table-frozen { z-index: 3; }
   outline: none;
 }
 
-/* --- Pool-change confirm modal (BLUEPRINT.md §4) --- */
+/* --- Pool-change confirm modal --- */
 .merge-confirm-overlay {
   position: fixed;
   inset: 0;
@@ -2663,8 +2662,7 @@ thead .linemate-table-frozen { z-index: 3; }
   }
 }
 
-/* --- Merge Card popups: Create + Edit (BLUEPRINT_PinnedPlayers.md v1.2.0
-   §5) --- .merge-edit-overlay/.merge-edit-box etc. are shared verbatim by
+/* --- Merge Card popups: Create + Edit --- .merge-edit-overlay/.merge-edit-box etc. are shared verbatim by
    both #merge-create-overlay and #merge-edit-overlay (different ids, same
    markup shape/classes) rather than duplicating the styling. Same
    modal-overlay pattern as .merge-confirm-overlay above; the fuzzy-add
@@ -2979,11 +2977,10 @@ thead .linemate-table-frozen { z-index: 3; }
      it's simply absent from the mobile drawer. */
   .control-players { display: none; }
 
-  /* Merge Cards and Pinned Players stay desktop/tablet-only (BLUEPRINT.md
-     §0) — app.js's isDesktopScoutLayout() guards already stop new Merge
+  /* Merge Cards and Pinned Players stay desktop/tablet-only — app.js's isDesktopScoutLayout() guards already stop new Merge
      Cards from opening below 860px, and Pinned Players' own management
      panel (.player-cards-space) is hidden below regardless. Linemate Cards
-     are the one exception (BLUEPRINT.md §0 update): a Linemate Card is just
+     are the one exception: a Linemate Card is just
      a scrollable teammate-stats table (see .linemate-table-wrap's
      overflow-x below), not a scatter plot, so it doesn't need the wide
      layout — .scout-card-actions (the Player Card's linemate-toggle row,

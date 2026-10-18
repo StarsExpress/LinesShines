@@ -209,7 +209,7 @@ export function openScoutCard(record) {
   updateScoutEmptyHint();
 }
 
-// The floating card's own × — per BLUEPRINT_PinnedPlayers.md §3, this
+// The floating card's own × — this
 // ONLY closes the floating card. It does NOT touch workspaceSingles or the
 // Pinned Players in any way — a player's Single Cards row survives
 // regardless, exactly mirroring how his own Linemate Card, if open, is also

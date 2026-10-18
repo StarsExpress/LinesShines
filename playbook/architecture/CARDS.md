@@ -1,0 +1,112 @@
+# Pinned Players, Merge Cards, Linemate Cards
+
+> **Load when:** touching workspace.js, merge-card.js, linemate-card.js, scout-card.js, or cards-base.js.
+> Moved verbatim from the former CLAUDE.md "Architecture" section on 2026-10-17; the text is unchanged.
+> Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
+
+**Pinned Players** (`renderPlayerCardsSpace()`):
+the persistent Workspace management region, sitting between the filter drawer and `.board` (outside
+it deliberately — `.board`'s floating-card positioning math assumes `.chart-panel` sits at its own
+top-left). Plot-click and Workspace membership are fully decoupled: clicking a plotted player
+(`viewFloatingCard()`) only opens or flashes his floating card, never touches `workspaceSingles`.
+The **only** way to add a Single Cards row is the fuzzy-search box at the top of that column
+(`addPlayerToSingleCards()`, same style/engine as the Players filter) — it adds the row but does not
+open the card; clicking the player's **name** once he's listed pops/flashes his card, same click+flash
+behavior as before. Two independent maps back the column split: `workspaceSingles` (a player's
+**Single Cards row**) and `scoutCards` (his **floating card**, open or closed) are decoupled on
+purpose — closing a floating card's × (`closeScoutCard()`) touches nothing but that DOM node; the
+only way to leave the Workspace is the Single Cards row's own **Remove** button
+(`removeSingleCard()`), which also closes the floating card if it was open. Rows carry no Merge
+action anymore — see Merge Cards below. Collapsed by default to a compact bar (quota counter +
+**Manage**); Manage (or the panel's own ×) expands/collapses `.pcs-panel`'s two columns — Single
+Cards (add-search + Remove per row) and Merged Cards (Create button + Edit/Dismiss per row) — a
+plain expand/collapse panel, not a `<select>`.
+
+**Merge Cards** (`openCreateMergePopup()`/`submitCreateMergePopup()`/`openMergeCard()`/
+`renderMergeCardBody()`/`closeMergeCard()`): built via the Merged Cards column's **Create** button,
+which opens a popup with its own staged, popup-local selection (`createSelection`, a
+`Map<player,record>`, discarded on Cancel) — not the old per-row Merge button (removed). Picking a
+6th member is refused inline; the 8-player Workspace quota is checked only once, at **Submit**,
+against the resulting **distinct** total (a player already elsewhere in the Workspace costs nothing),
+never against the raw popup selection. Submit builds one floating card — one row per player, one
+column per metric, **percentile only** (never the raw value or `#rank/N`) — and does not open the
+members' individual floating Player Cards (their Single Cards rows are enough; each member gets one
+if he doesn't already have one). A global 8-player quota (`MERGE_QUOTA`, `distinctWorkspacePlayers()`
+= the union of `workspaceSingles` and every Merge Card's `memberKeys`) hard-caps the whole Workspace
+the same way outside Create too (e.g. the Edit popup's `addMergeMember()`). No two merged cards may
+share the same membership: `findDuplicateMergeCard()` compares each card's sorted-by-`id`
+`memberIdsKey()` (player **id**, not display name) and blocks Submit/add/remove with "This merged
+card already exists." when a match is found. A merged card's own floating × (`closeMergeCardFloating()`)
+only hides the view — the card survives in `mergeCards` and its Merged Cards row stays clickable to
+reopen/refocus it (`reopenOrFocusMergeCard()`), mirroring Single Cards; **Dismiss**
+(`closeMergeCard()`) is the only full dissolve, and frees the members' quota slots. The **Edit**
+popup (`openMergeEditPopup()`, `#merge-edit-overlay`) is the only way to change an existing card's
+membership post-creation — same fuzzy-match input as the Players filter and the Create popup, all
+three scoped to `pcsSearchPool()` (the current position pool only, never cross-position); adding an
+existing member, a 6th, or a membership that would duplicate another card is blocked with a message,
+and removing down to 1 member auto-dissolves the card (only once the popup closes via Done/Escape,
+not on the removal click itself) and returns the survivor to Single Cards.
+
+**Linemate Association Cards** (`computeLinemateRoster()`/`computeThreeMRSWA()`/
+`openLinemateCard()`): triggered from a linemate-toggle on any Player Card or any Merge Card
+member row, keyed by anchor so the same toggle re-fires as a close — this is what makes the
+recursion guard (a Linemate Card renders no linemate toggle of its own) trivial rather than
+enforced. Roster = same team/season/category, **including same-position linemates**
+(`LINEMATE_POSITIONS`), excluding the anchor, filtered to the applied snap threshold, sorted by
+snap count descending and capped per category (`LINEMATE_CAP`: 5 for OL, 7 for DL) — dropping the
+lowest first, no positional reservation. First 5 show by default; a "See more" control (DL-only in
+practice, since the OL cap is 5) reveals the rest, and resets to collapsed on fold→unfold. The
+summary block (Min/Median/RSWA/Max per metric, in that column order) is always computed over the
+**full capped roster**, regardless of "See more" state — RSWA (Relative Snaps Weighted Average)
+weights each linemate's percentile by his own share of the roster's total snaps
+(`weight[t] = snaps[t] / sum(snaps)`), so a linemate who played more counts
+for more of the summary. **Deliberately uses each linemate's raw, uncapped snap count** — an earlier
+version capped a linemate's snaps at the anchor's own snap count (to approximate true overlap), but
+this was reversed: a linemate's full snap count is exactly what expresses how lucky or unlucky the
+anchor was to share the field with him, so discounting it for the anchor's own missed time would
+understate that. Do not reintroduce a cap here. The RSWA column header carries a click-toggled
+info popover (`info-popover.js`'s `createInfoPopover()`) spelling this out — swapped in for a plain
+hover tooltip so the explanation is reachable on touch devices too; its click handler calls
+`e.stopPropagation()` so opening it doesn't also toggle the header's own sort (see below). Every
+table in a Linemate Card (roster and Line Summary) and a Merge Card is sortable Excel-style —
+click a header to sort ascending, click again to flip, click a different header to reset to
+ascending on that column (`table-sort.js`'s `toggleSortState()`/`sortRows()`/
+`makeSortableHeader()`) — except a Merge Card's Linemates column, which holds a button, not data.
+Sort state (`{ key, dir }`) lives on the card's own entry and survives re-renders (a snap-threshold
+refresh, a roster "See more" toggle) but resets on card close; `null`/`undefined` values always
+sort last regardless of direction, so a metric with no qualifying pool doesn't scatter through a
+ranked column. Both `table-sort.js` and `info-popover.js` are dependency-free leaves specifically
+so `linemate-card.js` can import them without acquiring a dependency on `merge-card.js` (or vice
+versa) — see item 6 above.
+
+**"Include {player} into tables" toggle** (`entry.includeAnchor`, default off,
+`linemateDisplayRoster()`): a checkbox on every Linemate Card that folds the anchor's own row into
+the roster table and the Line Summary, turning the card into a full starting-lineup view rather than
+just teammates. `computeLinemateRoster()` itself never sees the anchor — the OL/DL cap and the
+threshold-qualifying roster-size note (`"N linemates with ≥ X ..."`) stay teammates-only and
+unaffected either way. `linemateDisplayRoster()` inserts the anchor into his rank position by the
+category's `threshold_field` (the same field `entry.roster` is already sorted descending by), not a
+fixed prepend — so toggling on reads as one snap-ranked line, anchor included, rather than the
+anchor pinned to a slot regardless of his own snap count; a header click still re-sorts everyone
+same as before. Every render call site (roster table, Line Summary, "See more", fold/unfold,
+PNG export's `prepareClone`) reads through this one helper instead of `entry.roster` directly, so
+toggling always reflects consistently everywhere with no special-casing per call site — PNG export
+in particular needs zero toggle-awareness of its own, it just captures whatever
+`linemateDisplayRoster()` currently returns. Title swaps to `"{player} & His Linemates"` when on;
+rows carry no visual distinction between anchor and teammates, the title alone frames it as one
+group. Persists across a threshold-only refresh the same way `seeMore`/`rosterSort` do; a
+season/category/position change dissolves the card outright as usual.
+
+**Design rationale for Merge Cards and Linemate Cards** (carried over from the retired `BLUEPRINT.md` §1–§2, 2026-10-17)
+
+- **Percentile only.** A Merge Card row shows one percentile per metric, never the raw value or `#rank/N`, because three numbers per metric would
+  make the row unreadably wide (the metric count varies by category and has grown). The full detail is one click away on the individual Player Card.
+- **Quota.** The 8-player quota governs analytical complexity; Fold/Unfold governs screen space. That is why Linemate Cards do not count
+  against the quota.
+- **One linemate toggle per merged member**, even when two members are linemates of each other. Never dedupe by team.
+- **Why the caps are 5 and 7.** OL 5 is the other four starters plus one backup. DL 7, together with the anchor, is two 4-man rush packages.
+  When more players qualify than slots exist, drop the lowest snap counts first and do not reserve slots by position: a 4-man rush is not
+  required to be two interior plus two edge, and more snaps mean more genuine opportunity to have shared the field with the anchor.
+- **Summary block meaning.** Min is the unit's floor (its weakest link), Median its water level, RSWA the effectively experienced centre,
+  and Max its ceiling (its anchor). All four carry equal weight and are identical for OL and DL; the point is the full picture, so no single
+  statistic is favoured per line.

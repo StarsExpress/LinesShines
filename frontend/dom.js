@@ -67,7 +67,7 @@ export const els = {
   workspaceNoticeOverlay: document.getElementById("workspace-notice-overlay"),
   workspaceNoticeBody: document.getElementById("workspace-notice-body"),
   workspaceNoticeOk: document.getElementById("workspace-notice-ok"),
-  // Pinned Players (BLUEPRINT_PinnedPlayers.md) — see
+  // Pinned Players — see
   // renderPlayerCardsSpace() in app.js.
   playerCardsSpace: document.getElementById("player-cards-space"),
   pcsQuotaLabel: document.getElementById("pcs-quota-label"),

@@ -193,7 +193,7 @@ export function fullPlayerPool() {
 // purely for chart-label rendering and would make a query like "will" fail
 // to match. Shared by the Players filter (searchPlayers below, excluding
 // already-selected chips) and the Merge Card Edit popup
-// (BLUEPRINT_PinnedPlayers.md §5, same fuzzy-match style, its own
+// (same fuzzy-match style, its own
 // exclusion set) so both stay on exactly one matching engine.
 export function searchPlayersExcluding(query, pool, excludeKeys, topK = 8) {
   const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -219,7 +219,7 @@ export function searchPlayersExcluding(query, pool, excludeKeys, topK = 8) {
 
 // Shared pool for every Pinned Players fuzzy-search box — the Single
 // Cards add-search, the Create-merge popup, and the Edit-merge popup
-// (BLUEPRINT_PinnedPlayers.md v1.2.0 §4: never cross-position, always
+// (never cross-position, always
 // "the same pool the plot is showing"). Just positionPool() locked to
 // appliedFilters.position rather than an arbitrary position argument.
 export function pcsSearchPool() {

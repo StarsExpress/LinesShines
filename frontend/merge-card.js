@@ -73,7 +73,7 @@ import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
-// Pinned Players Workspace (BLUEPRINT_PinnedPlayers.md §1/§3) — the
+// Pinned Players Workspace — the
 // persistent Single Cards list, keyed by the same full "player" string as
 // everything else (record.player → record). Populated ONLY by the Single
 // Cards fuzzy-search box (addPlayerToSingleCards(), v1.2.0 §4) — a plot click
@@ -84,8 +84,7 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // distinctWorkspacePlayers() counts against the 8-player quota.
 export const workspaceSingles = new Map();
 
-// Pending membership for the Create-merge popup (BLUEPRINT_PinnedPlayers.md
-// v1.2.0 §5) — record.player → record, in pick order. Staged locally and
+// Pending membership for the Create-merge popup — record.player → record, in pick order. Staged locally and
 // discarded on Cancel; only becomes a real Merge Card on Submit
 // (submitCreateMergePopup()). Unlike the Edit popup's live-commit model, so a
 // half-built card never briefly exists as a real, addressable Merge Card.
@@ -96,7 +95,7 @@ export const createSelection = new Map();
 // memberKeys:[player,...], el, folded }.
 export const mergeCards = new Map();
 
-// The 8-player quota's universe (BLUEPRINT_PinnedPlayers.md §6): every
+// The 8-player quota's universe (see playbook/architecture/CARDS.md): every
 // distinct player in Single Cards OR any Merged Card, counted once
 // regardless of how many places he appears — a player merged into three
 // cards, or merged AND still a Single Cards row, still costs exactly 1 slot.
@@ -106,7 +105,7 @@ export function distinctWorkspacePlayers() {
   return keys;
 }
 
-// BLUEPRINT_PinnedPlayers.md v1.2.0 §5/CHANGE 5 — order-independent
+// Order-independent
 // membership hash for duplicate-card detection, keyed by player `id` (the DB
 // row id, not the display name, per the spec) rather than record.player:
 // two cards with the same player SET, picked in any order, must hash
@@ -135,7 +134,6 @@ export function findDuplicateMergeCard(memberKeys, excludeId) {
 }
 
 // --- Player Merge Cards ------------------------------------------------------
-// (BLUEPRINT.md §1, BLUEPRINT_PinnedPlayers.md §5/§6)
 
 // --- Create Merged Card popup (v1.2.0 §5) -----------------------------------
 // Replaces the old per-row Merge-button + header-Merge-button flow entirely:
@@ -375,7 +373,7 @@ export function makeTeamCell(record) {
 }
 
 // A single <td> holding this row's linemate-toggle — shared by every row in
-// a Merge Card's table (BLUEPRINT.md §2.1: one linemate toggle per merged
+// a Merge Card's table (one linemate toggle per merged
 // member, no team-level dedupe even when two members share a team).
 export function makeLinemateCell(record) {
   const td = document.createElement("td");
@@ -428,12 +426,11 @@ function percentileFillClass(percentile) {
 }
 
 // One row per player, one column per metric, percentile-only cells
-// (BLUEPRINT.md §1.2) — never the raw value, never #rank/N. Every column is
+// — never the raw value, never #rank/N. Every column is
 // sortable (table-sort.js, Excel-style click-to-sort) except Linemates,
 // which holds a button, not data. Builds/rebuilds a Merge Card's title,
 // subtitle, and percentile table from memberRecords — used both at creation
-// (openMergeCard) and by the Edit popup (rebuildMergeCardFromMembers,
-// BLUEPRINT_PinnedPlayers.md §5) to update an existing card in place after
+// (openMergeCard) and by the Edit popup (rebuildMergeCardFromMembers) to update an existing card in place after
 // its membership changes, instead of destroying/recreating the floating
 // card. `sortState` is the entry's own persistent { key, dir } (see
 // openMergeCard()) — passed in explicitly rather than read off an `entry`
@@ -511,7 +508,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
       } else {
         td.textContent = "—";
       }
-      // Displayed text stays percentile-only (BLUEPRINT.md §1.2); the exact
+      // Displayed text stays percentile-only; the exact
       // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
       // Cards' percentile cells.
       attachAppTooltip(
@@ -542,7 +539,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
   }
 }
 
-// Freezes the Player/Team/Linemates columns (BLUEPRINT.md §1.2 extended) in
+// Freezes the Player/Team/Linemates columns in
 // place while Games/PR Opp and the metric columns scroll underneath them,
 // Excel frozen-pane style. Measures each metadata column's actual rendered width
 // off the header row (uniform per column across every row in a <table>) so
@@ -648,7 +645,7 @@ export function openMergeCard(memberRecords) {
 }
 
 // The floating card's own × — mirrors closeScoutCard()'s "view only" close
-// (BLUEPRINT_PinnedPlayers.md §3/§4 extended to Merge Cards): the entry
+// (extended to Merge Cards): the entry
 // stays in mergeCards, so the Merged Cards row survives and reopenOrFocusMergeCard()
 // can bring the card back. Linemate Cards spawned from this card's rows are
 // left alone too, same as closeScoutCard() leaves a Player Card's.
@@ -708,7 +705,7 @@ export function closeMergeCard(id) {
   renderPlayerCardsSpace();
 }
 
-// --- Merge Card membership editor (BLUEPRINT_PinnedPlayers.md §5) --------
+// --- Merge Card membership editor --------
 // Its add pool is pcsSearchPool() (v1.2.0 §4) — the current position pool
 // only, same as the Create popup and the Single Cards add-search; merge
 // cards no longer cross positions.
@@ -876,7 +873,7 @@ export function runMergeEditSearch() {
 // fresh (findRecordByPlayer), since he may no longer be in workspaceSingles
 // (§4/§6: Remove doesn't touch merged instances).
 export function rebuildMergeCardFromMembers(entry) {
-  if (!entry.el) return; // floating card closed (BLUEPRINT_PinnedPlayers.md §4-style) — nothing on screen to update
+  if (!entry.el) return; // floating card closed — nothing on screen to update
   const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
   renderMergeCardBody(entry.el, memberRecords, entry.sort);
 }
