@@ -1,0 +1,17 @@
+# Architecture section index
+
+Each row is a bold lead-in from the original text, mapped to the file that now holds it. Search here when a cross-reference ("see ... above/below") names a section.
+
+| File | Load when | Sections inside |
+|---|---|---|
+| `architecture/BACKEND-AND-DEPLOY.md` | changing ingestion, DB schema/models, API routes, team codes, deploy, or tests | Pipeline: raw PFF export → preprocessing → xlsx → ingestion → DB → API; Team codes; Deploy; Adding a nullable column to `db_models.py` requires a manual `ALTER TA; Tests |
+| `architecture/FRONTEND-STRUCTURE.md` | touching ES-module layout, imports, shared state, or the client-side data model |  |
+| `architecture/PWA.md` | touching sw.js, manifest.json, caching rules, install flow, or adding any new route or API prefix | The app is an installable PWA |
+| `architecture/UI-LAYOUT-AND-EXPORT.md` | touching control-bar CSS, breakpoints, card drag/resize/fold, fuzzy matching, or PNG export | Control-bar sizing; Three card types share one positioning system; This breakpoint (and `data.js`'s `targetLogoPx()`/`render.js`'s `isMob; The fuzzy-match engine (Players filter, Pinned Players search, Merge C; Fold/Unfold and free edge-resize both exist, on every card type.; PNG export exists at both the chart level and the per-card level, and ; Merge/Linemate table cell sizing and alignment; Mobile and layout gotchas |
+| `architecture/CHART-RENDERING.md` | touching render.js, label decluttering/emphasis, or axis direction | Teams/Players filtering dims non-matching players on the chart; it nev; Player labels get three independent treatments on top of each other: d; Axis inversion is per-metric, not per-category |
+| `architecture/CARDS.md` | touching workspace.js, merge-card.js, linemate-card.js, scout-card.js, or cards-base.js | Pinned Players; Single Cards row; Manage; Merge Cards; Linemate Association Cards; full capped roster; "Include {player} into tables" toggle; Design rationale for Merge Cards and Linemate Cards |
+| `architecture/FILTERS-AND-SEARCH.md` | touching Teams/Players filters, the Players search pool, below-threshold matches, or Quick Set | Teams and Players filters combine via union (OR), never intersection (; The Players search pool has its own live, non-Apply-gated data track, ; Below Threshold Matches; Below Threshold Matches extends to every Pinned Players search box, no |
+| `architecture/PERCENTILES.md` | computing, displaying, or comparing any percentile or rank | Percentile pools must be partitioned by exact position, never combined; Rank and percentile use competition ranking, not an arbitrary tiebreak |
+| `architecture/PINNED-INVALIDATION.md` | changing filters that can remove Pinned Players, the confirm dialog, or Comparison shrink/dissolve rules | Pool-change invalidation is judged on the FINAL filter combination, an; Things that must NOT invalidate, clear or reset any card |
+| `architecture/METRICS-AND-NOTES.md` | adding or renaming a metric, editing info popovers, metric notes, or the export appendix | Metric semantics; Default axis pair per category; Metric-definition popovers on the X/Y axis controls; Info-popover triggers and the header Install button; "Include metric notes" — export appendix and live chart notes |
+| `architecture/THRESHOLDS.md` | touching config.py thresholds, resolve_default_threshold, or the threshold number box in filters.js | Season-threshold routing; Threshold number box's clamp ceiling only moves when the value actuall |

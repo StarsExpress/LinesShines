@@ -43,8 +43,8 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
 // per anchor regardless of whether the toggle that opened it lives on a
-// Player Card or a Merge Card member row. This is what makes BLUEPRINT.md
-// §2.3's recursion guard trivial: a Linemate Card never renders a linemate
+// Player Card or a Merge Card member row. This is what makes the recursion guard
+// trivial: a Linemate Card never renders a linemate
 // toggle of its own, so there's no second layer of anchors to key around.
 // Entry: { id, origin:'linemate', anchorKey, anchorRecord, roster, el,
 // folded, seeMore, includeAnchor }. anchorRecord/roster are read and
@@ -105,10 +105,10 @@ export function attachAppTooltip(el, text) {
   el.addEventListener("blur", hideAppTooltip);
 }
 
-// --- Linemate Association Cards (BLUEPRINT.md §2) ---------------------------
+// --- Linemate Association Cards ---------------------------
 
 // Same-team, same-season, same-category roster around `anchorRecord`,
-// including same-position linemates (BLUEPRINT.md §2.2's position table),
+// including same-position linemates,
 // excluding the anchor himself and anyone below the applied snap threshold,
 // then sorts by snap count (the category's threshold_field, the only volume
 // stat available per player) descending and caps at the category's limit —
@@ -165,11 +165,10 @@ function linemateDisplayRoster(entry) {
 }
 
 // Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
-// capped roster, regardless of "See more" state (BLUEPRINT.md §2.5: that
+// capped roster, regardless of "See more" state (that
 // control is display-only). RSWA (Relative Snaps Weighted Average) weights
 // each linemate's percentile by his own share of the roster's total snaps —
-// weight[t] = snaps[t] / sum(snaps) — exactly the formula in BLUEPRINT.md
-// §2.5, so a linemate who played more snaps alongside the anchor's unit
+// weight[t] = snaps[t] / sum(snaps) — so a linemate who played more snaps alongside the anchor's unit
 // counts for more of the summary.
 export function computeThreeMRSWA(rosterRecords, cat) {
   const perPlayer = rosterRecords.map((t) => {
@@ -202,7 +201,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   return results;
 }
 
-// No longer desktop/tablet-gated (BLUEPRINT.md §0 originally scoped this
+// No longer desktop/tablet-gated (originally scoped this
 // alongside Merge Cards) — a Linemate Card is just another scrollable
 // stats table, not a scatter plot, so it doesn't need the wide layout Merge
 // Cards/Pinned Players still do. Dragging/cascading on the opened card still
@@ -225,7 +224,7 @@ export function closeLinemateCard(anchorKey) {
   updateScoutEmptyHint();
 }
 
-// Freezes the Player/Position columns (both metadata, BLUEPRINT.md's Excel
+// Freezes the Player/Position columns (both metadata, an Excel-style
 // frozen-pane treatment) in place while Games/PR Opp and the metric columns
 // scroll underneath — same technique as Merge Card's applyStickyMetaColumns()
 // (merge-card.js), reimplemented locally rather than imported: this module
@@ -305,7 +304,7 @@ function percentileFillClass(percentile) {
 // Card's (renderMergeCardBody() in merge-card.js), minus the NFL Team column
 // (redundant here — every roster row already shares the anchor's team by
 // construction, see computeLinemateRoster()) and minus a per-row Linemates
-// toggle (recursion guard, BLUEPRINT.md §2.3: this card never lets a row
+// toggle (recursion guard: this card never lets a row
 // drill into another Linemate Card). Position gets its own column instead of
 // NFL Team — a roster can mix positions (LINEMATE_POSITIONS) even though it
 // can't mix teams. Percentiles are each computed against the linemate's own

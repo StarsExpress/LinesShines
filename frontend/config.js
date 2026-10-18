@@ -49,7 +49,7 @@ export const MERGE_QUOTA = 8;
 // Position-group pulled into a Linemate Card's roster and the per-category
 // cap on how many can be shown — both keyed by category, not position,
 // since a Linemate Card spans every position within its anchor's category
-// (BLUEPRINT.md §2.2).
+//.
 export const LINEMATE_POSITIONS = { pass_block: ["T", "G", "C"], pass_rush: ["ED", "DI"] };
 export const LINEMATE_CAP = { pass_block: 5, pass_rush: 7 };
 export const LINEMATE_VISIBLE_DEFAULT = 5;

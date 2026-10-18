@@ -35,7 +35,7 @@ import {
 } from "./merge-card.js";
 
 // --- Pinned Players: Workspace admission/removal ------------------------
-// (BLUEPRINT_PinnedPlayers.md §3/§4)
+//
 
 // Pops up a reminder for a quota/cap refusal (Workspace full, Merge Card
 // 5-member cap, Merge 8-player limit) — reused everywhere one of those
@@ -183,7 +183,7 @@ export function runPcsAddSearch() {
   renderPcsAddDropdown(searchPlayersExcluding(query, pcsSearchPool(), excludeKeys));
 }
 
-// Dissolves every Merge Card — the pool invalidation from BLUEPRINT.md §4
+// Dissolves every Merge Card — the pool invalidation
 // (season/category/position/threshold changes). Called from applyFilters()
 // once any confirm prompt it needed has already resolved. Merge Cards still
 // dissolve on every pool change, threshold included: refreshing up to 5
@@ -198,7 +198,7 @@ export function clearMergeCards() {
   renderPlayerCardsSpace();
 }
 
-// --- Pinned Players UI (BLUEPRINT_PinnedPlayers.md) ------------------
+// --- Pinned Players UI ------------------
 
 // Pinned Players (quota bar + Single Cards / Merged Cards columns) is always
 // visible on desktop/tablet — unlike the old merge-toolbar it replaces, its
@@ -379,7 +379,7 @@ export function removePinnedPlayers({ removed, comparisons }) {
   renderPlayerCardsSpace();
 }
 
-// --- Pool-change confirm modal (BLUEPRINT.md §4) -----------------------------
+// --- Pool-change confirm modal -----------------------------
 
 // Builds the dialog from impactConfirmMessage()'s structured result. Every
 // player name goes in via textContent and is wrapped in a nowrap span, so a
@@ -447,8 +447,7 @@ function updateConfirmScrollHint() {
 }
 
 // Resolves true (proceed) or false (cancel). Only ever shown when the
-// Workspace (Single Cards and/or Merged Cards, BLUEPRINT_PinnedPlayers.md
-// §9) is non-empty — Linemate Cards refresh in place instead of being
+// Workspace (Single Cards and/or Merged Cards) is non-empty — Linemate Cards refresh in place instead of being
 // dissolved on a threshold-only change (see refreshOpenLinemateCards() in
 // applyFilters()), so they don't warrant interrupting Apply on their own.
 export function showMergeInvalidationConfirm(content) {

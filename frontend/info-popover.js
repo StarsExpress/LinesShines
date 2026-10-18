@@ -67,6 +67,8 @@ function openInfoPopover(triggerEl, content, { formula, alignRight } = {}) {
   // (see main.js's axisFormulaContent()) — kept as a distinct field rather
   // than concatenated into `text`/`imgAlt` so it renders as its own visually
   // separated paragraph instead of a run-on sentence.
+  // A `bullets` array (short strings) renders as a bulleted list, one point per item, with
+  // a gap between points, for popups that explain several things side by side.
   const resolved = typeof content === "function" ? content() : content;
   const parts = typeof resolved === "string" ? { text: resolved } : resolved || {};
   if (parts.imgSrc) {
@@ -91,6 +93,16 @@ function openInfoPopover(triggerEl, content, { formula, alignRight } = {}) {
     body.className = "info-popover-text";
     body.textContent = parts.text;
     popup.appendChild(body);
+  }
+  if (parts.bullets) {
+    const list = document.createElement("ul");
+    list.className = "info-popover-bullets";
+    for (const text of parts.bullets) {
+      const item = document.createElement("li");
+      item.textContent = text;
+      list.appendChild(item);
+    }
+    popup.appendChild(list);
   }
   if (parts.links) {
     popup.classList.add("info-popover-content--links");

@@ -290,7 +290,7 @@
     </section>
   </div>
 
-  <!-- Pinned Players (BLUEPRINT_PinnedPlayers.md) — persistent
+  <!-- Pinned Players — persistent
        management region for the Workspace (Single Cards + Merged Cards) and
        the shared 8-player quota, replacing the old merge-toolbar. Desktop/
        tablet only, and unlike that old toolbar it's always visible there
@@ -319,8 +319,7 @@
         <div class="pcs-column">
           <div class="pcs-column-header">
             <h3 class="pcs-column-title">Player Profiles</h3>
-            <!-- Single Cards' only entry point (BLUEPRINT_PinnedPlayers.md
-                 v1.2.0 §4) — a plot click no longer adds here, it only opens
+            <!-- Single Cards' only entry point — a plot click no longer adds here, it only opens
                  the floating card (see viewFloatingCard() in app.js). Same
                  fuzzy-match input/dropdown style as the Players filter, reused
                  wholesale via .merge-edit-input/.merge-edit-dropdown. Sits in
@@ -405,8 +404,7 @@
                  style.css), not the collapsible body below — a folded card
                  should still be able to pull up its linemates without
                  unfolding first. Merging happens through the Merged Cards
-                 column's Create popup now, not a checkbox here — see
-                 BLUEPRINT_PinnedPlayers.md v1.2.0 §5. -->
+                 column's Create popup now, not a checkbox here. -->
             <div class="scout-card-actions">
               <button type="button" class="card-linemate-toggle" aria-label="Show linemates">
                 <i class="fa-solid fa-people-group"></i> Linemates
@@ -423,7 +421,7 @@
     </template>
 
     <!-- One row per merged player, one column per metric, percentile-only
-         cells (BLUEPRINT.md §1.2) — filled in by openMergeCard() in app.js. -->
+         cells — filled in by openMergeCard() in app.js. -->
     <template id="merge-card-template">
       <aside class="scout-card scout-card--merge">
         <button type="button" class="card-save-btn" aria-label="Save card as PNG">
@@ -443,9 +441,19 @@
               </div>
             </div>
             <div class="merge-card-notes">
+              <div class="merge-mode-switch" role="group" aria-label="Table layout">
+                <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">Read</button>
+                <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
+                <span class="merge-mode-info"></span>
+              </div>
               <ul class="merge-card-note-list">
                 <li class="merge-card-note merge-card-pool"></li>
-                <li class="merge-card-note merge-card-scroll-hint">Please scroll right for more metrics.</li>
+                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--read">
+                  Please scroll down for more metrics.
+                </li>
+                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--sort">
+                  Please scroll right for more metrics.
+                </li>
               </ul>
             </div>
             <div class="merge-table-wrap">
@@ -458,7 +466,7 @@
 
     <!-- Roster table (percentiles only, own-position pool, DataFrame-style
          columns matching Merge Card's — see makeTeamCell()/renderMergeCardBody()
-         in merge-card.js) + the 3M/RSWA summary table (BLUEPRINT.md §2) —
+         in merge-card.js) + the 3M/RSWA summary table —
          filled in by openLinemateCard() in app.js. Header row mirrors the
          Player Card's (.scout-logo-wrap + .scout-id/.scout-name/.scout-meta)
          rather than a bare title — see openLinemateCard()/renderLinemateCardBody().
@@ -536,7 +544,7 @@
 </div>
 
 <!-- Warns before dissolving the Pinned Players Workspace (Single Cards +
-     Merged Cards) on a pool-changing Apply (BLUEPRINT_PinnedPlayers.md §9)
+     Merged Cards) on a pool-changing Apply
      — only ever shown when the Workspace is non-empty, see
      showMergeInvalidationConfirm() in app.js. -->
 <div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
@@ -561,7 +569,7 @@
   </div>
 </div>
 
-<!-- Create Merged Card popup (BLUEPRINT_PinnedPlayers.md v1.2.0 §5) — the
+<!-- Create Merged Card popup — the
      ONLY way to build a NEW merged card, replacing the old per-row Merge
      button + header Merge button flow. Same modal pattern and fuzzy-match
      input/dropdown style as #merge-edit-overlay below, but membership is
@@ -588,7 +596,7 @@
   </div>
 </div>
 
-<!-- Merge Card membership editor (BLUEPRINT_PinnedPlayers.md §5) — the
+<!-- Merge Card membership editor — the
      ONLY way to change an existing Merge Card's membership. Single static
      instance, repopulated per open via openMergeEditPopup() in app.js;
      closes only via its own Done button, same convention as

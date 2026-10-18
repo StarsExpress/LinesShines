@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 FIELD = "PR Opp"
@@ -56,6 +59,29 @@ def _full(page, applied, pending, pinned, pool, comparisons=()):
 
 def _evaluate(page, applied, pending, pinned, pool):
     return _full(page, applied, pending, pinned, pool)["outcome"]
+
+
+def _partition(page, names, pool, position="ED", threshold=230):
+    return page.evaluate(
+        """async args => {
+            const m = await import('/pinned-impact.js');
+            return m.partitionByEligibility(
+                args.names, args.pool, args.position, args.threshold, args.field);
+        }""",
+        dict(
+            names=names, pool=pool, position=position, threshold=threshold, field=FIELD
+        ),
+    )
+
+
+def _notice(page, names):
+    return page.evaluate(
+        """async names => {
+            const m = await import('/pinned-impact.js');
+            return m.removedPlayersNotice(names);
+        }""",
+        names,
+    )
 
 
 POOL = [_rec("A", 300), _rec("B", 250), _rec("C", 240)]
@@ -476,7 +502,39 @@ def test_alert_coral_meets_contrast_on_lightest_box_background():
     hi, lo = sorted(
         (lum("#ff8a75"), lum("#1e3d28")), reverse=True
     )  # --turf-700 is the lightest stop.
+
     assert (hi + 0.05) / (lo + 0.05) >= 4.5
+
+
+def _luminance(hex_):
+    chans = [int(hex_[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in chans]
+
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(hex_a, hex_b):
+    hi, lo = sorted((_luminance(hex_a), _luminance(hex_b)), reverse=True)
+
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_warning_notice_colours_meet_contrast():
+    """Reads the real style.css, so changing the rule or the palette is checked."""
+    css = (Path(__file__).resolve().parent.parent / "frontend" / "style.css").read_text(
+        encoding="utf-8"
+    )
+    variables = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", css))
+    rule = re.search(r"\.pinned-refresh-notice\.is-warning\s*\{([^}]*)\}", css)
+    assert rule, "the warning variant of the notice is missing from style.css"
+
+    def colour(prop):
+        value = re.search(rf"(?<![\w-]){prop}:\s*([^;]+);", rule.group(1)).group(1)
+        named = re.fullmatch(r"var\(--([\w-]+)\)", value.strip())
+
+        return variables[named.group(1)] if named else value.strip()
+
+    assert _contrast(colour("color"), colour("background")) >= 4.5
 
 
 def test_app_boots_without_module_errors(live_server_url):
@@ -499,3 +557,85 @@ def test_app_boots_without_module_errors(live_server_url):
         browser.close()
 
     assert errors == []
+
+
+def test_eligibility_keeps_players_who_clear_the_threshold(page):
+    out = _partition(page, ["A", "B", "C"], POOL, threshold=245)
+
+    assert out == {"kept": ["A", "B"], "removed": ["C"]}
+
+
+def test_eligibility_threshold_is_inclusive(page):
+    out = _partition(page, ["A", "B", "C"], POOL, threshold=250)
+
+    assert out["kept"] == ["A", "B"]
+
+
+def test_eligibility_removes_a_player_missing_from_the_pool(page):
+    out = _partition(page, ["A", "Z"], POOL, threshold=0)
+
+    assert out == {"kept": ["A"], "removed": ["Z"]}
+
+
+def test_eligibility_removes_a_player_at_another_position(page):
+    pool = [_rec("A", 300), _rec("D", 300, position="DI")]
+    out = _partition(page, ["A", "D"], pool, position="ED", threshold=0)
+
+    assert out == {"kept": ["A"], "removed": ["D"]}
+
+
+def test_eligibility_removes_a_player_with_no_value(page):
+    pool = [_rec("A", 300), {"player": "N", "position": "ED", FIELD: None}]
+    out = _partition(page, ["A", "N"], pool, threshold=0)
+
+    assert out == {"kept": ["A"], "removed": ["N"]}
+
+
+def test_eligibility_keeps_the_order_it_was_given(page):
+    out = _partition(page, ["C", "A", "B"], POOL, threshold=0)
+
+    assert out["kept"] == ["C", "A", "B"]
+
+
+def test_eligibility_with_an_empty_pool_removes_everyone(page):
+    for pool in ([], None):
+        out = _partition(page, ["A", "B"], pool, threshold=0)
+
+        assert out == {"kept": [], "removed": ["A", "B"]}
+
+
+def test_pinned_impact_and_players_filter_share_one_eligibility_rule(page):
+    # 250 is exactly B's value, so a boundary that drifted in either place shows up.
+    pinned = ["A", "B", "C"]
+    impact = _full(page, _state(), _state(threshold=250), pinned, POOL)
+    shared = _partition(page, pinned, POOL, threshold=250)
+
+    assert impact["outcome"] == "partial"
+    assert shared == {"kept": ["A", "B"], "removed": ["C"]}
+    assert (impact["kept"], impact["removed"]) == (shared["kept"], shared["removed"])
+
+
+def test_removed_players_notice_is_empty_when_nobody_was_removed(page):
+    assert _notice(page, []) == ""
+
+
+def test_removed_players_notice_names_one_player(page):
+    out = _notice(page, ["W. Anderson Jr."])
+
+    assert out == "Removed from Players: W. Anderson Jr. — no longer eligible."
+
+
+def test_removed_players_notice_lists_up_to_three_names(page):
+    out = _notice(page, ["A", "B", "C"])
+
+    assert out == "Removed from Players: A, B, C — no longer eligible."
+    assert "more" not in out
+
+
+def test_removed_players_notice_shortens_a_longer_list(page):
+    four = _notice(page, ["A", "B", "C", "D"])
+    five = _notice(page, ["A", "B", "C", "D", "E"])
+
+    assert four == "Removed from Players: A, B, C and 1 more — no longer eligible."
+    assert five == "Removed from Players: A, B, C and 2 more — no longer eligible."
+    assert "D" not in four.split(": ")[1]
