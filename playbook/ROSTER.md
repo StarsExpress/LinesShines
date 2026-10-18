@@ -13,6 +13,7 @@ Only the files marked **public** are tracked in git. Everything else stays on th
 | `playbook/DECISIONS.md` | public |
 | `playbook/INVARIANTS.md` | public |
 | `playbook/architecture/` (every file, including `INDEX.md`) | public |
+| `playbook/tests/` (every file, including `INDEX.md`) | public |
 | `playbook/COMMANDS.md` | local only |
 | `playbook/next_steps/` | the folder is public (only a `.gitkeep` placeholder); every file inside is local only |
 | `playbook/discussions/` | the folder is public (only a `.gitkeep` placeholder); every file inside is local only |
@@ -28,6 +29,7 @@ Only the files marked **public** are tracked in git. Everything else stays on th
 | Start any task | `INVARIANTS.md`, section "Working rules" | public |
 | Touch filtering, percentiles, caching, cards, thresholds, or exports | `INVARIANTS.md`, section "Invariants" | public |
 | Work on a specific area | the matching file in `architecture/` (table below; `architecture/INDEX.md` lists every section) | public |
+| Add or change a test, or decide which test file to extend | `tests/INDEX.md`, then the matching `TEST_*.md` | public |
 | Install, run, test, lint, serve, preprocess or ingest | `COMMANDS.md` | local only |
 | Do the next piece of work | one file in `next_steps/` (decided work; the owner names which file) | files local only |
 | (never act on these) | `discussions/`: one file per open topic still being discussed | files local only |
@@ -41,6 +43,7 @@ Read those first and open only the files that apply:
 head -n 3 playbook/next_steps/*.md      # title + status summary of each decided item
 head -n 3 playbook/discussions/*.md     # same for open topics (context only; never act on them)
 grep -H "Load when" playbook/architecture/*.md
+grep -H "Add tests here when" playbook/tests/*.md
 ```
 
 `head -n 3` prints the title, a blank line and the summary.

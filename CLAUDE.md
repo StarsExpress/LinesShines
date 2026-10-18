@@ -34,6 +34,7 @@ Start at `playbook/ROSTER.md`. It maps each kind of task to the file that holds 
 | Task | File |
 |---|---|
 | Install, run, test, lint, serve, preprocess, ingest | `playbook/COMMANDS.md` |
+| Add or change a test, or decide which test file to extend | `playbook/tests/INDEX.md` |
 | Ingestion, DB models, API, deploy, tests | `playbook/architecture/BACKEND-AND-DEPLOY.md` |
 | JS module layout and shared state | `playbook/architecture/FRONTEND-STRUCTURE.md` |
 | Service Worker, manifest, caching, new routes | `playbook/architecture/PWA.md` |

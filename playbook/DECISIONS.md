@@ -90,3 +90,4 @@ Detail for each item lives in `architecture/` (see `architecture/INDEX.md`); thi
 - 2026-10-17: `HANDOFF.md` retired. Its open items became files in `discussions/` and `next_steps/`, its settled rules were already in `INVARIANTS.md`, `DECISIONS.md` and `architecture/`.
 - 2026-10-17: added the private `MEMORANDUM.md` for the owner's standing stances. Wording across `playbook/` was checked against the current layout and corrected where it still described the old one.
 - 2026-10-17: `discussions/` and `next_steps/` are visible in the public repo through a `.gitkeep` placeholder each; every other file inside them stays local-only.
+- 2026-10-17: `playbook/tests/` added (public): one document per test script, plus `INDEX.md` saying which test file to extend. A new test script ships with its document in the same change.
