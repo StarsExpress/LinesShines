@@ -29,7 +29,7 @@ These apply to every task. Read them before starting.
 | 4 | The chart changes only on Apply; the Players search pool stays live and never reads `currentRecords`. | `architecture/FILTERS-AND-SEARCH.md` | none |
 | 5 | The threshold is display-only: preprocessing never drops rows by it and every row is ingested. | `architecture/THRESHOLDS.md` | `tests/test_config.py` covers routing only |
 | 6 | `higher_is_better` is per metric. PBE and TPS PBE are higher-is-better. | `architecture/METRICS-AND-NOTES.md` | `test_metadata_shape` (shape only) |
-| 7 | `/api/*` and `/health` are never cached by the Service Worker. | `architecture/PWA.md` | **Gap:** see below |
+| 7 | `/api/*` and `/health` are never cached by the Service Worker. The rule matches the whole `/api/` prefix, so a new route is covered automatically; `/health` matches exactly (plus anything under `/health/`), so `/healthy.css` is still cached. | `architecture/PWA.md` | `tests/test_app_startup.py::test_sw_js_never_caches_any_api_route`, `tests/test_sw_cache_bypass.py` |
 | 8 | `/` is always the NFL page; the PWA `start_url` stays `/`. | `architecture/PWA.md` | none |
 | 9 | Pinned Players: Category or Position change clears everything; any other change removes only players who no longer fit; a Comparison shrinks while 2+ members remain and dissolves below 2. | `architecture/PINNED-INVALIDATION.md` | `tests/test_pinned_impact.py` |
 | 10 | Merge Cards show percentiles only (never raw values or `#rank/N`), cap at 5 players, and the 8-player Workspace quota is checked once, at Submit. | `architecture/CARDS.md` | none |
@@ -39,12 +39,3 @@ These apply to every task. Read them before starting.
 | 14 | Ingestion is idempotent: it deletes and reinserts a whole `(season, position)` slice. | `architecture/BACKEND-AND-DEPLOY.md` | `tests/test_db_ingestion.py` |
 | 15 | Tests set `DATABASE_URL` to an ephemeral sqlite file before `main` is imported. | `architecture/BACKEND-AND-DEPLOY.md` | `tests/conftest.py` |
 | 16 | X/Y axis selection, the Player Names / Team Logos / Include metric notes toggles, fold state and card dragging never invalidate, clear or reset any card. Axis controls must not be wired into the shared "filter changed → reset" handler. | `architecture/PINNED-INVALIDATION.md` | none for the handler wiring (`tests/test_pinned_impact.py` covers filter-driven impact only) |
-
-## Known gap in invariant 7
-
-`frontend/sw.js` implements the rule by **listing** prefixes in `NEVER_CACHE_PREFIXES`
-(`/api/metadata`, `/api/pass_rush`, `/api/pass_block`, `/health`), not by matching all of `/api/`. Any new
-API route (for example `/api/ncaaf/...`) is therefore cached cache-first and can serve stale data.
-Before adding an API route, either extend that list or change the check to the whole `/api/` prefix, and add a
-test that fetches `/sw.js` and asserts the rule. `tests/test_app_startup.py::test_sw_js_served_with_version_substituted`
-only checks the version substitution.

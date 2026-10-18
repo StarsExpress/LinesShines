@@ -17,7 +17,7 @@ faster repeat loads. Registration (`navigator.serviceWorker.register("/sw.js")`)
 `"serviceWorker" in navigator` feature check and a `.catch()` that only `console.warn`s — a
 registration failure (e.g. an unsupported browser, or `/sw.js` 404ing) degrades silently to the
 ordinary non-PWA experience rather than breaking the page. **`/api/*` and `/health` are
-deliberately never cached** (`sw.js`'s `NEVER_CACHE_PREFIXES`, checked first in the `fetch`
+deliberately never cached** (`sw.js`'s `shouldBypassCache()` matches the whole `/api/` prefix plus exactly `/health` and anything under `/health/`, so a route added later is covered automatically; it is checked first in the `fetch`
 listener and allowed to fall through to a normal network request with no interception at all) —
 this app's whole value is current PFF data, so a service worker that cached a stat endpoint would
 risk silently showing stale numbers, which is a worse failure mode than a wasted network request.

@@ -32,6 +32,19 @@ Only the files marked **public** are tracked in git. Everything else stays on th
 | Do the next piece of work | one file in `next_steps/` (decided work; the owner names which file) | files local only |
 | (never act on these) | `discussions/`: one file per open topic still being discussed | files local only |
 
+## Finding the right file without opening everything
+
+Every file in `next_steps/` and `discussions/` starts with a title and a one-line summary, and every file in `architecture/` has a "Load when" line.
+Read those first and open only the files that apply:
+
+```bash
+head -n 3 playbook/next_steps/*.md      # title + status summary of each decided item
+head -n 3 playbook/discussions/*.md     # same for open topics (context only; never act on them)
+grep -H "Load when" playbook/architecture/*.md
+```
+
+`head -n 3` prints the title, a blank line and the summary.
+
 ## Inside `architecture/`: all public
 
 | File | Load when |

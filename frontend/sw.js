@@ -11,7 +11,14 @@ const PRECACHE_URLS = [
   "/images/favicon-512x512.png",
 ];
 
-const NEVER_CACHE_PREFIXES = ["/api/metadata", "/api/pass_rush", "/api/pass_block", "/health"];
+// Every API route and the health check always go to the network, so a route added later can never be served stale.
+// "/health" is matched exactly (plus anything under "/health/"), so an unrelated file like "/healthy.css" is still cached.
+const NEVER_CACHE_PREFIXES = ["/api/", "/health/"];
+const NEVER_CACHE_PATHS = ["/health"];
+
+function shouldBypassCache(pathname) {
+  return NEVER_CACHE_PATHS.includes(pathname) || NEVER_CACHE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
@@ -28,7 +35,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  if (NEVER_CACHE_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) {
+  if (shouldBypassCache(url.pathname)) {
     return; // No interception: always connect to network for latest data.
   }
 
