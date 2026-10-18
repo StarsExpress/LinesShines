@@ -19,6 +19,8 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Season-threshold routing in `config.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
+| How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
+| Which players the chart plots or highlights from Teams, Players and the threshold | `test_filters.py` ([doc](TEST_FILTERS.md)) | browser |
 | What happens to Pinned Players and Comparisons when filters change | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
@@ -42,16 +44,14 @@ grep -H "Add tests here when" playbook/tests/*.md
 
 ## Behavior with no test file yet
 
-These invariants (see `INVARIANTS.md`) have no test today. If you change one of them, create a new test file and its document.
-For client-side logic, a browser test in the style of `test_pinned_impact.py` fits.
+These invariants (see `INVARIANTS.md`) have no test today. If you change one of them, create a new test file and its document. For client-side logic, a browser test in the style of `test_percentiles.py` or `test_pinned_impact.py` fits.
 
-- Invariant 1: percentiles are computed only within the same season, threshold and exact position.
-- Invariant 2: tied players share one rank and one percentile.
-- Invariant 3: Teams and Players combine by union (OR).
 - Invariant 4: the chart changes only on Apply, while the Players search pool stays live.
-- Invariant 8: `/` is always the NFL page and the PWA `start_url` stays `/`.
 - Invariant 10: Merge Card display rules, the 5-player cap and the 8-player quota.
 - Invariant 11: the Linemate roster excludes the anchor by default; RSWA uses uncapped raw snaps.
-- Invariant 12: every PNG export carries the PFF source footer.
-- Invariant 13: PFF raw CSV/xlsx never enters the repo (guarded only by `.gitignore`).
 - Invariant 16: axis controls, display toggles, fold state and dragging never reset cards (the handler wiring).
+
+## Deliberately untested
+
+- **Invariant 12 (every PNG export carries the PFF source footer):** the footer is one constant drawn onto a canvas, so a test would only restate the constant, and every export shows it.
+- **Invariant 13 (PFF raw CSV/xlsx never enters the repo):** git state is outside what the app's tests can see, and `.gitignore` already ignores `*.csv` and `*.xlsx`.

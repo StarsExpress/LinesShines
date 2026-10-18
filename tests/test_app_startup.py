@@ -57,6 +57,19 @@ def test_sw_js_never_caches_any_api_route(client):
         assert old_prefix not in text
 
 
+def test_root_serves_the_nfl_page_and_pwa_start_url_stays_root(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "<title>LinesShines" in page.text
+    assert (
+        'value="pass_rush"' in page.text
+    )  # The NFL category controls live at the root.
+
+    manifest = client.get("/manifest.json").json()
+    assert manifest["start_url"] == "/"
+    assert manifest["scope"] == "/"
+
+
 def test_index_html_registers_service_worker(client):
     resp = client.get("/")
     assert 'navigator.serviceWorker.register("/sw.js")' in resp.text
