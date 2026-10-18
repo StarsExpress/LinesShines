@@ -118,14 +118,16 @@ vendor:html2canvas`, committed the same way Plotly's bundle is), since a card is
 Plotly figure — `exportCardPng()` clones the card off-screen (`buildExportClone()`) rather than
 mutating the live one, so a user's current fold/drag/resize/scroll state is never disturbed by
 exporting it. That clone gets its `is-folded`/drag/resize state cleared, its panel's
-`max-height` opened up, and any `.merge-table-frozen` sticky column forced to `position: static`
+`max-height` opened up, and any `.merge-table-frozen` sticky column, and the Read layout's `.merge-read-frozen` head block, forced to `position: static`
 (sticky has nothing to scroll against in a detached fixed-position clone and drifts to the row's
 right edge otherwise) before any of the card's own `overflow:auto` scroll strips
 (`.merge-table-wrap`, `.linemate-summary-wrap`) are unclipped and the card widened to fit — so the
 export always shows the full card, never whatever happened to be scrolled/collapsed into view. An
 optional `prepareClone` callback lets a card type do more before capture: Linemate Card's is the
-only user today, force-rendering its full roster into the clone regardless of on-screen "See more"
-state, since a collapsed roster's hidden rows were never in the DOM for html2canvas to reveal.
+first user, force-rendering its full roster into the clone regardless of on-screen "See more"
+state, since a collapsed roster's hidden rows were never in the DOM for html2canvas to reveal. Merge Card's is the second: it re-renders the clone in the Read layout
+(see `CARDS.md`, "Merge Card layouts"). A `prepareClone` that changes the layout returns `true`, and `exportCardPng()` then runs `fitCloneToContent()` again, which starts from the card's
+natural width so a clone widened for the Sort layout can shrink back; returning nothing leaves the sizing as it was. The `.merge-mode-switch` and `.merge-card-scroll-hint` elements are ignored by the export.
 Both export paths funnel through the same `compositeFooterCanvas()`/`drawExportFooter()` in
 `chart-export.js` (`card-export.js` imports rather than duplicates them) so every PNG the app
 produces — chart or card — carries the identical `EXPORT_FOOTER_TEXT` credit strip, drawn onto a

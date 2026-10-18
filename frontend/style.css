@@ -666,13 +666,14 @@ body {
   cursor: pointer;
 }
 .info-popover-label { white-space: nowrap; }
-/* The four ⓘ-only triggers (Teams, Players, X axis, Y axis) carry just a glyph, so
-   they get a thinner border and tighter inner padding than the text-label
-   RSWA trigger. */
+/* The ⓘ-only triggers (Teams, Players, X axis, Y axis, and the Merge Card's Read | Sort
+   switch) carry just a glyph, so they get a thinner border and tighter inner padding
+   than the text-label RSWA trigger. */
 #teams-info-slot .info-popover-trigger,
 #players-info-slot .info-popover-trigger,
 #x-axis-info-slot .info-popover-trigger,
-#y-axis-info-slot .info-popover-trigger {
+#y-axis-info-slot .info-popover-trigger,
+.merge-mode-info .info-popover-trigger {
   border-width: 1px;
   padding: 2px 5px;
   gap: 2px;
@@ -709,6 +710,18 @@ body {
   font-size: 11.5px;
   line-height: 1.5;
 }
+/* A list of short points (parts.bullets in info-popover.js): set like .info-popover-text,
+   with a gap between the points. */
+.info-popover-bullets {
+  margin: 0;
+  padding-left: 14px;
+  list-style: disc;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.info-popover-bullets li + li { margin-top: 8px; }
 /* The shared TPS_NOTE appended below a TPS-variant metric's own
    formula/description (parts.extraText in info-popover.js) — visually
    secondary (dimmer, separated by a rule) so it reads as a general aside
@@ -2253,6 +2266,102 @@ body {
 }
 thead .merge-table-frozen { z-index: 3; }
 .merge-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
+
+/* --- Merge Card: Read | Sort switch, and the Read layout -------------------------
+   Read (the default) turns the table on its side: one column per player, one row
+   per metric, in the card's current sort order. Sort is the original layout. The
+   scroll hint that applies is picked by the card's .is-read / .is-sort class. */
+.merge-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+}
+.merge-mode-btn {
+  padding: 3px 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  background: transparent;
+  border: 2px solid var(--chalk);
+  cursor: pointer;
+}
+/* The two buttons read as one control: shared edge, rounded ends. */
+.merge-mode-btn[data-mode="read"] { border-radius: 6px 0 0 6px; }
+.merge-mode-btn[data-mode="sort"] { margin-left: -10px; border-radius: 0 6px 6px 0; }
+.merge-mode-btn.is-active {
+  color: var(--turf-950);
+  background: var(--chalk);
+}
+.scout-card--merge.is-read .merge-card-scroll-hint--sort,
+.scout-card--merge.is-sort .merge-card-scroll-hint--read { display: none; }
+
+/* Read layout. The table is only as wide as it needs to be (see the card width rule below),
+   so there is no horizontal scroll and nothing to freeze on the left; rows scroll vertically with the card's own panel,
+   and the head block (name, team, Linemates) stays pinned at the top. The pinned
+   cells need an opaque background to mask the rows scrolling under them, same as
+   .merge-table-frozen above. The export un-pins it (card-export.js). */
+/* The wrap's own overflow-x:auto would make it the scroll container the pinned head
+   block sticks to, and it never scrolls vertically, so the head block would not stay put.
+   The table fits the card, so nothing needs the horizontal scroll: let the card's panel
+   be the one scroller. */
+.scout-card--merge.is-read .merge-table-wrap { overflow: visible; }
+.merge-table--read th,
+.merge-table--read td {
+  padding: 7px 6px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+/* Column widths come from the first row's cells: a narrow label column (long metric names
+   wrap onto several lines) and an equal column per player. The player column started at
+   88px and was widened 1.3x (88 x 1.3 = 114px) because names like "L. Goedeke" wrapped. */
+.merge-table--read thead tr:first-child th:not(.merge-read-label) { width: 114px; }
+.merge-table--read .merge-read-label {
+  width: 104px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.merge-table--read thead.merge-read-frozen {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.merge-table--read thead th { background: var(--turf-800); }
+.merge-table--read thead tr:last-child th { border-bottom: 2px solid var(--turf-600); }
+.merge-table--read thead .merge-table-name {
+  text-align: center;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  color: var(--chalk);
+}
+.merge-table--read .merge-table-team { text-align: center; }
+.merge-table--read .merge-table-team-inner { justify-content: center; }
+.merge-table--read th:nth-child(2) { text-align: center; }
+
+/* In the Read layout the desktop card shrinks to fit its table instead of staying 640px
+   wide, so a two-player comparison is not stretched across empty space. Five players is the
+   most a card holds: 104px of labels + 5 x 114px + the card's padding is about 714px, hence
+   the 720px cap. The notes are
+   taken out of the width calculation (width 0, then min-width 100%) so their long
+   sentences wrap to the card rather than widening it. The mobile layout keeps its own
+   width (.scout-card { width: auto } in the max-width: 860px block). */
+@media (min-width: 861px) {
+  .scout-card--merge.is-read {
+    width: fit-content;
+    min-width: 340px;
+    max-width: 720px;
+  }
+  .scout-card--merge.is-read .merge-card-notes {
+    width: 0;
+    min-width: 100%;
+  }
+}
 
 /* --- Linemate Association Card --- roster table + 3M/RSWA summary
   . Header now mirrors the Player Card's two-row layout

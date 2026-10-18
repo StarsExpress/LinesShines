@@ -14,7 +14,7 @@ lookup, ~230 call sites) and `config.js` (pure constants) are dependency-free; `
 hand-rolled fuzzy matcher) sit above those — `allTeamCodes()` lives in `data.js` rather than
 alongside its sibling Teams-checklist helpers in `filters.js` (a historical placement: `render.js`
 once needed it too, and importing from `filters.js` there would have created a circular import); `table-sort.js` (Excel-style click-to-sort: `toggleSortState()`/`sortRows()`/
-`makeSortableHeader()`), `info-popover.js` (`createInfoPopover()`, a click-toggled popup
+`makeSortableHeader()`), `merge-table-model.js` (pure, no DOM: the Merge Card table's model and its Sort and Read layouts), `info-popover.js` (`createInfoPopover()`, a click-toggled popup
 distinct from `linemate-card.js`'s hover-only `attachAppTooltip()` — click survives on touch
 devices with no cursor to dwell) plus `popup-position.js` (the one shared placement/clamp for
 every floating popup — see "Popup placement" in the breakpoint note below), and `metric-notes.js` (`collectMetricNotes()`/

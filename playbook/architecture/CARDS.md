@@ -29,8 +29,9 @@ which opens a popup with its own staged, popup-local selection (`createSelection
 `Map<player,record>`, discarded on Cancel) — not the old per-row Merge button (removed). Picking a
 6th member is refused inline; the 8-player Workspace quota is checked only once, at **Submit**,
 against the resulting **distinct** total (a player already elsewhere in the Workspace costs nothing),
-never against the raw popup selection. Submit builds one floating card — one row per player, one
-column per metric, **percentile only** (never the raw value or `#rank/N`) — and does not open the
+never against the raw popup selection. Submit builds one floating card — in Read layout by default (one column per player, one row per metric;
+see "Merge Card layouts" at the end of this file), or Sort layout (one row per player, one
+column per metric), **percentile only** (never the raw value or `#rank/N`) — and does not open the
 members' individual floating Player Cards (their Single Cards rows are enough; each member gets one
 if he doesn't already have one). A global 8-player quota (`MERGE_QUOTA`, `distinctWorkspacePlayers()`
 = the union of `workspaceSingles` and every Merge Card's `memberKeys`) hard-caps the whole Workspace
@@ -111,3 +112,19 @@ season/category/position change dissolves the card outright as usual.
 - **Summary block meaning.** Min is the unit's floor (its weakest link), Median its water level, RSWA the effectively experienced centre,
   and Max its ceiling (its anchor). All four carry equal weight and are identical for OL and DL; the point is the full picture, so no single
   statistic is favoured per line.
+
+**Merge Card layouts: Read and Sort** (added 2026-10-18)
+
+- A Merge Card shows the same percentile cells in one of two layouts, switched by a two-button control, **Read | Sort**, with an (i) popover that says sorting needs Sort. The (i) is built the same way as the Teams, Players and axis ones (`createInfoPopover(..., { label: "ⓘ" })`, styled by the shared glyph-only trigger rule in `style.css`); its popup is a two-point bulleted list: Read (players as columns, no sorting) and Sort (players as rows, click a column header to order by that metric). The mode lives on the card entry as
+  `entry.mode` next to `entry.sort`, defaults to Read, and survives membership edits, fold/unfold and a close-then-reopen. It is lost with the Workspace on refresh.
+- **Sort** is the original layout: one row per player, one column per metric (plus Player, Team, Linemates, Games and the threshold field), every column sortable except Linemates, with the
+  Player/Team/Linemates columns frozen on the left (`applyStickyMetaColumns()`). The table scrolls horizontally.
+- **Read** turns the table on its side: one column per player, one row per metric. Each player's name, team logo and Linemates button form a head block that stays pinned at the top
+  (`.merge-read-frozen`, a sticky `<thead>`); Games and the threshold field are the first two rows, then one row per metric. Nothing sorts in Read. The columns are compact (a 104px label column, so long metric names wrap onto two or three lines, and 114px per player; the player column was 88px at first and was widened 1.3x), and on the desktop layout the
+  card itself shrinks to fit its table (at least 340px, at most 720px, which is five players; the mobile layout keeps its own width). So there is no horizontal scroll and no left freeze, and the table scrolls vertically with the card's panel. The card's scroll hint follows the mode (`.is-read` / `.is-sort`).
+- **Read follows the current sort.** Both layouts lay the players out in the order `entry.sort` produces, so a sort made in Sort carries straight over into Read, and switching modes never resets it.
+- **One model, two layouts.** `merge-table-model.js` (pure, no DOM) builds `{ players, columns }` and turns it into `sortLayout()` or `readLayout()`, which hold exactly the same cells; Read is the transposition of Sort.
+  `merge-card.js` builds the DOM for each cell once (`makeDataCell()`) and both renderers use it, so a cell looks and behaves the same in either layout.
+- **PNG export is always the Read layout**, whichever mode is on screen, because the Sort layout is too wide to share. The Merge Card's `prepareClone` re-renders the off-screen clone in Read and returns
+  `true`, which makes `exportCardPng()` re-fit the clone to its new size; the card on screen is never touched. The Read|Sort switch and the scroll hints are left out of the PNG.
+

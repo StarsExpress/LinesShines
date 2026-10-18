@@ -72,6 +72,8 @@ import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
+import { createInfoPopover } from "./info-popover.js";
+import { MERGE_MODE_READ, MERGE_MODE_SORT, buildMergeTableModel, sortLayout, readLayout } from "./merge-table-model.js";
 
 // Pinned Players Workspace — the
 // persistent Single Cards list, keyed by the same full "player" string as
@@ -425,19 +427,136 @@ function percentileFillClass(percentile) {
   return "merge-pct-violet";
 }
 
-// One row per player, one column per metric, percentile-only cells
-// — never the raw value, never #rank/N. Every column is
-// sortable (table-sort.js, Excel-style click-to-sort) except Linemates,
-// which holds a button, not data. Builds/rebuilds a Merge Card's title,
-// subtitle, and percentile table from memberRecords — used both at creation
-// (openMergeCard) and by the Edit popup (rebuildMergeCardFromMembers) to update an existing card in place after
+// Builds the DOM for one cell descriptor from merge-table-model.js. Both layouts
+// use it, so a cell looks and behaves the same wherever it lands. Percentile-only
+// — never the raw value, never #rank/N (that one is tooltip-only).
+function makeDataCell({ player: { record, pool }, column }, cat) {
+  if (column.kind === "team") return makeTeamCell(record);
+  if (column.kind === "linemates") return makeLinemateCell(record);
+
+  const td = document.createElement("td");
+  if (column.kind === "name") {
+    td.className = "merge-table-name";
+    td.textContent = record.abbr_name || record.player;
+  } else if (column.kind === "games") {
+    td.textContent = record.games ?? "—";
+  } else if (column.kind === "snaps") {
+    td.textContent = record[cat.threshold_field] ?? "—";
+  } else {
+    const key = column.key;
+    const meta = cat.metrics[key];
+    const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
+    td.className = "merge-metric-cell";
+    if (rank) {
+      const chip = document.createElement("span");
+      chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+      chip.textContent = ordinal(rank.percentile);
+      td.appendChild(chip);
+    } else {
+      td.textContent = "—";
+    }
+    // Displayed text stays percentile-only; the exact
+    // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
+    // Cards' percentile cells.
+    attachAppTooltip(
+      td,
+      rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[record.position] || record.position}` : key
+    );
+  }
+  return td;
+}
+
+// Sort layout: players as rows, metrics as columns, every column sortable except
+// Linemates (a button, not data).
+function renderSortTable(table, layout, cat, sortState, rerender) {
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  layout.head.forEach((column) => {
+    if (column.kind === "linemates") {
+      const th = document.createElement("th");
+      th.textContent = column.key;
+      headRow.appendChild(th);
+    } else {
+      headRow.appendChild(makeSortableHeader(column.key, column.key, sortState, rerender));
+    }
+  });
+  thead.appendChild(headRow);
+
+  const tbody = document.createElement("tbody");
+  layout.body.forEach((row) => {
+    const tr = document.createElement("tr");
+    row.cells.forEach((cell) => tr.appendChild(makeDataCell(cell, cat)));
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+}
+
+// A <th> that takes over a cell's classes and children, for the Read layout's
+// head block. Moving the children keeps their listeners (the Linemates button)
+// and handlers (the team logo's fallback swatch).
+function asHeaderCell(td) {
+  const th = document.createElement("th");
+  th.className = td.className;
+  while (td.firstChild) th.appendChild(td.firstChild);
+  return th;
+}
+
+// Read layout: metrics as rows, players as columns. The head block (name, team,
+// Linemates button) is frozen at the top by CSS (.merge-read-frozen) while the
+// rows scroll; the label column needs no freezing because the table always
+// fits the card's width. Nothing here sorts — the player order is simply
+// whatever the card's sort state last produced.
+function renderReadTable(table, layout, cat) {
+  const labelCell = (column) => {
+    const th = document.createElement("th");
+    th.className = "merge-read-label";
+    th.textContent = column.key;
+    return th;
+  };
+
+  const thead = document.createElement("thead");
+  thead.classList.add("merge-read-frozen");
+  layout.head.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.appendChild(labelCell(row.column));
+    row.cells.forEach((cell) => tr.appendChild(asHeaderCell(makeDataCell(cell, cat))));
+    thead.appendChild(tr);
+  });
+
+  const tbody = document.createElement("tbody");
+  layout.body.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.appendChild(labelCell(row.column));
+    row.cells.forEach((cell) => tr.appendChild(makeDataCell(cell, cat)));
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+}
+
+// Percentile-only cells in one of two layouts built from the same model
+// (merge-table-model.js):
+//   Sort — one row per player, one column per metric, every column sortable
+//          (table-sort.js, Excel-style click-to-sort). The original layout.
+//   Read — the same cells turned on their side: one column per player, one row
+//          per metric. Easier to read, and the default, but nothing sorts here.
+// Both lay the players out in the card's CURRENT sort order, so a sort made in
+// Sort mode carries straight over into Read.
+// Builds/rebuilds a Merge Card's title, subtitle, and percentile table from
+// memberRecords — used both at creation (openMergeCard) and by the Edit popup
+// (rebuildMergeCardFromMembers) to update an existing card in place after
 // its membership changes, instead of destroying/recreating the floating
 // card. `sortState` is the entry's own persistent { key, dir } (see
 // openMergeCard()) — passed in explicitly rather than read off an `entry`
 // object because this function only ever receives `cardEl`, and on first
 // mount `entry.el` isn't set yet (mountMergeCardElement() assigns it only
-// after this call returns).
-export function renderMergeCardBody(cardEl, memberRecords, sortState) {
+// after this call returns). `mode` is the entry's `mode`; the PNG export calls
+// this on its off-screen clone with MERGE_MODE_READ whatever mode the card on
+// screen is in.
+export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MERGE_MODE_READ) {
   const cat = appliedCategoryMeta();
   const titleEl = cardEl.querySelector(".merge-card-title");
   const subtitleEl = cardEl.querySelector(".merge-card-subtitle");
@@ -458,72 +577,28 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
         .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
         .join(", ")} ${thresholdClause}.`;
 
+  // Drives which scroll hint shows (CSS) and which switch button is lit.
+  const isRead = mode === MERGE_MODE_READ;
+  cardEl.classList.toggle("is-read", isRead);
+  cardEl.classList.toggle("is-sort", !isRead);
+  cardEl.querySelectorAll(".merge-mode-btn").forEach((btn) => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
-
-  const metricKeys = Object.keys(cat.metrics);
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const rerender = () => renderMergeCardBody(cardEl, memberRecords, sortState);
-  ["Player", "Team", "Linemates", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
-    if (label === "Linemates") {
-      const th = document.createElement("th");
-      th.textContent = label;
-      headRow.appendChild(th);
-    } else {
-      headRow.appendChild(makeSortableHeader(label, label, sortState, rerender));
-    }
-  });
-  thead.appendChild(headRow);
-
-  const tbody = document.createElement("tbody");
-  sortedPools.forEach(({ record, pool }) => {
-    const tr = document.createElement("tr");
-
-    const nameTd = document.createElement("td");
-    nameTd.className = "merge-table-name";
-    nameTd.textContent = record.abbr_name || record.player;
-    tr.appendChild(nameTd);
-
-    tr.appendChild(makeTeamCell(record));
-    tr.appendChild(makeLinemateCell(record));
-
-    const gamesTd = document.createElement("td");
-    gamesTd.textContent = record.games ?? "—";
-    tr.appendChild(gamesTd);
-
-    const snapsTd = document.createElement("td");
-    snapsTd.textContent = record[cat.threshold_field] ?? "—";
-    tr.appendChild(snapsTd);
-
-    metricKeys.forEach((key) => {
-      const meta = cat.metrics[key];
-      const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
-      const td = document.createElement("td");
-      td.className = "merge-metric-cell";
-      if (rank) {
-        const chip = document.createElement("span");
-        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
-        chip.textContent = ordinal(rank.percentile);
-        td.appendChild(chip);
-      } else {
-        td.textContent = "—";
-      }
-      // Displayed text stays percentile-only; the exact
-      // #rank/N is tooltip-only, same attachAppTooltip pattern as Linemate
-      // Cards' percentile cells.
-      attachAppTooltip(
-        td,
-        rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[record.position] || record.position}` : key
-      );
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
+  const model = buildMergeTableModel(sortedPools, cat.threshold_field, Object.keys(cat.metrics));
 
   table.innerHTML = "";
-  table.appendChild(thead);
-  table.appendChild(tbody);
+  table.classList.toggle("merge-table--read", isRead);
+  if (isRead) {
+    renderReadTable(table, readLayout(model), cat);
+    return; // Nothing to freeze by measurement: the Read layout fits the card.
+  }
+
+  const rerender = () => renderMergeCardBody(cardEl, memberRecords, sortState, MERGE_MODE_SORT);
+  renderSortTable(table, sortLayout(model), cat, sortState, rerender);
 
   // On first build, table is still off-DOM here (the caller appends cardEl
   // to els.scoutCards after this returns) — column widths aren't measurable
@@ -546,6 +621,9 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState) {
 // it holds regardless of player-name length or which metrics are showing —
 // no hardcoded pixel widths to keep in sync with content.
 export function applyStickyMetaColumns(table) {
+  // Only the Sort layout freezes columns by measurement; the Read layout's frozen
+  // head block is plain CSS (.merge-read-frozen).
+  if (table.classList.contains("merge-table--read")) return;
   const headerCells = table.querySelectorAll("thead th");
   if (!headerCells.length) return;
 
@@ -567,6 +645,19 @@ export function applyStickyMetaColumns(table) {
   });
 }
 
+const MODE_SWITCH_HELP = [
+  "Read: players as columns and metrics as rows. No sorting in this mode.",
+  "Sort: players as rows and metrics as columns. Click column header to order players by that metric.",
+];
+
+// Flips a card between Read and Sort in place: the sort state and the membership
+// live on the entry, so neither is lost, and Read simply follows the current sort.
+function setMergeCardMode(entry, mode) {
+  if (entry.mode === mode) return;
+  entry.mode = mode;
+  rebuildMergeCardFromMembers(entry);
+}
+
 // Builds/mounts a Merge Card's floating DOM node onto an existing entry —
 // shared by openMergeCard() (fresh entry) and reopenMergeCard() (an entry
 // whose row survived a previous floating-card close, see
@@ -581,7 +672,7 @@ export function mountMergeCardElement(entry, memberRecords) {
   const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
 
-  renderMergeCardBody(cardEl, memberRecords, entry.sort);
+  renderMergeCardBody(cardEl, memberRecords, entry.sort, entry.mode);
 
   els.scoutCards.appendChild(cardEl);
   cascadeScoutCardPosition(cardEl); // reads openCardsCount(), so must run before entry.el is set below
@@ -593,6 +684,18 @@ export function mountMergeCardElement(entry, memberRecords) {
   attachScoutResize(cardEl, entry);
 
   closeBtn.addEventListener("click", () => closeMergeCardFloating(entry.id));
+
+  // The Read | Sort switch, and the (i) that says why sorting needs Sort.
+  const modeSwitch = cardEl.querySelector(".merge-mode-switch");
+  modeSwitch
+    .querySelector(".merge-mode-info")
+    .appendChild(
+      createInfoPopover({ bullets: MODE_SWITCH_HELP }, { ariaLabel: MODE_SWITCH_HELP.join(" "), label: "ⓘ" })
+    );
+  modeSwitch
+    .querySelectorAll(".merge-mode-btn")
+    .forEach((btn) => btn.addEventListener("click", () => setMergeCardMode(entry, btn.dataset.mode)));
+
   // onUnfold recomputes sticky-column offsets: if membership changed via the
   // Edit popup while this card sat folded (merge-table-wrap display:none),
   // applyStickyMetaColumns() would have measured zero-width columns — this
@@ -624,7 +727,15 @@ export function mountMergeCardElement(entry, memberRecords) {
           return sanitizeForFilename((record && (record.abbr_name || record.player)) || key);
         })
         .join("_")}_${appliedFilters.season}`,
-    undefined,
+    // The export is always the Read layout, whichever mode is on screen: the Sort
+    // layout is too wide to share. Re-renders the off-screen CLONE only, so the
+    // card on screen is never touched, and returns true when the layout changed
+    // so the export re-fits the clone to its new size (see exportCardPng()).
+    (clone) => {
+      if (entry.mode === MERGE_MODE_READ) return false;
+      renderMergeCardBody(clone, entry.memberKeys.map(findRecordByPlayer).filter(Boolean), entry.sort, MERGE_MODE_READ);
+      return true;
+    },
     () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );
 
@@ -638,7 +749,17 @@ export function openMergeCard(memberRecords) {
   // membership edits (addMergeMember()/removeMergeMember() both rebuild via
   // rebuildMergeCardFromMembers(), which reuses this same object) and across
   // a fold/unfold, since it's never reset anywhere but here.
-  const entry = { id, origin: "merge", memberKeys, el: null, folded: false, sort: { key: null, dir: "asc" } };
+  // `mode` is the card's layout (merge-table-model.js): Read by default, and kept across
+  // membership edits, fold/unfold and a close-then-reopen like the sort state is.
+  const entry = {
+    id,
+    origin: "merge",
+    memberKeys,
+    el: null,
+    folded: false,
+    sort: { key: null, dir: "asc" },
+    mode: MERGE_MODE_READ,
+  };
   mergeCards.set(id, entry);
   mountMergeCardElement(entry, memberRecords);
   renderPlayerCardsSpace();
@@ -875,7 +996,7 @@ export function runMergeEditSearch() {
 export function rebuildMergeCardFromMembers(entry) {
   if (!entry.el) return; // floating card closed — nothing on screen to update
   const memberRecords = entry.memberKeys.map(findRecordByPlayer).filter(Boolean);
-  renderMergeCardBody(entry.el, memberRecords, entry.sort);
+  renderMergeCardBody(entry.el, memberRecords, entry.sort, entry.mode);
 }
 
 // Refreshes every open Merge Card's percentiles in place against whatever

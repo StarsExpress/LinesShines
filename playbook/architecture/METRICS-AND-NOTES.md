@@ -55,7 +55,9 @@ popup additionally appends `metadata.tps_note` (config.py's `TPS_NOTE`, exposed 
 may now be a function (called fresh at *open* time, not creation time, so it tracks the select's
 live value) returning `{ imgSrc, imgAlt, extraText }` instead of a plain string; a `formula: true`
 option switches the popup to a wider `max-content` box (`.info-popover-content--formula`) instead of
-the standard fixed-240px text box. The `<img>`'s `load` listener re-runs `placePopup()` —
+the standard fixed-240px text box. `content` can also be `{ text }`, `{ links }` (the header Install popup) or
+`{ bullets: [...] }` (a bulleted list, one `<li>` per string with a gap between points, used by the Merge Card's
+Read | Sort popup); `bullets` can sit beside a `text` paragraph. The `<img>`'s `load` listener re-runs `placePopup()` —
 an SVG has no measurable size until its request resolves, so the first (synchronous)
 positioning call sees a near-zero box and mis-clamps the popup's left edge; without the reposition-on-
 load, the box visibly overflows the viewport's right edge once the image actually renders. The SVGs

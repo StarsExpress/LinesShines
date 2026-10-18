@@ -441,9 +441,19 @@
               </div>
             </div>
             <div class="merge-card-notes">
+              <div class="merge-mode-switch" role="group" aria-label="Table layout">
+                <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">Read</button>
+                <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
+                <span class="merge-mode-info"></span>
+              </div>
               <ul class="merge-card-note-list">
                 <li class="merge-card-note merge-card-pool"></li>
-                <li class="merge-card-note merge-card-scroll-hint">Please scroll right for more metrics.</li>
+                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--read">
+                  Please scroll down for more metrics.
+                </li>
+                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--sort">
+                  Please scroll right for more metrics.
+                </li>
               </ul>
             </div>
             <div class="merge-table-wrap">
