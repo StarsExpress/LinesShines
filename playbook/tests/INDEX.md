@@ -25,6 +25,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | What happens to Pinned Players and Comparisons when filters change, and who stays eligible in the Players filter | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
+| That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
@@ -41,7 +42,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 ## Rules
 
 - Synthetic data only. Fixtures are tiny hand-made rows, never PFF exports.
-- A new test file ships with its document in the same change. Copy the shape of an existing one.
+- A new test file ships with its document in the same change. Copy the shape of an existing one. CI enforces it: `test_playbook_docs.py` fails when a script has no document, when a document has no script, when `INDEX.md` does not link a document or links a file that does not exist, or when a document's third line lacks "Add tests here when:".
 - Keep documents short. Say where tests belong, what they need and what is not covered. Do not list test functions; `grep "^def test_" tests/<file>` does that.
 
 ## Behavior with no test file yet

@@ -99,7 +99,7 @@ rows carry no visual distinction between anchor and teammates, the title alone f
 group. Persists across a threshold-only refresh the same way `seeMore`/`rosterSort` do; a
 season/category/position change dissolves the card outright as usual.
 
-**Design rationale for Merge Cards and Linemate Cards** (carried over from the retired `BLUEPRINT.md` §1–§2, 2026-10-17)
+**Design rationale for Merge Cards and Linemate Cards**
 
 - **Percentile only.** A Merge Card row shows one percentile per metric, never the raw value or `#rank/N`, because three numbers per metric would
   make the row unreadably wide (the metric count varies by category and has grown). The full detail is one click away on the individual Player Card.
@@ -113,7 +113,7 @@ season/category/position change dissolves the card outright as usual.
   and Max its ceiling (its anchor). All four carry equal weight and are identical for OL and DL; the point is the full picture, so no single
   statistic is favoured per line.
 
-**Merge Card layouts: Read and Sort** (added 2026-10-18)
+**Merge Card layouts: Read and Sort**
 
 - A Merge Card shows the same percentile cells in one of two layouts, switched by a two-button control, **Read | Sort**, with an (i) popover that says sorting needs Sort. The (i) is built the same way as the Teams, Players and axis ones (`createInfoPopover(..., { label: "ⓘ" })`, styled by the shared glyph-only trigger rule in `style.css`); its popup is a two-point bulleted list: Read (players as columns, no sorting) and Sort (players as rows, click a column header to order by that metric). The mode lives on the card entry as
   `entry.mode` next to `entry.sort`, defaults to Read, and survives membership edits, fold/unfold and a close-then-reopen. It is lost with the Workspace on refresh.

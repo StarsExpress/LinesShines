@@ -202,14 +202,17 @@ def test_read_turns_the_table_on_its_side(page):
     out = _render(page, mode="read")
 
     assert [row[0] for row in out["head"]] == ["Player", "Team", "Linemates"]
+
     assert out["head"][0][1:] == ["A. Alpha", "B. Bravo", "C. Charlie"]
     assert out["head"][1][1:] == ["BUF", "MIA", "BUF"]
     assert out["head"][2][1:] == ["", "", ""]  # The Linemates buttons carry no text.
+
     assert [row[0] for row in out["body"]] == [
         "Games",
         out["thresholdField"],
         *out["metricKeys"],
     ]
+
     assert out["body"][0][1:] == ["7", "3", "9"]
     assert out["body"][1][1:] == ["300", "280", "310"]
     assert all(len(row) == 4 for row in out["head"] + out["body"])
@@ -229,6 +232,7 @@ def test_sort_keeps_the_original_layout(page):
             *out["metricKeys"],
         ]
     ]
+
     assert [row[0] for row in out["body"]] == ["A. Alpha", "B. Bravo", "C. Charlie"]
     assert all(len(row) == 5 + len(out["metricKeys"]) for row in out["body"])
 
