@@ -45,8 +45,52 @@ function shouldIgnoreForExport(el) {
       el.classList.contains("scout-fold") ||
       el.classList.contains("scout-resize-handle") ||
       el.classList.contains("card-save-btn") ||
+      el.classList.contains("merge-mode-switch") ||
+      el.classList.contains("merge-card-scroll-hint") ||
       el.classList.contains("linemate-see-more"))
   );
+}
+
+// Sizes the clone to show everything at once: unfreezes sticky cells, un-clips
+// every scroller and widens the card to fit. It starts from the card's natural
+// width again, so it can run a second time after prepareClone() has swapped in a
+// different layout (the Merge Card's Read layout) and the first sizing no longer
+// applies. The Read layout's frozen head block (.merge-read-frozen) is a sticky
+// <thead> and needs the same unfreezing as the sticky cells described below.
+function fitCloneToContent(clone) {
+  clone.style.width = "";
+  clone.style.maxWidth = "";
+
+  // Merge Card's frozen Player/Team/Linemates columns and Linemate Card's
+  // frozen Player column (both Excel-style frozen panes)
+  // are position:sticky — turns out that does NOT gracefully fall back to
+  // their normal flow position once their scroll container stops scrolling,
+  // at least not for this off-screen fixed-position clone: measured
+  // directly, they get shoved to sit near the far right edge of the widened
+  // row instead of staying put at the left, because a sticky element still
+  // hunts for a scrolling ancestor (falling back to the page itself, whose
+  // scroll position has nothing to do with this off-screen clone) and
+  // clamps to whatever position that leaves reachable within its own cell.
+  // Forcing position:static (clearing the sticky left offset with it)
+  // sidesteps that entirely — with nothing scrolling underneath them in the
+  // export, sticky was only ever pinning them to their own already-correct
+  // flow position anyway.
+  clone.querySelectorAll(".merge-table-frozen, .linemate-table-frozen, .merge-read-frozen").forEach((cell) => {
+    cell.style.position = "static";
+    cell.style.left = "";
+  });
+
+  // Lays every column flat in one row instead of clipping to whatever was
+  // scrolled into view, then widens the card itself to fit.
+  let requiredWidth = 0;
+  clone.querySelectorAll(".merge-table-wrap, .linemate-table-wrap, .linemate-summary-wrap").forEach((scrollEl) => {
+    scrollEl.style.overflow = "visible";
+    requiredWidth = Math.max(requiredWidth, scrollEl.scrollWidth);
+  });
+  if (requiredWidth > 0) {
+    clone.style.maxWidth = "none";
+    clone.style.width = `${requiredWidth + CARD_HORIZONTAL_PADDING}px`;
+  }
 }
 
 // html2canvas paints exactly the DOM's current *visual* state, not the data
@@ -80,36 +124,7 @@ function buildExportClone(cardEl) {
   const panelEl = clone.querySelector(".scout-card-panel");
   if (panelEl) panelEl.style.cssText = "height: auto; max-height: none; overflow: visible;";
 
-  // Merge Card's frozen Player/Team/Linemates columns and Linemate Card's
-  // frozen Player column (both BLUEPRINT.md's Excel frozen-pane treatment)
-  // are position:sticky — turns out that does NOT gracefully fall back to
-  // their normal flow position once their scroll container stops scrolling,
-  // at least not for this off-screen fixed-position clone: measured
-  // directly, they get shoved to sit near the far right edge of the widened
-  // row instead of staying put at the left, because a sticky element still
-  // hunts for a scrolling ancestor (falling back to the page itself, whose
-  // scroll position has nothing to do with this off-screen clone) and
-  // clamps to whatever position that leaves reachable within its own cell.
-  // Forcing position:static (clearing the sticky left offset with it)
-  // sidesteps that entirely — with nothing scrolling underneath them in the
-  // export, sticky was only ever pinning them to their own already-correct
-  // flow position anyway.
-  clone.querySelectorAll(".merge-table-frozen, .linemate-table-frozen").forEach((cell) => {
-    cell.style.position = "static";
-    cell.style.left = "";
-  });
-
-  // Lays every column flat in one row instead of clipping to whatever was
-  // scrolled into view, then widens the card itself to fit.
-  let requiredWidth = 0;
-  clone.querySelectorAll(".merge-table-wrap, .linemate-table-wrap, .linemate-summary-wrap").forEach((scrollEl) => {
-    scrollEl.style.overflow = "visible";
-    requiredWidth = Math.max(requiredWidth, scrollEl.scrollWidth);
-  });
-  if (requiredWidth > 0) {
-    clone.style.maxWidth = "none";
-    clone.style.width = `${requiredWidth + CARD_HORIZONTAL_PADDING}px`;
-  }
+  fitCloneToContent(clone);
 
   return clone;
 }
@@ -125,7 +140,9 @@ function buildExportClone(cardEl) {
 export async function exportCardPng(cardEl, filename, prepareClone, appendixNotes) {
   const clone = buildExportClone(cardEl);
   try {
-    if (prepareClone) prepareClone(clone);
+    // A prepareClone() that changes the clone's layout returns true, and the clone is
+    // then re-fitted to its new size. Returning nothing leaves the sizing as it was.
+    if (prepareClone && prepareClone(clone) === true) fitCloneToContent(clone);
     const sourceCanvas = await window.html2canvas(clone, {
       backgroundColor: CARD_EXPORT_BG,
       scale: CARD_EXPORT_SCALE,

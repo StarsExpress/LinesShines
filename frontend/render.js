@@ -401,7 +401,7 @@ export function render() {
     y: 0,
     yanchor: "top",
     yshift: -(BASE_MARGIN_B + NOTE_TOP_PADDING + i * NOTE_LINE_HEIGHT),
-    text: `<i>ⓘ ${note}</i>`,
+    text: `<i>• ${note}</i>`,
     showarrow: false,
     align: "left",
     font: { family: "IBM Plex Mono, monospace", size: isMobile ? 9 : 11, color: "#a9b6a9" },

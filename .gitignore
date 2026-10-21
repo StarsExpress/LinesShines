@@ -22,5 +22,24 @@ data/*.db-wal
 node_modules/
 
 .claude/
-CLAUDE.md
-BLUEPRINT.md
+
+# `playbook/` is private by defaul.
+# Allow-list below publishes only what is meant to be public.
+# Use `playbook/*` (not `playbook/`): git cannot re-include a path whose parent directory is excluded.
+playbook/*
+!playbook/ROSTER.md
+!playbook/DECISIONS.md
+!playbook/INVARIANTS.md
+!playbook/architecture/
+!playbook/tests/
+
+# Show two work-tracking folders publicly, but keep every file inside them local-only.
+# Only `.gitkeep` placeholder is tracked.
+# Order matters: re-include the folder, ignore its contents, then re-include `.gitkeep`.
+!playbook/discussions/
+playbook/discussions/*
+!playbook/discussions/.gitkeep
+
+!playbook/next_steps/
+playbook/next_steps/*
+!playbook/next_steps/.gitkeep

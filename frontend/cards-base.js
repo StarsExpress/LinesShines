@@ -70,7 +70,7 @@ export let scoutZCounter = 10;
 
 // --- Card identity (Player / Merge / Linemate) ------------------------------
 //
-// Every open card gets a stable {id, origin} pair per BLUEPRINT.md §5, so a
+// Every open card gets a stable {id, origin} pair, so a
 // future recommender (v2.0.0) can read merge provenance without a card's
 // identity depending on its current member set. origin is 'seed' for a
 // Player Card the user opened directly off the chart, 'merge' for one built

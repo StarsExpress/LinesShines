@@ -337,6 +337,22 @@ def pass_block(
 
 # ---- Static frontend (mounted LAST so /api/* routes above win). -------------
 
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles that makes the browser revalidate before reusing a file.
+
+    Plain StaticFiles sends only etag and last-modified, so a browser may
+    reuse a cached module for a "heuristic" time after a deploy and pair a new
+    main.js with an old module. "no-cache" means "ask the server first", not
+    "do not cache": an unchanged file costs one conditional request (304).
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 _here = Path(__file__).parent
 
 # Team logos live in frontend/images/team_logos/.
@@ -355,8 +371,11 @@ if _frontend_dir.exists():
     _index_path = _frontend_dir / "index.html"
 
     @app.get("/", response_class=HTMLResponse)
-    def serve_index() -> str:
-        return _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA)
+    def serve_index() -> HTMLResponse:
+        return HTMLResponse(
+            _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA),
+            headers={"Cache-Control": "no-cache"},
+        )
 
     _sw_path = _frontend_dir / "sw.js"
 
@@ -379,7 +398,7 @@ if _frontend_dir.exists():
 
     app.mount(
         "/",
-        StaticFiles(directory=str(_frontend_dir), html=True),
+        NoCacheStaticFiles(directory=str(_frontend_dir), html=True),
         name="frontend",
     )
 

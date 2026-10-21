@@ -43,8 +43,8 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 
 // Open Linemate Association Cards, keyed by the anchor's player string — one
 // per anchor regardless of whether the toggle that opened it lives on a
-// Player Card or a Merge Card member row. This is what makes BLUEPRINT.md
-// §2.3's recursion guard trivial: a Linemate Card never renders a linemate
+// Player Card or a Merge Card member row. This is what makes the recursion guard
+// trivial: a Linemate Card never renders a linemate
 // toggle of its own, so there's no second layer of anchors to key around.
 // Entry: { id, origin:'linemate', anchorKey, anchorRecord, roster, el,
 // folded, seeMore, includeAnchor }. anchorRecord/roster are read and
@@ -55,9 +55,10 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // only ever reads it, never resets it.
 export const linemateCards = new Map();
 
-// Closes every Linemate Card — only for a season/category/position change
-// (BLUEPRINT.md §4). A threshold-only change no longer dissolves them; see
-// refreshOpenLinemateCards(), called from applyFilters() instead.
+// Closes every Linemate Card — for a slice change that resets the Workspace
+// (see applyFilters()). A threshold-only change, or a season change that
+// pinned-impact.js judges "refresh", keeps them: they are re-pointed
+// (retargetLinemateCard()) and recomputed by refreshOpenLinemateCards().
 export function clearLinemateCards() {
   linemateCards.forEach((entry) => entry.el.remove());
   linemateCards.clear();
@@ -104,10 +105,10 @@ export function attachAppTooltip(el, text) {
   el.addEventListener("blur", hideAppTooltip);
 }
 
-// --- Linemate Association Cards (BLUEPRINT.md §2) ---------------------------
+// --- Linemate Association Cards ---------------------------
 
 // Same-team, same-season, same-category roster around `anchorRecord`,
-// including same-position linemates (BLUEPRINT.md §2.2's position table),
+// including same-position linemates,
 // excluding the anchor himself and anyone below the applied snap threshold,
 // then sorts by snap count (the category's threshold_field, the only volume
 // stat available per player) descending and caps at the category's limit —
@@ -164,11 +165,10 @@ function linemateDisplayRoster(entry) {
 }
 
 // Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
-// capped roster, regardless of "See more" state (BLUEPRINT.md §2.5: that
+// capped roster, regardless of "See more" state (that
 // control is display-only). RSWA (Relative Snaps Weighted Average) weights
 // each linemate's percentile by his own share of the roster's total snaps —
-// weight[t] = snaps[t] / sum(snaps) — exactly the formula in BLUEPRINT.md
-// §2.5, so a linemate who played more snaps alongside the anchor's unit
+// weight[t] = snaps[t] / sum(snaps) — so a linemate who played more snaps alongside the anchor's unit
 // counts for more of the summary.
 export function computeThreeMRSWA(rosterRecords, cat) {
   const perPlayer = rosterRecords.map((t) => {
@@ -201,7 +201,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   return results;
 }
 
-// No longer desktop/tablet-gated (BLUEPRINT.md §0 originally scoped this
+// No longer desktop/tablet-gated (originally scoped this
 // alongside Merge Cards) — a Linemate Card is just another scrollable
 // stats table, not a scatter plot, so it doesn't need the wide layout Merge
 // Cards/Pinned Players still do. Dragging/cascading on the opened card still
@@ -224,7 +224,7 @@ export function closeLinemateCard(anchorKey) {
   updateScoutEmptyHint();
 }
 
-// Freezes the Player/Position columns (both metadata, BLUEPRINT.md's Excel
+// Freezes the Player/Position columns (both metadata, an Excel-style
 // frozen-pane treatment) in place while Games/PR Opp and the metric columns
 // scroll underneath — same technique as Merge Card's applyStickyMetaColumns()
 // (merge-card.js), reimplemented locally rather than imported: this module
@@ -304,7 +304,7 @@ function percentileFillClass(percentile) {
 // Card's (renderMergeCardBody() in merge-card.js), minus the NFL Team column
 // (redundant here — every roster row already shares the anchor's team by
 // construction, see computeLinemateRoster()) and minus a per-row Linemates
-// toggle (recursion guard, BLUEPRINT.md §2.3: this card never lets a row
+// toggle (recursion guard: this card never lets a row
 // drill into another Linemate Card). Position gets its own column instead of
 // NFL Team — a roster can mix positions (LINEMATE_POSITIONS) even though it
 // can't mix teams. Percentiles are each computed against the linemate's own
@@ -530,25 +530,11 @@ export function refreshOpenLinemateCards() {
   linemateCards.forEach((entry) => renderLinemateCardBody(entry));
 }
 
-export function openLinemateCard(anchorRecord) {
-  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
-
-  const closeBtn = cardEl.querySelector(".scout-close");
-  const foldBtn = cardEl.querySelector(".scout-fold");
-  const dragHandle = cardEl.querySelector(".scout-drag-handle");
-  const tableEl = cardEl.querySelector(".linemate-table");
-  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
-  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
-  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+// Logo/badge + team · season line. Team and season are fixed until a "refresh"
+// Apply carries the card to another season (retargetLinemateCard()).
+function setLinemateCardIdentity(cardEl, anchorRecord) {
   const logoImg = cardEl.querySelector(".scout-logo");
   const badge = cardEl.querySelector(".scout-badge");
-  const metaEl = cardEl.querySelector(".linemate-card-meta");
-
-  // Team/season are fixed for this card's lifetime (a season/category/
-  // position change dissolves every Linemate Card — see clearLinemateCards()
-  // — so unlike the title, this never needs to be re-set by
-  // renderLinemateCardBody()'s refresh path). Mirrors openScoutCard()'s own
-  // logo/badge wiring.
   const color = teamColor(anchorRecord.team);
   logoImg.src = logoSrc(anchorRecord.team);
   logoImg.alt = `${anchorRecord.team} logo`;
@@ -560,10 +546,33 @@ export function openLinemateCard(anchorRecord) {
     badge.textContent = anchorRecord.team;
     badge.style.background = color;
   };
-  metaEl.textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
-  // Anchor name is fixed for the card's lifetime too — same reasoning as
-  // logo/badge/metaEl above, set once here rather than in
-  // renderLinemateCardBody()'s refresh path.
+  cardEl.querySelector(".linemate-card-meta").textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
+}
+
+// Re-points an open Linemate Card at the anchor's row in another season. The
+// roster/summary are recomputed by the refreshOpenLinemateCards() that follows
+// (the roster derives from the anchor + applied filters, so teammates are
+// never checked individually).
+export function retargetLinemateCard(entry, anchorRecord) {
+  entry.anchorRecord = anchorRecord;
+  setLinemateCardIdentity(entry.el, anchorRecord);
+}
+
+export function openLinemateCard(anchorRecord) {
+  const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
+
+  const closeBtn = cardEl.querySelector(".scout-close");
+  const foldBtn = cardEl.querySelector(".scout-fold");
+  const dragHandle = cardEl.querySelector(".scout-drag-handle");
+  const tableEl = cardEl.querySelector(".linemate-table");
+  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
+  const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
+  const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
+
+  // Team/season only change via retargetLinemateCard() (a "refresh" Apply);
+  // a category/position change or a "reset" dissolves the card instead.
+  setLinemateCardIdentity(cardEl, anchorRecord);
+  // Anchor name is fixed for the card's lifetime — set once here.
   anchorToggleLabel.textContent = `Include ${anchorRecord.player} into tables.`;
 
   const id = nextCardId();

@@ -149,8 +149,7 @@ export function appliedCategoryMeta() {
 // so Linemate Cards can pull cross-position rosters (T/G/C, ED/DI) out of
 // the same in-memory slice instead of a second fetch. Percentile pools must
 // still be computed per exact position (see positionPool() below) — never
-// over this combined array — per the "first philosophy" comment in
-// BLUEPRINT.md §3.
+// over this combined array.
 export async function fetchSlice(category, season) {
   const key = `${category}:${season}`;
   if (!sliceCache.has(key)) {
