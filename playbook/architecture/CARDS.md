@@ -128,3 +128,30 @@ season/category/position change dissolves the card outright as usual.
 - **PNG export is always the Read layout**, whichever mode is on screen, because the Sort layout is too wide to share. The Merge Card's `prepareClone` re-renders the off-screen clone in Read and returns
   `true`, which makes `exportCardPng()` re-fit the clone to its new size; the card on screen is never touched. The Read|Sort switch and the scroll hints are left out of the PNG.
 
+
+## Opening a player's card from the Linemate Card, and the gold open-a-card buttons
+
+Each row of the Linemate Card's roster table has a **Card** button in its own column, between Player and
+Position (`.linemate-row-card-btn`, a `fa-id-card` icon). Clicking it opens that teammate's Player Card, or,
+if it is already open, brings it forward and flashes it (`viewFloatingCard()` in `scout-card.js`, the same
+behaviour as a Pinned Players entry; it never toggles a card closed). It works for every row, including
+teammates of a different position on the line and the anchor's own row when "Include {anchor}" is on.
+The Card header is plain text (nothing to sort), and the column is frozen with Player and Position
+(`LINEMATE_META_COLUMN_COUNT = 3`). `linemate-card.js` stays a leaf: it does not import `scout-card.js`
+(which already imports it); instead `scout-card.js` registers its opener once with
+`setPlayerCardOpener(viewFloatingCard)`. The PNG export drops the whole column from the clone, since the
+buttons do nothing in a picture. A Player Card still has its own Linemates toggle, so a teammate's card
+can lead on to that teammate's own Linemate Card; the Linemate Card itself never opens another Linemate Card.
+
+The Comparison Card's per-row Linemates button (`.merge-row-linemate-toggle`) uses the same solid gold
+(`--open-card-btn`, `#d4af5a`, 28 px square) so "gold button = opens a card"; the icon tells which card
+(people group = Linemates, id card = player). The Comparison Card's button is not removed from its PNG export.
+
+**A teammate's card after the threshold changes.** A Player Card opened from the Linemate Card may belong to
+a player at another position on the line (a DI while the plot shows ED). `reconcileCarriedCards()` in
+`filters.js` therefore keeps floating Player Cards and Linemate anchors by `resolveCarriedRecord()`
+(`pinned-impact.js`): the player needs a row at any position in `LINEMATE_POSITIONS[category]` that still
+meets the threshold, the card's own position winning when two rows qualify. Pinned players are still judged
+at the applied position only. A Player Card ranks its player against `positionPool(record.position)`, not
+the plot's `currentFiltered`, so a different-position card shows percentiles among his own position (for a
+same-position player the two sets are identical). Percentiles shown before this change were all correct: Player Cards only ever sat at the plot's position, and the Linemate Card table always used each teammate's own position pool.

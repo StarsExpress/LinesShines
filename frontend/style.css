@@ -23,6 +23,7 @@
   --logo-windows-yellow: #ffb900;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --open-card-btn: #d4af5a; /* solid gold: a button that opens another card */
   --card-btn-fold: #5ec8f2; /* sky blue disc, dark icon */
   --card-btn-close: #ff6b5e; /* bright coral disc, dark icon */
   --alert-coral: #ff8a75; /* warning text on turf; 5.2:1 on --turf-700 */
@@ -1724,28 +1725,30 @@ body {
   outline: none;
 }
 
-.merge-row-linemate-toggle {
+.merge-row-linemate-toggle,
+.linemate-row-card-btn {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: var(--turf-700);
-  color: var(--chalk-dim);
-  border: 1px solid var(--turf-600);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--open-card-btn);
+  color: #1a1a1a;
+  border: none;
   border-radius: 5px;
-  padding: 3px 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: 0;
+  font-size: 12px;
   cursor: pointer;
 }
 .merge-row-linemate-toggle:hover,
-.merge-row-linemate-toggle:focus-visible {
-  color: var(--flag-gold-bright);
-  border-color: var(--flag-gold);
-  outline: none;
+.merge-row-linemate-toggle:focus-visible,
+.linemate-row-card-btn:hover,
+.linemate-row-card-btn:focus-visible {
+  background: var(--flag-gold-bright);
+  outline: 2px solid var(--chalk);
+  outline-offset: 1px;
 }
 
 /* --- Pinned Players ---
@@ -2430,8 +2433,11 @@ thead .merge-table-frozen { z-index: 3; }
    (.merge-table .merge-table-team, .merge-table th:nth-child(2)), just
    plain text instead of a logo since there's no per-row team to show. */
 .linemate-table .linemate-table-position,
-.linemate-table th:nth-child(2) { text-align: left; }
-/* Freeze Panes, scoped to the Player + Position columns — both metadata,
+.linemate-table th:nth-child(3) { text-align: left; }
+/* The "Card" column: one button per row, so header and cell are centred. */
+.linemate-table .linemate-table-card,
+.linemate-table th:nth-child(2) { text-align: center; }
+/* Freeze Panes, scoped to the Player + Card + Position columns — all metadata,
    same as Merge Card's own Player/Team/Linemates freeze. Left offsets are
    set inline per column by applyStickyLinemateColumns() (linemate-card.js),
    since they depend on Player's actual rendered width, not just Position's

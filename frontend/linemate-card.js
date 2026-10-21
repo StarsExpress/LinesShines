@@ -208,6 +208,17 @@ export function computeThreeMRSWA(rosterRecords, cat) {
 // stay desktop-only: cascadeScoutCardPosition()/beginScoutDrag() (imported
 // from cards-base.js, used below in openLinemateCard()) each self-guard on
 // their own isDesktopScoutLayout() check, so nothing extra is needed here.
+// Opens (or brings forward) a teammate's own Player Card from the "Card"
+// button in each roster row. Injected by scout-card.js through
+// setPlayerCardOpener() rather than imported, because scout-card.js already
+// imports this module — importing it back would make a cycle and break this
+// module's "pure leaf" rule (see the file header).
+let openPlayerCard = null;
+
+export function setPlayerCardOpener(fn) {
+  openPlayerCard = fn;
+}
+
 export function toggleLinemateCard(anchorRecord) {
   if (linemateCards.has(anchorRecord.player)) {
     closeLinemateCard(anchorRecord.player);
@@ -224,7 +235,7 @@ export function closeLinemateCard(anchorKey) {
   updateScoutEmptyHint();
 }
 
-// Freezes the Player/Position columns (both metadata, an Excel-style
+// Freezes the Player/Card/Position columns (all metadata, an Excel-style
 // frozen-pane treatment) in place while Games/PR Opp and the metric columns
 // scroll underneath — same technique as Merge Card's applyStickyMetaColumns()
 // (merge-card.js), reimplemented locally rather than imported: this module
@@ -232,7 +243,7 @@ export function closeLinemateCard(anchorKey) {
 // comment). Measures each metadata column's actual rendered width off the
 // header row (uniform per column across every row in a <table>) so it holds
 // regardless of player-name length, same reasoning as Merge Card's version.
-const LINEMATE_META_COLUMN_COUNT = 2;
+const LINEMATE_META_COLUMN_COUNT = 3;
 
 function applyStickyLinemateColumns(table) {
   const headerCells = table.querySelectorAll("thead th");
@@ -305,10 +316,14 @@ function percentileFillClass(percentile) {
 // (redundant here — every roster row already shares the anchor's team by
 // construction, see computeLinemateRoster()) and minus a per-row Linemates
 // toggle (recursion guard: this card never lets a row
-// drill into another Linemate Card). Position gets its own column instead of
+// drill into another Linemate Card; its per-row "Card" button opens that
+// player's Player Card instead). Position gets its own column instead of
 // NFL Team — a roster can mix positions (LINEMATE_POSITIONS) even though it
 // can't mix teams. Percentiles are each computed against the linemate's own
 // position pool.
+// Header of the column that holds each row's "open this player's card" button.
+const PLAYER_CARD_COLUMN = "Card";
+
 export function renderLinemateRoster(entry, roster, tableEl) {
   const cat = appliedCategoryMeta();
   tableEl.innerHTML = "";
@@ -318,7 +333,15 @@ export function renderLinemateRoster(entry, roster, tableEl) {
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Player", "Position", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
+  ["Player", PLAYER_CARD_COLUMN, "Position", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
+    // The button column has nothing to sort, so its header is plain text.
+    if (label === PLAYER_CARD_COLUMN) {
+      const th = document.createElement("th");
+      th.className = "linemate-table-card-head";
+      th.textContent = label;
+      headRow.appendChild(th);
+      return;
+    }
     headRow.appendChild(
       makeSortableHeader(label, label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
     );
@@ -337,6 +360,20 @@ export function renderLinemateRoster(entry, roster, tableEl) {
     nameTd.className = "linemate-table-name";
     nameTd.textContent = t.abbr_name || t.player;
     tr.appendChild(nameTd);
+
+    const cardTd = document.createElement("td");
+    cardTd.className = "linemate-table-card";
+    const cardBtn = document.createElement("button");
+    cardBtn.type = "button";
+    cardBtn.className = "linemate-row-card-btn";
+    cardBtn.innerHTML = '<i class="fa-solid fa-id-card"></i>';
+    cardBtn.setAttribute("aria-label", `Open ${t.player}'s card`);
+    cardBtn.title = `Open ${t.abbr_name || t.player}'s card`;
+    cardBtn.addEventListener("click", () => {
+      if (openPlayerCard) openPlayerCard(t);
+    });
+    cardTd.appendChild(cardBtn);
+    tr.appendChild(cardTd);
 
     const positionTd = document.createElement("td");
     positionTd.className = "linemate-table-position";
@@ -673,6 +710,10 @@ export function openLinemateCard(anchorRecord) {
           cell.style.position = "static";
           cell.style.left = "";
         });
+        // The "Card" buttons do nothing in a picture, so the whole column is dropped from the export.
+        cloneTableEl
+          .querySelectorAll(".linemate-table-card, .linemate-table-card-head")
+          .forEach((cell) => cell.remove());
       }
     },
     () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])

@@ -84,7 +84,26 @@ def _notice(page, names):
     )
 
 
+def _resolve(page, pool, name, preferred, line, threshold):
+    return page.evaluate(
+        """async args => {
+            const m = await import('/pinned-impact.js');
+            return m.resolveCarriedRecord(
+                args.pool, args.name, args.preferred, args.line, args.threshold, args.field);
+        }""",
+        dict(
+            pool=pool,
+            name=name,
+            preferred=preferred,
+            line=line,
+            threshold=threshold,
+            field=FIELD,
+        ),
+    )
+
+
 POOL = [_rec("A", 300), _rec("B", 250), _rec("C", 240)]
+LINE = ["ED", "DI"]
 
 
 def test_category_change_resets_without_data(page):
@@ -639,3 +658,26 @@ def test_removed_players_notice_shortens_a_longer_list(page):
     assert four == "Removed from Players: A, B, C and 1 more — no longer eligible."
     assert five == "Removed from Players: A, B, C and 2 more — no longer eligible."
     assert "D" not in four.split(": ")[1]
+
+
+def test_a_card_follows_a_teammate_at_another_position_on_the_line(page):
+    pool = [_rec("Edge", 200, "ED"), _rec("Tackle", 150, "DI")]
+    assert _resolve(page, pool, "Tackle", "DI", LINE, 100)["position"] == "DI"
+
+
+def test_a_card_closes_when_the_new_threshold_excludes_the_player(page):
+    pool = [_rec("Tackle", 150, "DI")]
+    assert _resolve(page, pool, "Tackle", "DI", LINE, 151) is None
+    assert _resolve(page, pool, "Tackle", "DI", LINE, 150) is not None  # Inclusive.
+
+
+def test_a_card_closes_when_the_player_is_off_the_line_or_missing(page):
+    pool = [_rec("Guard", 300, "G")]
+    assert _resolve(page, pool, "Guard", "G", LINE, 100) is None
+    assert _resolve(page, pool, "Nobody", "ED", LINE, 100) is None
+
+
+def test_the_preferred_position_wins_when_two_rows_qualify(page):
+    pool = [_rec("Swing", 200, "ED"), _rec("Swing", 180, "DI")]
+    assert _resolve(page, pool, "Swing", "DI", LINE, 100)["position"] == "DI"
+    assert _resolve(page, pool, "Swing", "ED", LINE, 100)["position"] == "ED"

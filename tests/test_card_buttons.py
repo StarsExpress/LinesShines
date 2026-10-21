@@ -1,4 +1,4 @@
-"""Card corner buttons (Save, Fold, Close): size, distinct colours, contrast. Reads the real style.css."""
+"""Card buttons (corner Save/Fold/Close, and the gold open-a-card buttons): size, colours, contrast. Reads the real style.css."""
 
 from __future__ import annotations
 
@@ -10,8 +10,10 @@ import pytest
 CSS = (Path(__file__).resolve().parent.parent / "frontend" / "style.css").read_text(
     encoding="utf-8"
 )
+STYLES = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)  # The same rules without comments.
 VARIABLES = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", CSS))
 BUTTONS = ["card-save-btn", "scout-fold", "scout-close"]
+OPEN_CARD_BUTTONS = ["merge-row-linemate-toggle", "linemate-row-card-btn"]
 CARD_BACKGROUND = VARIABLES["turf-700"]  # The lightest part of the card gradient.
 
 
@@ -29,10 +31,12 @@ def _contrast(hex_a, hex_b):
 
 
 def _rule(cls):
-    match = re.search(rf"\.{cls}\s*\{{([^}}]*)\}}", CSS)
-    assert match, f".{cls} is missing from style.css"
+    """The first rule whose selector list contains exactly `.cls` (not its :hover form)."""
+    for selectors, body in re.findall(r"([^{}]+)\{([^}]*)\}", STYLES):
+        if f".{cls}" in [part.strip() for part in selectors.split(",")]:
+            return body
 
-    return match.group(1)
+    raise AssertionError(f".{cls} is missing from style.css")
 
 
 def _prop(cls, prop):
@@ -90,3 +94,12 @@ def test_button_edge_stands_out_from_the_card(cls):
 def test_save_keeps_the_black_fill_and_light_outline():
     assert _fill("card-save-btn") == "#000000"
     assert _edge("card-save-btn") == "#f0ede4"
+
+
+@pytest.mark.parametrize("cls", OPEN_CARD_BUTTONS)
+def test_open_card_buttons_are_28px_gold_with_a_readable_icon(cls):
+    assert _prop(cls, "width") == "28px"
+    assert _prop(cls, "height") == "28px"
+    assert _fill(cls) == VARIABLES["open-card-btn"].lower()
+    assert _contrast(_icon(cls), _fill(cls)) >= 4.5
+    assert _contrast(_fill(cls), CARD_BACKGROUND) >= 3

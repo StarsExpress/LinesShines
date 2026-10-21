@@ -35,7 +35,7 @@ import {
   findRecordByPlayer,
 } from "./data.js";
 import { searchPlayersExcluding, qualifyingPlayerPool, fullPlayerPool } from "./search.js";
-import { CONFERENCES } from "./config.js";
+import { CONFERENCES, LINEMATE_POSITIONS } from "./config.js";
 import { render } from "./render.js";
 import { refreshOpenScoutCards, scoutCards, closeScoutCard, retargetScoutCard } from "./scout-card.js";
 import {
@@ -58,6 +58,7 @@ import {
   impactConfirmMessage,
   partitionByEligibility,
   removedPlayersNotice,
+  resolveCarriedRecord,
 } from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
@@ -577,17 +578,24 @@ function pendingPoolState() {
 function reconcileCarriedCards() {
   const field = appliedCategoryMeta().threshold_field;
   const threshold = Number(appliedFilters.threshold);
+  // Pinned players are judged at the applied position only.
   const resolve = (name) => {
     const r = currentRecords.find((x) => x.player === name && x.position === appliedFilters.position);
     return r && r[field] != null && r[field] >= threshold ? r : null;
   };
+  // A Player Card opened from a Linemate Card's "Card" button, and a Linemate
+  // Card anchored on such a player, can belong to a teammate at another
+  // position on the same line, so those follow the player along the whole line.
+  const linePositions = LINEMATE_POSITIONS[appliedFilters.category] || [appliedFilters.position];
+  const resolveOnLine = (name, entry) =>
+    resolveCarriedRecord(currentRecords, name, entry.record.position, linePositions, threshold, field);
   Array.from(scoutCards.entries()).forEach(([key, entry]) => {
-    const r = resolve(key);
+    const r = resolveOnLine(key, entry);
     if (r) retargetScoutCard(entry, r);
     else closeScoutCard(key);
   });
   Array.from(linemateCards.entries()).forEach(([key, entry]) => {
-    const r = resolve(key);
+    const r = resolveOnLine(key, { record: entry.anchorRecord });
     if (r) retargetLinemateCard(entry, r);
     else closeLinemateCard(key);
   });

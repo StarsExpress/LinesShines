@@ -5,7 +5,7 @@ import { els } from "./dom.js";
 import {
   appliedCategoryMeta,
   appliedFilters,
-  currentFiltered,
+  positionPool,
   rankAndPercentile,
   teamColor,
   teamName,
@@ -25,7 +25,7 @@ import {
   endScoutDrag,
   updateScoutEmptyHint,
 } from "./cards-base.js";
-import { toggleLinemateCard } from "./linemate-card.js";
+import { toggleLinemateCard, setPlayerCardOpener } from "./linemate-card.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { DISPLAY_DECIMALS } from "./config.js";
@@ -74,8 +74,13 @@ export function renderScoutCardStats(cardEl, record) {
   const statsEl = cardEl.querySelector(".scout-stats");
   statsEl.innerHTML = "";
 
+  // The player's own position pool, not the plot's: a card opened from a Linemate
+  // Card's "Card" button can belong to another position on the line (a DI while
+  // the plot shows ED), and its percentiles must be among his own position.
+  // For a player at the applied position this is the same set as currentFiltered.
+  const pool = positionPool(record.position);
   const poolEl = cardEl.querySelector(".scout-card-pool");
-  poolEl.textContent = `Percentiles calculated among ${currentFiltered.length} ${record.position}.`;
+  poolEl.textContent = `Percentiles calculated among ${pool.length} ${record.position}.`;
 
   const thresholdEl = cardEl.querySelector(".scout-card-threshold");
   thresholdEl.textContent = `Threshold: ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
@@ -115,7 +120,7 @@ export function renderScoutCardStats(cardEl, record) {
   addRow("Games", record.games);
   addRow(cat.threshold_field, record[cat.threshold_field]);
   Object.entries(cat.metrics).forEach(([key, meta]) => {
-    const rank = rankAndPercentile(currentFiltered, key, meta.higher_is_better, record[key]);
+    const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
     const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
     addRow(key, formatValue(record[key], meta), rankText, rank ? rank.percentile : null);
   });
@@ -245,6 +250,10 @@ export function viewFloatingCard(record) {
     openScoutCard(record);
   }
 }
+
+// Lets a Linemate Card row's "Card" button open or refocus that player's card
+// (see setPlayerCardOpener() in linemate-card.js for why it is injected).
+setPlayerCardOpener(viewFloatingCard);
 
 export function flashFloatingCard(key) {
   const entry = scoutCards.get(key);
