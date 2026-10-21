@@ -162,3 +162,15 @@ Any future per-cell override on these tables needs at least `.merge-table td.<cl
   and pans the whole page, header and controls included, not a chart-scoped transform. `manipulation` rather than `auto` keeps single-tap-to-open-a-card
   instant, because `auto` also enables double-tap-zoom and its ~300 ms delay. Plotly's own data zoom and pan stay off
   (`scrollZoom: false`, `dragmode: false`, `doubleClick: false` in `render.js`), so this is purely browser zoom over a static rendered image.
+
+## Card corner buttons
+
+Every card type (scouting, Comparison, Linemates) shares three round buttons in its top right, as
+solid discs 24 px across at `right: 10px` (Close), `40px` (Fold) and `70px` (Save), `top: 10px`:
+**Close** bright coral (`--card-btn-close`, `#ff6b5e`), **Fold** sky blue (`--card-btn-fold`,
+`#5ec8f2`), both with a dark `--turf-950` icon; **Save** pure black with a 2px `#f0ede4` outline and a
+`--chalk` icon, the same look as the Save Plot and Create buttons (black alone would merge into the
+green card). Hover and keyboard focus show a 2px `--chalk` ring. The size is deliberately small: long
+player names must not be crowded, so a bigger circle was rejected (the original 22 px grown by 1.1 and
+rounded). `tests/test_card_buttons.py` checks size, distinct fills and contrast from `style.css`.
+All three stay ignored by the PNG export (`shouldIgnoreForExport`, `attachCardSave()`).

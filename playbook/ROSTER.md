@@ -2,6 +2,15 @@
 
 Task-specific knowledge for Claude Code, read on demand. `CLAUDE.md` is a short entry point that sends you to `INVARIANTS.md` (working rules and invariants); everything needed for one kind of task lives here.
 
+> **Why "playbook"?** The name borrows from two places:
+>
+> In operations and agent work, a *runbook* is the written procedure someone, or something,
+> follows for a given situation, and this folder plays that part for working on this project.
+>
+> In American football, *playbook* is the book of plays a team prepares for each situation:
+> you look up the situation and run the play. Here the situation is the task in front of you,
+> and this file is the index that says which page to open.
+
 ## Visibility
 
 Only the files marked **public** are tracked in git. Everything else stays on the owner's machine, so the names that appear below exist locally, not in the public repo. The rule is an allow-list in `.gitignore`: `playbook/*` is ignored and each public file or folder is listed as an exception, so a new file stays local-only until someone adds it there.

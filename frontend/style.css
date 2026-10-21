@@ -23,6 +23,9 @@
   --logo-windows-yellow: #ffb900;
   --leather: #8a5a3b;
   --rush-clay: #b4482e;
+  --open-card-btn: #d4af5a; /* solid gold: a button that opens another card */
+  --card-btn-fold: #5ec8f2; /* sky blue disc, dark icon */
+  --card-btn-close: #ff6b5e; /* bright coral disc, dark icon */
   --alert-coral: #ff8a75; /* warning text on turf; 5.2:1 on --turf-700 */
   --instant-replay-blue: #4a90d9;
   --instant-replay-blue-bright: #6fa8e6;
@@ -1354,23 +1357,23 @@ body {
   top: 10px;
   right: 10px;
   z-index: 6;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 33, 25, 0.55);
-  border: 1px solid var(--turf-600);
+  background: var(--card-btn-close);
+  border: 1px solid var(--card-btn-close);
   border-radius: 50%;
-  color: var(--chalk-dim);
-  font-size: 16px;
+  color: var(--turf-950);
+  font-size: 18px;
   line-height: 1;
   padding: 0;
   cursor: pointer;
 }
 .scout-close:hover,
 .scout-close:focus-visible {
-  color: var(--flag-gold-bright);
-  border-color: var(--flag-gold);
+  outline: 2px solid var(--chalk);
+  outline-offset: 1px;
 }
 .scout-card.is-active .scout-close { display: flex; }
 
@@ -1437,22 +1440,22 @@ body {
   top: 10px;
   right: 40px;
   z-index: 6;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 33, 25, 0.55);
-  border: 1px solid var(--turf-600);
+  background: var(--card-btn-fold);
+  border: 1px solid var(--card-btn-fold);
   border-radius: 50%;
-  color: var(--chalk-dim);
-  font-size: 11px;
+  color: var(--turf-950);
+  font-size: 12px;
   padding: 0;
   cursor: pointer;
 }
 .scout-fold:hover,
 .scout-fold:focus-visible {
-  color: var(--flag-gold-bright);
-  border-color: var(--flag-gold);
+  outline: 2px solid var(--chalk);
+  outline-offset: 1px;
 }
 .scout-card.is-active .scout-fold { display: flex; }
 
@@ -1467,22 +1470,22 @@ body {
   top: 10px;
   right: 70px;
   z-index: 6;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 33, 25, 0.55);
-  border: 1px solid var(--turf-600);
+  background: #000;
+  border: 2px solid #f0ede4;
   border-radius: 50%;
-  color: var(--chalk-dim);
-  font-size: 11px;
+  color: var(--chalk);
+  font-size: 12px;
   padding: 0;
   cursor: pointer;
 }
 .card-save-btn:hover,
 .card-save-btn:focus-visible {
-  color: var(--flag-gold-bright);
-  border-color: var(--flag-gold);
+  outline: 2px solid var(--chalk);
+  outline-offset: 1px;
 }
 .card-save-btn:disabled {
   opacity: 0.5;
@@ -1722,28 +1725,30 @@ body {
   outline: none;
 }
 
-.merge-row-linemate-toggle {
+.merge-row-linemate-toggle,
+.linemate-row-card-btn {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: var(--turf-700);
-  color: var(--chalk-dim);
-  border: 1px solid var(--turf-600);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--open-card-btn);
+  color: #1a1a1a;
+  border: none;
   border-radius: 5px;
-  padding: 3px 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: 0;
+  font-size: 12px;
   cursor: pointer;
 }
 .merge-row-linemate-toggle:hover,
-.merge-row-linemate-toggle:focus-visible {
-  color: var(--flag-gold-bright);
-  border-color: var(--flag-gold);
-  outline: none;
+.merge-row-linemate-toggle:focus-visible,
+.linemate-row-card-btn:hover,
+.linemate-row-card-btn:focus-visible {
+  background: var(--flag-gold-bright);
+  outline: 2px solid var(--chalk);
+  outline-offset: 1px;
 }
 
 /* --- Pinned Players ---
@@ -2428,8 +2433,11 @@ thead .merge-table-frozen { z-index: 3; }
    (.merge-table .merge-table-team, .merge-table th:nth-child(2)), just
    plain text instead of a logo since there's no per-row team to show. */
 .linemate-table .linemate-table-position,
-.linemate-table th:nth-child(2) { text-align: left; }
-/* Freeze Panes, scoped to the Player + Position columns — both metadata,
+.linemate-table th:nth-child(3) { text-align: left; }
+/* The "Card" column: one button per row, so header and cell are centred. */
+.linemate-table .linemate-table-card,
+.linemate-table th:nth-child(2) { text-align: center; }
+/* Freeze Panes, scoped to the Player + Card + Position columns — all metadata,
    same as Merge Card's own Player/Team/Linemates freeze. Left offsets are
    set inline per column by applyStickyLinemateColumns() (linemate-card.js),
    since they depend on Player's actual rendered width, not just Position's

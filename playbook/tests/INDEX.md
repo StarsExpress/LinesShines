@@ -24,6 +24,8 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Which players the chart plots or highlights from Teams, Players and the threshold | `test_filters.py` ([doc](TEST_FILTERS.md)) | browser |
 | What happens to Pinned Players and Comparisons when filters change, and who stays eligible in the Players filter | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
+| Card buttons (Save, Fold, Close; the gold open-a-card buttons): size, colours, contrast | `test_card_buttons.py` ([doc](TEST_CARD_BUTTONS.md)) | CSS only |
+| Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |

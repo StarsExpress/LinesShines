@@ -29,7 +29,9 @@
  * partitionByEligibility() is the one eligibility rule, shared with the
  * Players filter (filters.js's prunePlayerSelections()): who stays and who
  * goes when the pool, position or threshold changes. removedPlayersNotice()
- * is the toast text for the Players filter's removals.
+ * is the toast text for the Players filter's removals. resolveCarriedRecord()
+ * decides which row a floating Player/Linemate Card follows after the
+ * threshold or season moves.
  */
 export const COMPARISON_MIN_MEMBERS = 2;
 
@@ -56,6 +58,25 @@ export function partitionByEligibility(names, records, position, threshold, thre
     else kept.push(name);
   });
   return { kept, removed };
+}
+
+// Which row a floating Player Card or Linemate anchor follows after the applied
+// slice or threshold moved. Unlike a pinned player (judged at the applied
+// position only), a card opened from a Linemate Card's "Card" button can belong
+// to a teammate at another position on the same line, so any position in
+// `linePositions` counts. The player must have a row there whose `thresholdField`
+// value is at least `threshold` (inclusive). When several rows qualify, the one
+// at `preferredPosition` (the card's current position) wins. Returns the record,
+// or null when the card should close.
+export function resolveCarriedRecord(records, name, preferredPosition, linePositions, threshold, thresholdField) {
+  const matches = (records || []).filter(
+    (r) =>
+      r.player === name &&
+      linePositions.includes(r.position) &&
+      r[thresholdField] != null &&
+      r[thresholdField] >= threshold
+  );
+  return matches.find((r) => r.position === preferredPosition) || matches[0] || null;
 }
 
 export const REMOVED_PLAYERS_NOTICE_MAX_NAMES = 3;

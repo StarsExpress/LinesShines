@@ -73,3 +73,22 @@ def test_root_serves_the_nfl_page_and_pwa_start_url_stays_root(client):
 def test_index_html_registers_service_worker(client):
     resp = client.get("/")
     assert 'navigator.serviceWorker.register("/sw.js")' in resp.text
+
+
+def test_frontend_files_must_be_revalidated(client):
+    # Every file under the root mount, plus the routes that serve "/" and "/sw.js".
+    paths = ["/", "/sw.js", "/main.js", "/filters.js", "/style.css", "/manifest.json"]
+    for path in paths:
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert resp.headers.get("cache-control") == "no-cache", path
+
+
+def test_logos_mount_is_left_alone(client):
+    resp = client.get("/logos/ARZ.png")
+    assert resp.headers.get("cache-control") != "no-cache"
+
+
+def test_sw_js_is_network_first_with_a_three_second_timeout(client):
+    text = client.get("/sw.js").text
+    assert "const NETWORK_TIMEOUT_MS = 3000;" in text

@@ -21,8 +21,13 @@ deliberately never cached** (`sw.js`'s `shouldBypassCache()` matches the whole `
 listener and allowed to fall through to a normal network request with no interception at all) —
 this app's whole value is current PFF data, so a service worker that cached a stat endpoint would
 risk silently showing stale numbers, which is a worse failure mode than a wasted network request.
-Everything else uses cache-first-with-network-fallback (`caches.match()` → cached hit, or fetch +
-populate the cache for next time) — fine for static assets that only change on deploy.
+Everything else is **network-first with a timeout** (`networkFirst()` in `sw.js`): the worker asks the
+network first so the app always runs the latest deploy, stores each good response in the cache, and
+serves the cached copy only if the network has not answered within `NETWORK_TIMEOUT_MS` (3000 ms) or
+fails (offline). Non-GET requests are not intercepted. On a slow connection that start can show the
+previous deploy's shell; player data still comes fresh from `/api/`. Every file under the root
+mount, and the `/` and `/sw.js` routes, are answered with `Cache-Control: no-cache` (`NoCacheStaticFiles`
+in `main.py`), so the browser's own HTTP cache revalidates before reusing a module. `/logos` is unchanged.
 `sw.js` carries the same `{{VERSION}}` placeholder convention `index.html` already used for
 cache-busting (both its `CACHE_NAME` and its precached URLs' `?v=` query strings) — `main.py`'s
 `serve_sw()` route exists *only* to do that one substitution (`Response(...).replace("{{VERSION}}",

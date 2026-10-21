@@ -20,6 +20,41 @@ function shouldBypassCache(pathname) {
   return NEVER_CACHE_PATHS.includes(pathname) || NEVER_CACHE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+// Static files are network-first: the app should always run the latest deploy. If the network has not answered
+// within this many milliseconds (or fails), the cached copy is used instead, so a slow connection never blocks the start.
+const NETWORK_TIMEOUT_MS = 3000;
+
+async function networkFirst(event) {
+  const request = event.request;
+  const cache = await caches.open(CACHE_NAME);
+
+  const networkResponse = fetch(request).then((response) => {
+    if (response.ok) {
+      event.waitUntil(cache.put(request, response.clone()));
+    }
+    return response;
+  });
+  networkResponse.catch(() => {}); // A late failure after the timeout must not surface as an unhandled rejection.
+
+  let timer;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), NETWORK_TIMEOUT_MS);
+  });
+
+  try {
+    const winner = await Promise.race([networkResponse, timedOut]);
+    if (winner) {
+      clearTimeout(timer);
+      return winner;
+    }
+  } catch {
+    clearTimeout(timer); // Network failed outright: fall through to the cache.
+  }
+
+  const cached = await cache.match(request);
+  return cached || networkResponse; // Nothing cached: keep waiting for the network (or fail).
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
   self.skipWaiting();
@@ -39,16 +74,9 @@ self.addEventListener("fetch", (event) => {
     return; // No interception: always connect to network for latest data.
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-      );
-    })
-  );
+  if (event.request.method !== "GET") {
+    return; // Only GET responses can be cached.
+  }
+
+  event.respondWith(networkFirst(event));
 });
