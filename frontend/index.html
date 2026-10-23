@@ -298,8 +298,8 @@
        renderPlayerCardsSpace() in app.js. Deliberately kept OUTSIDE .board:
        cascadeScoutCardPosition()/beginScoutResize() etc. in app.js position
        floating cards against .board assuming .chart-panel sits at its top —
-       inserting this as a .board grid child would break that math. Collapsed
-       by default; #pcs-inspect-btn both expands AND collapses #pcs-panel (§2:
+       inserting this as a .board grid child would break that math. Open on a
+       first visit, then whatever the visitor last chose (restorePlayerCardsSpacePanel()); #pcs-inspect-btn both expands AND collapses #pcs-panel (§2:
        NOT a native select/dropdown — a panel that expands/collapses in
        place) — there's no separate close control inside the panel itself. -->
   <section class="player-cards-space" id="player-cards-space" hidden>
@@ -307,7 +307,7 @@
       <span class="pcs-quota" id="pcs-quota-label">📍PINNED: 0 / 8 Distinct Players.</span>
       <button type="button" id="pcs-inspect-btn" class="pcs-inspect-btn"
               aria-haspopup="true" aria-expanded="false" aria-controls="pcs-panel">
-        Manage
+        <span class="pcs-inspect-label">Manage</span>
         <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>

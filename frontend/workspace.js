@@ -327,14 +327,53 @@ export function renderMergedList() {
   });
 }
 
-// Manage (§2) — a panel that expands/collapses in place, deliberately not a
-// native <select>/dropdown. Manage is the only control for this now — no
-// separate close button inside the panel.
+// The Pinned Players panel expands/collapses in place, deliberately not a
+// native <select>/dropdown. The button is the only control for this, no
+// separate close button inside the panel. It reads "Manage" while the panel is
+// folded and "Hide" while it is open (the chevron flips and aria-expanded
+// follows). A new visitor sees it open, so the feature is visible; after that
+// the last choice is remembered in the browser. Storage can be unavailable
+// (private windows, blocked site data), so every access is in try/catch and a
+// failure just means "open".
+const PCS_PANEL_STORAGE_KEY = "lines-shines:pinned-panel";
+
+// Pure: whether the panel starts open, given what was stored (null = nothing).
+export function pcsPanelStartsOpen(stored) {
+  return stored !== "closed";
+}
+
+function readPcsPanelPreference() {
+  try {
+    return localStorage.getItem(PCS_PANEL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writePcsPanelPreference(open) {
+  try {
+    localStorage.setItem(PCS_PANEL_STORAGE_KEY, open ? "open" : "closed");
+  } catch {
+    // Not remembered; the next visit starts open.
+  }
+}
+
+function setPlayerCardsSpacePanel(open) {
+  els.pcsPanel.hidden = !open;
+  els.pcsInspectBtn.setAttribute("aria-expanded", String(open));
+  els.pcsInspectBtn.classList.toggle("is-open", open);
+  els.pcsInspectBtn.querySelector(".pcs-inspect-label").textContent = open ? "Hide" : "Manage";
+}
+
+// Applies the remembered (or default) state once, before the section is first shown.
+export function restorePlayerCardsSpacePanel() {
+  setPlayerCardsSpacePanel(pcsPanelStartsOpen(readPcsPanelPreference()));
+}
+
 export function togglePlayerCardsSpacePanel() {
-  const next = els.pcsPanel.hidden;
-  els.pcsPanel.hidden = !next;
-  els.pcsInspectBtn.setAttribute("aria-expanded", String(next));
-  els.pcsInspectBtn.classList.toggle("is-open", next);
+  const open = els.pcsPanel.hidden;
+  setPlayerCardsSpacePanel(open);
+  writePcsPanelPreference(open);
 }
 
 // Full Workspace wipe — Single Cards + Merged Cards together, per §9's
