@@ -18,8 +18,11 @@ behavior as before. Two independent maps back the column split: `workspaceSingle
 purpose — closing a floating card's × (`closeScoutCard()`) touches nothing but that DOM node; the
 only way to leave the Workspace is the Single Cards row's own **Remove** button
 (`removeSingleCard()`), which also closes the floating card if it was open. Rows carry no Merge
-action anymore — see Merge Cards below. Collapsed by default to a compact bar (quota counter +
-**Manage**); Manage (or the panel's own ×) expands/collapses `.pcs-panel`'s two columns — Single
+action anymore — see Merge Cards below. **Open on a visitor's first visit**, so the feature is seen, then whatever he last chose, remembered in
+`localStorage` (`lines-shines:pinned-panel`, `open` / `closed`; unavailable storage means open;
+`restorePlayerCardsSpacePanel()` applies it before the section is first shown). Folded, it is a compact bar
+(quota counter + a **Manage** button); open, the same button reads **Hide**. The button (the panel has no
+×) expands/collapses `.pcs-panel`'s two columns — Single
 Cards (add-search + Remove per row) and Merged Cards (Create button + Edit/Dismiss per row) — a
 plain expand/collapse panel, not a `<select>`.
 

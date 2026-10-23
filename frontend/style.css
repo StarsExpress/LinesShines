@@ -1698,9 +1698,8 @@ body {
    call-to-action rather than a utility icon — distinct from the card's
    structural #f0ede4 border and from the download/collapse/close icons in
    the top-right corner. Deliberately its own rule, not shared with
-   .merge-row-linemate-toggle below: that one stays a small ghost/ouline
-   icon button scoped to a dense merge-table row, where a solid gold fill
-   per row would be too loud. */
+   .merge-row-linemate-toggle below, which is a small 28px icon-only gold
+   button for a dense table row (same gold, see --open-card-btn). */
 .card-linemate-toggle {
   appearance: none;
   -webkit-appearance: none;
