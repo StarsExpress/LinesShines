@@ -164,6 +164,15 @@ function linemateDisplayRoster(entry) {
   return combined;
 }
 
+// The metrics the Line Summary covers: all of them except those flagged
+// `line_summary: false` (Pass Cov Percent). A line mixes ED and DI, and their
+// coverage shares sit in very different ranges, so a single Min/Median/Max/
+// RSWA for it would compare them unfairly. The roster table still shows each
+// player's own percentile among his position.
+function summaryMetricEntries(cat) {
+  return Object.entries(cat.metrics).filter(([, meta]) => meta.line_summary !== false);
+}
+
 // Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
 // capped roster, regardless of "See more" state (that
 // control is display-only). RSWA (Relative Snaps Weighted Average) weights
@@ -174,7 +183,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   const perPlayer = rosterRecords.map((t) => {
     const pool = positionPool(t.position);
     const percentiles = {};
-    Object.entries(cat.metrics).forEach(([key, meta]) => {
+    summaryMetricEntries(cat).forEach(([key, meta]) => {
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
       percentiles[key] = rank ? rank.percentile : null;
     });
@@ -184,7 +193,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   const totalSnaps = perPlayer.reduce((sum, p) => sum + p.snaps, 0);
 
   const results = {};
-  Object.keys(cat.metrics).forEach((key) => {
+  summaryMetricEntries(cat).forEach(([key]) => {
     const values = perPlayer.map((p) => p.percentiles[key]).filter((v) => v != null);
     let rswa = null;
     if (totalSnaps > 0) {
@@ -395,7 +404,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       td.className = "linemate-metric-cell";
       if (rank) {
         const chip = document.createElement("span");
-        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+        chip.className = `merge-pct-chip ${meta.neutral === true ? "merge-pct-neutral" : percentileFillClass(rank.percentile)}`;
         chip.textContent = ordinal(rank.percentile);
         td.appendChild(chip);
       } else {
@@ -503,7 +512,7 @@ function summarySortValue(row, label) {
 export function renderLinemateSummary(entry, roster, summaryTable) {
   const cat = appliedCategoryMeta();
   const summary = computeThreeMRSWA(roster, cat);
-  const summaryRows = Object.keys(cat.metrics).map((key) => ({ key, ...summary[key] }));
+  const summaryRows = summaryMetricEntries(cat).map(([key]) => ({ key, ...summary[key] }));
   const sortedRows = sortRows(summaryRows, entry.summarySort, (row) => summarySortValue(row, entry.summarySort.key));
 
   summaryTable.innerHTML = "";

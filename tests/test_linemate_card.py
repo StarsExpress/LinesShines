@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
+
+FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 
 @pytest.fixture()
@@ -148,3 +153,22 @@ def test_a_card_for_another_position_ranks_among_his_own_position(page):
 
     assert not result.get("skipped"), "the fixture needs a player at a second position"
     assert result["text"] == result["expected"]
+
+
+def test_the_card_template_titles_its_table_and_summary_sections():
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    template = html[
+        html.index(
+            'class="scout-card-panel"',
+            html.index('<template id="linemate-card-template">'),
+        ) :
+    ]
+
+    headings = re.findall(r'<h4 class="([^"]*)">([^<]*)</h4>', template)
+    section_titles = [text for cls, text in headings if "scout-section-title" in cls]
+
+    assert section_titles[:2] == ["Individual", "Line Summary"]
+
+    # Individual heading sits above the roster table, the Summary heading inside its own wrapper.
+    assert template.index(">Individual<") < template.index("linemate-table-wrap")
+    assert template.index("linemate-summary-wrap") < template.index(">Line Summary<")
