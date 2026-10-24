@@ -1,12 +1,12 @@
 import os
 import pandas as pd
-from config import DATA_FOLDER_PATH, FRONT_7_NAMES, ROUNDING_DECIMALS
+from config import NFL_DATA_PATH, FRONT_7_NAMES, ROUNDING_DECIMALS
 from utils.renamers import rename_pass_rush_columns, shorten_first_name
 
 
 def preprocess_front_7(season: int) -> None:
     pass_rush_csv_path = os.path.join(
-        DATA_FOLDER_PATH, "front_7_pass_rush", f"{season}.csv"
+        NFL_DATA_PATH, "front_7_pass_rush", f"{season}.csv"
     )
     pass_rush_df = pd.read_csv(pass_rush_csv_path)
 
@@ -69,7 +69,7 @@ def preprocess_front_7(season: int) -> None:
         positional_sheets.update({position: positional_df})
 
     destination_path = os.path.join(
-        DATA_FOLDER_PATH, "front_7_pass_rush", f"{season}.xlsx"
+        NFL_DATA_PATH, "front_7_pass_rush", f"{season}.xlsx"
     )
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():

@@ -30,9 +30,9 @@ def page(live_server_url):
 
 # The model on its own: plain strings stand in for players.
 MODEL_JS = """
-async ([players, thresholdField, metricKeys]) => {
+async ([players, thresholdField, metricKeys, bonusKeys]) => {
   const m = await import('/merge-table-model.js');
-  const model = m.buildMergeTableModel(players, thresholdField, metricKeys);
+  const model = m.buildMergeTableModel(players, thresholdField, metricKeys, bonusKeys);
   const sort = m.sortLayout(model);
   const read = m.readLayout(model);
   const cell = (c) => [c.player, c.column.key];
@@ -43,6 +43,7 @@ async ([players, thresholdField, metricKeys]) => {
     sortBody: sort.body.map((r) => ({ player: r.player, cells: r.cells.map(cell) })),
     readHead: read.head.map(row),
     readBody: read.body.map(row),
+    readSections: read.sections.map((s) => [s.title, s.rows.map((r) => r.column.key)]),
   };
 }
 """
@@ -82,7 +83,7 @@ async ([sort, mode, rows]) => {
 
   const grid = (section) =>
     section
-      ? [...section.querySelectorAll('tr')].map((tr) =>
+      ? [...section.querySelectorAll('tr:not(.merge-read-section)')].map((tr) =>
           [...tr.children].map((c) => c.textContent.replace(/[▲▼]/g, '').trim())
         )
       : [];
@@ -94,6 +95,14 @@ async ([sort, mode, rows]) => {
     cardIsSort: card.classList.contains('is-sort'),
     head: grid(table.querySelector('thead')),
     body: grid(table.querySelector('tbody')),
+    sections: [...table.querySelectorAll('tbody tr')].reduce((out, tr) => {
+      if (tr.classList.contains('merge-read-section')) {
+        out.push([tr.textContent.trim(), tr.firstElementChild.colSpan, []]);
+      } else if (out.length) {
+        out[out.length - 1][2].push(tr.firstElementChild.textContent.trim());
+      }
+      return out;
+    }, []),
     sortableHeaders: table.querySelectorAll('thead .sortable-th').length,
     sortStateAfter: sortState,
   };
@@ -110,8 +119,16 @@ ROWS = [
 NO_SORT = {"key": None, "dir": "asc"}
 
 
-def _model(page, players, threshold_field="PR Opp", metric_keys=("M1", "M2", "M3")):
-    return page.evaluate(MODEL_JS, [players, threshold_field, list(metric_keys)])
+def _model(
+    page,
+    players,
+    threshold_field="PR Opp",
+    metric_keys=("M1", "M2", "M3"),
+    bonus_keys=(),
+):
+    return page.evaluate(
+        MODEL_JS, [players, threshold_field, list(metric_keys), list(bonus_keys)]
+    )
 
 
 def _render(page, sort=NO_SORT, mode=None):
@@ -247,9 +264,8 @@ def test_only_sort_has_sortable_headers(page):
 
 
 def test_read_follows_the_current_sort_order(page):
-    by_metric = {"key": "M-placeholder", "dir": "desc"}
-    first_metric = _render(page, mode="read")["metricKeys"][0]
-    by_metric["key"] = first_metric
+    # A named, ordinary higher-is-better metric, so "desc" puts the highest value first.
+    by_metric = {"key": "Win Rate", "dir": "desc"}
 
     read = _render(page, sort=by_metric, mode="read")
     sort = _render(page, sort=by_metric, mode="sort")
@@ -284,3 +300,52 @@ def test_rendering_never_changes_the_sort_state(page):
 
     assert _render(page, sort=state, mode="read")["sortStateAfter"] == state
     assert _render(page, sort=state, mode="sort")["sortStateAfter"] == state
+
+
+def test_read_layout_groups_the_rows_into_sections_and_leaves_out_an_empty_bonus(page):
+    out = _model(
+        page,
+        ["A", "B"],
+        metric_keys=("M1", "M2", "B1", "B2"),
+        bonus_keys=("B1", "B2"),
+    )
+    assert out["readSections"] == [
+        ["Metadata", ["Games", "PR Opp"]],
+        ["Required Metrics", ["M1", "M2"]],
+        ["Bonus Metrics", ["B1", "B2"]],
+    ]
+    # The flat body keeps every row in order, so nothing else depends on the grouping.
+    assert [r["column"] for r in out["readBody"]] == [
+        "Games",
+        "PR Opp",
+        "M1",
+        "M2",
+        "B1",
+        "B2",
+    ]
+
+    no_bonus = _model(page, ["A", "B"])
+    assert [title for title, _ in no_bonus["readSections"]] == [
+        "Metadata",
+        "Required Metrics",
+    ]
+
+
+def test_read_shows_a_heading_row_for_each_section_with_the_bonus_metrics_last(page):
+    out = _render(page, mode="read")
+    titles = [title for title, _, _ in out["sections"]]
+    rows = {title: labels for title, _, labels in out["sections"]}
+
+    assert titles == ["Metadata", "Required Metrics", "Bonus Metrics"]
+    assert rows["Metadata"] == ["Games", out["thresholdField"]]
+    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert "Win Rate" in rows["Required Metrics"]
+    assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
+        rows["Required Metrics"]
+    )
+    # Each heading spans the label column and the three players.
+    assert all(span == 4 for _, span, _ in out["sections"])
+
+
+def test_sort_has_no_section_headings(page):
+    assert _render(page, mode="sort")["sections"] == []

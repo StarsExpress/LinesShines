@@ -59,6 +59,7 @@ import {
 import {
   renderPlayerCardsSpace,
   togglePlayerCardsSpacePanel,
+  restorePlayerCardsSpacePanel,
   runPcsAddSearch,
   hidePcsAddDropdown,
 } from "./workspace.js";
@@ -508,8 +509,11 @@ function attachEvents() {
     renderPlayerCardsSpace();
   });
 
-  // Pinned Players collapse/expand (§2) — Manage does both, no separate
-  // close control inside the panel anymore.
+  // Pinned Players collapse/expand (§2) — one button does both (Manage when
+  // folded, Hide when open), no separate close control inside the panel. The
+  // remembered state is applied now, before renderPlayerCardsSpace() first
+  // shows the section.
+  restorePlayerCardsSpacePanel();
   els.pcsInspectBtn.addEventListener("click", () => togglePlayerCardsSpacePanel());
 
   // Single Cards add-search (v1.2.0 §4) — same fuzzy-input conventions as

@@ -18,8 +18,11 @@ behavior as before. Two independent maps back the column split: `workspaceSingle
 purpose — closing a floating card's × (`closeScoutCard()`) touches nothing but that DOM node; the
 only way to leave the Workspace is the Single Cards row's own **Remove** button
 (`removeSingleCard()`), which also closes the floating card if it was open. Rows carry no Merge
-action anymore — see Merge Cards below. Collapsed by default to a compact bar (quota counter +
-**Manage**); Manage (or the panel's own ×) expands/collapses `.pcs-panel`'s two columns — Single
+action anymore — see Merge Cards below. **Open on a visitor's first visit**, so the feature is seen, then whatever he last chose, remembered in
+`localStorage` (`lines-shines:pinned-panel`, `open` / `closed`; unavailable storage means open;
+`restorePlayerCardsSpacePanel()` applies it before the section is first shown). Folded, it is a compact bar
+(quota counter + a **Manage** button); open, the same button reads **Hide**. The button (the panel has no
+×) expands/collapses `.pcs-panel`'s two columns — Single
 Cards (add-search + Remove per row) and Merged Cards (Create button + Edit/Dismiss per row) — a
 plain expand/collapse panel, not a `<select>`.
 
@@ -58,7 +61,7 @@ enforced. Roster = same team/season/category, **including same-position linemate
 snap count descending and capped per category (`LINEMATE_CAP`: 5 for OL, 7 for DL) — dropping the
 lowest first, no positional reservation. First 5 show by default; a "See more" control (DL-only in
 practice, since the OL cap is 5) reveals the rest, and resets to collapsed on fold→unfold. The
-summary block (Min/Median/RSWA/Max per metric, in that column order) is always computed over the
+summary block (Min/Median/RSWA/Max per metric, in that column order; metrics flagged `line_summary: false` — Pass Cov Percent and its TPS twin, whose ED and DI ranges differ too much for one line-wide number — are left out) is always computed over the
 **full capped roster**, regardless of "See more" state — RSWA (Relative Snaps Weighted Average)
 weights each linemate's percentile by his own share of the roster's total snaps
 (`weight[t] = snaps[t] / sum(snaps)`), so a linemate who played more counts
@@ -120,7 +123,7 @@ season/category/position change dissolves the card outright as usual.
 - **Sort** is the original layout: one row per player, one column per metric (plus Player, Team, Linemates, Games and the threshold field), every column sortable except Linemates, with the
   Player/Team/Linemates columns frozen on the left (`applyStickyMetaColumns()`). The table scrolls horizontally.
 - **Read** turns the table on its side: one column per player, one row per metric. Each player's name, team logo and Linemates button form a head block that stays pinned at the top
-  (`.merge-read-frozen`, a sticky `<thead>`); Games and the threshold field are the first two rows, then one row per metric. Nothing sorts in Read. The columns are compact (a 104px label column, so long metric names wrap onto two or three lines, and 114px per player; the player column was 88px at first and was widened 1.3x), and on the desktop layout the
+  (`.merge-read-frozen`, a sticky `<thead>`); the rows below are grouped like the Player Card, each group under a gold heading row (`.merge-read-section`, one cell spanning the whole row, in the `<tbody>` so only the identity block stays pinned): **Metadata** (Games and the threshold field), **Required Metrics**, and **Bonus Metrics** (metrics flagged `bonus`, DL only; no heading when there are none). `readLayout()` returns the grouping as `sections` next to the flat `body`. Nothing sorts in Read. The columns are compact (a 104px label column, so long metric names wrap onto two or three lines, and 114px per player; the player column was 88px at first and was widened 1.3x), and on the desktop layout the
   card itself shrinks to fit its table (at least 340px, at most 720px, which is five players; the mobile layout keeps its own width). So there is no horizontal scroll and no left freeze, and the table scrolls vertically with the card's panel. The card's scroll hint follows the mode (`.is-read` / `.is-sort`).
 - **Read follows the current sort.** Both layouts lay the players out in the order `entry.sort` produces, so a sort made in Sort carries straight over into Read, and switching modes never resets it.
 - **One model, two layouts.** `merge-table-model.js` (pure, no DOM) builds `{ players, columns }` and turns it into `sortLayout()` or `readLayout()`, which hold exactly the same cells; Read is the transposition of Sort.
@@ -155,3 +158,7 @@ meets the threshold, the card's own position winning when two rows qualify. Pinn
 at the applied position only. A Player Card ranks its player against `positionPool(record.position)`, not
 the plot's `currentFiltered`, so a different-position card shows percentiles among his own position (for a
 same-position player the two sets are identical). Percentiles shown before this change were all correct: Player Cards only ever sat at the plot's position, and the Linemate Card table always used each teammate's own position pool.
+
+## Player Card sections
+
+The Player Card reads top to bottom as: the Linemates button (header, outside the folding body), the three note bullets (pool size, threshold, and a metric's `card_note`), then three titled sections built by `renderScoutCardStats()`: **Metadata** (Games, the threshold field), **Required Metrics** (every metric without `bonus`) and **Bonus Metrics** (metrics with `bonus: true`: Pass Cov Percent and TPS Pass Cov Percent, DL only; a category with none, like pass block, gets no Bonus heading). Each section is an `h4.scout-section-title` plus a `dl.scout-stat-grid` inside `.scout-stats`. The API metric order (`PASS_RUSH_METRICS`) already lists the bonus metrics last, so the axis pickers and the Comparison and Linemate cards show the same required-then-bonus order, without headings.

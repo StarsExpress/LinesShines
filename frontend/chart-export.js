@@ -53,6 +53,25 @@ export const EXPORT_FOOTER_PADDING_X = 16; // Logical px, pre-scale.
 
 export const EXPORT_FOOTER_BG = "#16301f"; // Matches --turf-800, same swap `render()` does for export bg.
 
+// The card exports' outer frame (compositeFooterCanvas's `frame` option): the same
+// 2px #f0ede4 line the on-screen card panel has, square-cornered, drawn on the
+// very edge of the final image so it encloses the card, notes and credit line.
+export const EXPORT_FRAME_COLOR = "#f0ede4";
+export const EXPORT_FRAME_WIDTH = 2; // Logical px, pre-scale.
+
+// The card exports' credit line sits on a gold band (compositeFooterCanvas's
+// `creditBand` option): --flag-gold behind --turf-950 text, the same pair as the card's
+// tab. Dark text because white on this gold is only about 2:1.
+export const EXPORT_BAND_BG = "#d3a73d";
+export const EXPORT_BAND_COLOR = "#0f2119";
+
+// The card exports' dashed divider between the card's metrics and the notes strip
+// (compositeFooterCanvas's `notesDivider` option): 1px, dashes and gaps 4px, the
+// frame's chalk colour but faint, inset from both sides by the notes' own side padding.
+export const EXPORT_DIVIDER_COLOR = "rgba(240, 237, 228, 0.45)";
+export const EXPORT_DIVIDER_WIDTH = 1; // Logical px, pre-scale.
+export const EXPORT_DIVIDER_DASH = 4; // Logical px, pre-scale — dash and gap alike.
+
 // `--chalk-dim`, muted so it doesn't compete with the plot.
 export const EXPORT_FOOTER_COLOR = "rgba(169, 182, 169, 0.75)";
 
@@ -80,8 +99,13 @@ export const APPENDIX_FONT_FAMILY = "Inter, sans-serif"; // Matches footer's own
 // exportChartPngWithFooter so card-export.js's html2canvas-based exports can
 // draw the exact same footer without duplicating this, keeping every PNG the
 // app produces (chart or card) on one shared brand footer.
-export function drawExportFooter(ctx, canvasWidth, sourceHeight, footerPx, scale) {
-  ctx.fillStyle = EXPORT_FOOTER_COLOR;
+export function drawExportFooter(ctx, canvasWidth, sourceHeight, footerPx, scale, { band = false } = {}) {
+  if (band) {
+    ctx.fillStyle = EXPORT_BAND_BG;
+    ctx.fillRect(0, sourceHeight, canvasWidth, footerPx);
+  }
+
+  ctx.fillStyle = band ? EXPORT_BAND_COLOR : EXPORT_FOOTER_COLOR;
   ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
@@ -167,6 +191,30 @@ function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
   });
 }
 
+// Dashes are filled rectangles, like the frame's bars, so every dash is a whole number of pixels.
+function drawNotesDivider(ctx, canvasWidth, y, scale) {
+  const inset = Math.round(APPENDIX_PADDING_X * scale);
+  const t = Math.round(EXPORT_DIVIDER_WIDTH * scale);
+  const dash = Math.round(EXPORT_DIVIDER_DASH * scale);
+
+  ctx.fillStyle = EXPORT_DIVIDER_COLOR;
+  for (let x = inset; x < canvasWidth - inset; x += dash * 2) {
+    ctx.fillRect(x, y, Math.min(dash, canvasWidth - inset - x), t);
+  }
+}
+
+// Four filled bars rather than a stroked rectangle, so the line is a whole number of
+// pixels with no anti-aliased fringe on the image's edge pixels.
+function drawExportFrame(ctx, width, height, scale) {
+  const t = Math.round(EXPORT_FRAME_WIDTH * scale);
+
+  ctx.fillStyle = EXPORT_FRAME_COLOR;
+  ctx.fillRect(0, 0, width, t);
+  ctx.fillRect(0, height - t, width, t);
+  ctx.fillRect(0, 0, t, height);
+  ctx.fillRect(width - t, 0, t, height);
+}
+
 // Returns a new canvas: `sourceCanvas` with EXPORT_FOOTER_BG behind it (so
 // any transparent source pixels don't fall back to white), an optional
 // "Include metric notes" appendix strip, and the credit line drawn into the
@@ -187,7 +235,19 @@ function drawAppendix(ctx, canvasWidth, startY, lines, scale) {
 // every card's html2canvas-rendered one) already funnels through this one
 // function for the footer, so the appendix rides along for free at every
 // call site rather than needing separate handling per export type.
-export function compositeFooterCanvas(sourceCanvas, scale, { appendixNotes } = {}) {
+//
+// `frame` (card exports only; the chart export leaves it off and is unchanged)
+// draws a square EXPORT_FRAME_WIDTH line in EXPORT_FRAME_COLOR on the outermost
+// edge of the final canvas, last, so it sits above everything and encloses the
+// card, the notes strip and the credit line. `creditBand` (also card exports only)
+// puts the credit line on a full-width gold band with dark text instead of plain
+// grey text on the background. `notesDivider` (also card exports only) draws a dashed
+// line between the card and the notes strip, when there are notes.
+export function compositeFooterCanvas(
+  sourceCanvas,
+  scale,
+  { appendixNotes, frame = false, creditBand = false, notesDivider = false } = {}
+) {
   const footerPx = Math.round(EXPORT_FOOTER_HEIGHT * scale);
   const paddingPx = Math.round(EXPORT_FOOTER_PADDING_X * scale);
 
@@ -211,8 +271,12 @@ export function compositeFooterCanvas(sourceCanvas, scale, { appendixNotes } = {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(sourceCanvas, Math.round((canvas.width - sourceCanvas.width) / 2), 0);
 
-  if (appendixLines.length) drawAppendix(ctx, canvas.width, sourceCanvas.height, appendixLines, scale);
-  drawExportFooter(ctx, canvas.width, sourceCanvas.height + appendixPx, footerPx, scale);
+  if (appendixLines.length) {
+    drawAppendix(ctx, canvas.width, sourceCanvas.height, appendixLines, scale);
+    if (notesDivider) drawNotesDivider(ctx, canvas.width, sourceCanvas.height, scale);
+  }
+  drawExportFooter(ctx, canvas.width, sourceCanvas.height + appendixPx, footerPx, scale, { band: creditBand });
+  if (frame) drawExportFrame(ctx, canvas.width, canvas.height, scale);
   return canvas;
 }
 
@@ -431,7 +495,10 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
     await document.fonts.ready; // Guards against a fallback-font flash if Oswald somehow hasn't finished loading yet.
 
     drawLabelEmphasisOverlay(ctx, positions, scale);
-    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, scale, { appendixNotes }), filename);
+    await downloadCanvasAsPng(
+      compositeFooterCanvas(sourceCanvas, scale, { appendixNotes, creditBand: true }),
+      filename
+    );
   } finally {
     Plotly.purge(clone);
     clone.remove();

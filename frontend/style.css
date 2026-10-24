@@ -1429,6 +1429,7 @@ body {
    mid-row clip. */
 .scout-card.is-folded .scout-stats,
 .scout-card.is-folded .merge-table-wrap,
+.scout-card.is-folded .linemate-table-title,
 .scout-card.is-folded .linemate-table-wrap,
 .scout-card.is-folded .linemate-see-more,
 .scout-card.is-folded .linemate-summary-wrap {
@@ -1511,6 +1512,9 @@ body {
   align-items: center;
   gap: 12px;
   padding-bottom: 14px;
+  /* .scout-card-body puts a 16px gap under this row, which read as too loose
+     on all three cards (Player, Comparison, Linemate); -8px leaves 8px. */
+  margin-bottom: -8px;
   border-bottom: 1px solid var(--turf-600);
   cursor: grab;
   touch-action: none;
@@ -1620,7 +1624,26 @@ body {
    addRow() comment in app.js on why every row emits all three even when the
    rank cell is empty (Games / threshold field), rather than letting grid
    auto-placement drift out of alignment on short rows. */
+/* One section = a small heading plus a grid of rows (see addSection() in
+   scout-card.js); the container itself is just a column of sections. */
 .scout-stats {
+  display: block;
+}
+.scout-section-title {
+  margin: 10px 0 6px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(240, 237, 228, 0.16);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+}
+.scout-stats .scout-section-title:first-child {
+  margin-top: 0;
+}
+.scout-stat-grid {
   display: grid;
   grid-template-columns: 1fr auto auto;
   column-gap: 12px;
@@ -1674,6 +1697,8 @@ body {
 .scout-pct-lightblue { background: #5dade2; color: #1a1a1a; }
 .scout-pct-darkblue { background: #1f618d; color: #f0ede4; }
 .scout-pct-violet { background: #a569bd; color: #f0ede4; }
+/* Neutral metrics (Pass Cov Percent): same chip shape, no Color Code. */
+.scout-pct-neutral { background: #4f5f55; color: #f0ede4; }
 
 /* --- Player Card actions: linemate toggle ---
    Sits between the header and the stats table, always visible — including
@@ -1698,9 +1723,8 @@ body {
    call-to-action rather than a utility icon — distinct from the card's
    structural #f0ede4 border and from the download/collapse/close icons in
    the top-right corner. Deliberately its own rule, not shared with
-   .merge-row-linemate-toggle below: that one stays a small ghost/ouline
-   icon button scoped to a dense merge-table row, where a solid gold fill
-   per row would be too loud. */
+   .merge-row-linemate-toggle below, which is a small 28px icon-only gold
+   button for a dense table row (same gold, see --open-card-btn). */
 .card-linemate-toggle {
   appearance: none;
   -webkit-appearance: none;
@@ -2118,8 +2142,11 @@ body {
    than the plain dim paragraph it used to be. Still just one <li>; the list
    wrapper exists so a single line reads identically to the two-line notes
    on Merge/Linemate Cards instead of looking like a different component. */
+/* Negative margins pull the bullets toward the divider above and the
+   Metadata heading below: .scout-card-body already puts a 16px gap between
+   its children, which read as too loose around a three-line note. */
 .scout-card-note-list {
-  margin: 0;
+  margin: -8px 0 -6px;
   padding-left: 16px;
   list-style: disc;
 }
@@ -2231,6 +2258,7 @@ body {
 .merge-pct-lightblue { background: #5dade2; color: #1a1a1a; }
 .merge-pct-darkblue { background: #1f618d; color: #f0ede4; }
 .merge-pct-violet { background: #a569bd; color: #f0ede4; }
+.merge-pct-neutral { background: #4f5f55; color: #f0ede4; }
 .merge-table .merge-table-name,
 .merge-table th:first-child {
   text-align: left;
@@ -2344,6 +2372,21 @@ thead .merge-table-frozen { z-index: 3; }
   letter-spacing: 0;
   font-size: 11.5px;
   color: var(--chalk);
+}
+/* Section heading rows in Read (Metadata / Required Metrics / Bonus Metrics): the Player
+   Card's gold small heading. No border of its own: the row above already ends in a divider
+   (and the first one follows the head block's 2px rule), as on the Player Card. */
+.merge-table--read .merge-read-section th {
+  padding: 12px 8px 4px;
+  border-bottom: none;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  background: transparent;
 }
 .merge-table--read .merge-table-team { text-align: center; }
 .merge-table--read .merge-table-team-inner { justify-content: center; }
@@ -2479,15 +2522,18 @@ thead .linemate-table-frozen { z-index: 3; }
   outline: none;
 }
 .linemate-summary-wrap { overflow-x: auto; }
-.linemate-summary-title {
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--flag-gold);
-}
+/* "Individual" and "Line Summary" use the Player Card's .scout-section-title (gold
+   small heading over a divider). The negative top margins offset the 16px gap
+   .scout-card-body already leaves between its children. */
+.scout-card-body > .linemate-table-title { margin: -4px 0 -6px; }
+/* The wrap scrolls horizontally (overflow-x), which would clip a title pulled
+   above its top edge, so the offset sits on the wrap and the title keeps no
+   top margin. */
+.linemate-summary-wrap { margin-top: -6px; }
+.linemate-summary-wrap .scout-section-title { margin-top: 0; }
+/* The notes row loses its own underline: the "Individual" heading's top line is the
+   one divider there, as the Metadata heading's is on the Player Card. */
+.linemate-card-notes { border-bottom: none; padding-bottom: 0; }
 .linemate-summary-table {
   width: 100%;
   table-layout: fixed;
