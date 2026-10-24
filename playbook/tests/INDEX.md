@@ -27,6 +27,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Card buttons (Save, Fold, Close; the gold open-a-card buttons): size, colours, contrast | `test_card_buttons.py` ([doc](TEST_CARD_BUTTONS.md)) | CSS only |
 | Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
 | Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
+| Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
