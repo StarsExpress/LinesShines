@@ -122,7 +122,12 @@ function buildExportClone(cardEl) {
   clone.classList.remove("is-folded", "is-dragging", "is-resizing");
 
   const panelEl = clone.querySelector(".scout-card-panel");
-  if (panelEl) panelEl.style.cssText = "height: auto; max-height: none; overflow: visible;";
+  // The panel's own 2px rounded border is dropped here: compositeFooterCanvas draws one
+  // square frame on the final image's outer edge instead, around the card, notes and credit.
+  if (panelEl) {
+    panelEl.style.cssText =
+      "height: auto; max-height: none; overflow: visible; border: none; border-radius: 0; box-shadow: none;";
+  }
 
   fitCloneToContent(clone);
 
@@ -148,7 +153,13 @@ export async function exportCardPng(cardEl, filename, prepareClone, appendixNote
       scale: CARD_EXPORT_SCALE,
       ignoreElements: shouldIgnoreForExport,
     });
-    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, { appendixNotes }), filename);
+    const finalCanvas = compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, {
+      appendixNotes,
+      frame: true,
+      creditBand: true,
+      notesDivider: true,
+    });
+    await downloadCanvasAsPng(finalCanvas, filename);
   } finally {
     clone.remove();
   }

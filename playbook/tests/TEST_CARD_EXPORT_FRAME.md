@@ -1,0 +1,9 @@
+# test_card_export_frame.py
+
+> **Add tests here when:** changing how a card's PNG export is composed: the outer frame, the gold credit band, the notes strip or the credit line around the card (`card-export.js`, `compositeFooterCanvas()` in `chart-export.js`).
+
+- **Kind:** browser (Playwright). Calls `compositeFooterCanvas()` on a synthetic canvas, and also clicks Save on a real Player Card and decodes the downloaded PNG.
+- **Needs:** Chromium and the seeded database (the `live_server_url` fixture); the tests skip without a browser.
+- **Covers:** with the `frame` option the four edges and four corners are the frame colour `#f0ede4`, opaque, for a wide and a narrow (widened-canvas) source, with and without notes; without the option the edges are the plain background (the Scatter Plot export has no frame); the frame adds no size; with the `creditBand` option the credit strip is gold (`#d3a73d`) at both ends just inside the frame, for wide and narrow sources with and without notes, the frame still on the outer edge, no extra size; without it the strip is the plain background; the Scatter Plot export call site (checked on the source, Plotly is not run) passes `creditBand` and neither `frame` nor `notesDivider`; the real exported Player Card PNG has the gold band; with the `notesDivider` option a dashed line (about half of the row lit, at least 5 dashes) is drawn where the notes strip starts, for wide and narrow sources, and only when there are notes and the option is on; it adds no size; a real exported Player Card PNG has the frame on every outer edge and corner, with and without "Include metric notes".
+- **Not here:** the Linemate and Comparison Card exports use the same code path (`exportCardPng`) but are not exported in a test; how the tab and content look inside the frame is checked by eye.
+- **Known gaps:** the frame's thickness and that the card's own border is not drawn twice are checked by eye only.
