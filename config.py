@@ -5,6 +5,9 @@ from datetime import date
 
 NFL_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER_PATH = os.path.join(NFL_BASE_PATH, "data")
+# NFL files live in their own subfolder: data/nfl/{front_7_pass_rush,ol_pass_block}/.
+# DATA_FOLDER_PATH stays the root of all data (the college side gets data/ncaaf/).
+NFL_DATA_PATH = os.path.join(DATA_FOLDER_PATH, "nfl")
 
 
 ROUNDING_DECIMALS = 3  # Better precision alleviates overlaps in plots.
@@ -21,6 +24,7 @@ ALLOWED_HAVOC_RATE_NOTE = (
 )
 
 PRP_NOTE = "PRP = (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Rush Snaps x 100."
+PASS_COV_PERCENT_NOTE = "Pass Cov Percent = 100 - Pass Rush Percent, where Pass Rush Percent = Pass Rush Snaps / Pass Play Snaps x 100."
 PBE_NOTE = "PBE = 100 - (Sacks + 0.75 x (QB Hits + Hurries)) / Pass Block Snaps."
 
 # Shared across every "TPS "-prefixed metric — not a per-metric formula, so

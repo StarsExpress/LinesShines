@@ -1,9 +1,13 @@
 """Ingest preprocessed PFF Excel workbooks into database.
 
-Reads `front_7_pass_rush/{season}.xlsx` and
-`ol_pass_block/{season}.xlsx` files that
+Reads `nfl/front_7_pass_rush/{season}.xlsx` and
+`nfl/ol_pass_block/{season}.xlsx` files (under the data root) that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
-produce, and bulk-inserts them into `pass_rush_stats` / `pass_block_stats` tables.
+produce, and bulk-inserts them into the `nfl_pass_rush_stats` /
+`nfl_pass_block_stats` tables.
+
+Strict: a sheet that lacks any column the tables need, or a row without a
+`Player Id`, stops the run with an error instead of loading NULLs.
 
 Idempotent: rerunning for same season/position first deletes existing
 rows for that slice, then bulk-inserts fresh ones — cleaner than
@@ -16,7 +20,7 @@ Usage:
 
 For Railway, set DATABASE_URL to Postgres URL Railway assigns.
 Point LINESHINES_REPO_ROOT at LinesShines project root so scripts can
-locate xlsx files under $LINESHINES_REPO_ROOT/data/.
+locate xlsx files under $LINESHINES_REPO_ROOT/data/nfl/.
 """
 
 from __future__ import annotations
@@ -30,14 +34,54 @@ import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 from config import DYNAMIC_THRESHOLDS
-from database.db_models import Base, PassBlockStat, PassRushStat, Team
+from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
 from main import engine, SessionLocal
 from teams_reference import TEAMS
 
 FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
 
+# The data root holds one folder per league; the NFL files are under data/nfl/.
+NFL_SUBDIR = "nfl"
+
 SEASON_CATEGORY_DIRS = ("front_7_pass_rush", "ol_pass_block")
+
+# Columns each category's sheets must have; ingestion fails loudly without them.
+PASS_RUSH_COLUMNS = (
+    "Team",
+    "Player Id",
+    "Player",
+    "Abbr Name",
+    "Games",
+    "PR Opp",
+    "TPS PR Opp",
+    "Pass Rush Percent",
+    "TPS Pass Rush Percent",
+    "Win Rate",
+    "TPS Win Rate",
+    "Pressure Rate",
+    "TPS Pressure Rate",
+    "Havoc Rate",
+    "TPS Havoc Rate",
+    "PRP",
+    "TPS PRP",
+)
+
+PASS_BLOCK_COLUMNS = (
+    "Team",
+    "Player Id",
+    "Player",
+    "Abbr Name",
+    "Games",
+    "Non Spike PB Snaps",
+    "TPS Non Spike PB Snaps",
+    "Allowed Pressure %",
+    "TPS Allowed Pressure %",
+    "Allowed Havoc %",
+    "TPS Allowed Havoc %",
+    "PBE",
+    "TPS PBE",
+)
 
 
 def _find_project_root() -> Path:
@@ -51,7 +95,7 @@ def _find_project_root() -> Path:
 
 
 def _repo_root() -> Path:
-    """Where to find preprocessed xlsx files.
+    """The data root: the folder that holds `nfl/` (and later `ncaaf/`).
 
     Order of precedence:
       1. `--data-dir` CLI flag.
@@ -72,7 +116,7 @@ def _repo_root() -> Path:
 
 def _discover_seasons(data_dir: Path) -> list[int]:
     """Union of seasons with a `{season}.xlsx` file under either category
-    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir`.
+    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir/nfl`.
 
     Union, not intersection — OL and DL are independent categories with no
     joint table, so it's fine for one to have a season's file before the other does.
@@ -85,7 +129,7 @@ def _discover_seasons(data_dir: Path) -> list[int]:
     seasons = set()
 
     for category_dir in SEASON_CATEGORY_DIRS:
-        for path in (data_dir / category_dir).glob("*.xlsx"):
+        for path in (data_dir / NFL_SUBDIR / category_dir).glob("*.xlsx"):
             if re.fullmatch(r"\d{4}", path.stem):
                 seasons.add(int(path.stem))
 
@@ -103,17 +147,38 @@ def _safe_float(val):
     return None if pd.isna(val) else float(val)
 
 
+def _complement(val):
+    """Pass Cov Percent = 100 - Pass Rush Percent (the source file holds the latter)."""
+    return None if pd.isna(val) else round(100.0 - float(val), 10)
+
+
+def _player_id(row, path, sheet) -> int:
+    val = row.get("Player Id")
+    if pd.isna(val):
+        raise ValueError(
+            f"{path} sheet {sheet}: row for {row.get('Player')!r} has no Player Id"
+        )
+
+    return int(val)
+
+
+def _require_columns(df: pd.DataFrame, columns, path, sheet) -> None:
+    missing = [c for c in columns if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path} sheet {sheet} is missing columns: {missing}")
+
+
 def upsert_teams(sess: Session) -> None:
-    existing = {t.code for t in sess.query(Team).all()}
+    existing = {t.code for t in sess.query(NFLTeam).all()}
 
     for code, (full_name, color) in TEAMS.items():
         if code in existing:
-            row = sess.get(Team, code)
+            row = sess.get(NFLTeam, code)
             row.full_name = full_name
             row.primary_color = color
 
         else:
-            sess.add(Team(code=code, full_name=full_name, primary_color=color))
+            sess.add(NFLTeam(code=code, full_name=full_name, primary_color=color))
 
     sess.commit()
 
@@ -121,7 +186,7 @@ def upsert_teams(sess: Session) -> None:
 def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     total = 0
     for season in seasons:
-        path = data_dir / "front_7_pass_rush" / f"{season}.xlsx"
+        path = data_dir / NFL_SUBDIR / "front_7_pass_rush" / f"{season}.xlsx"
 
         if not path.exists():
             print(f"Skip pass rush {season}: {path} not found")
@@ -133,28 +198,34 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
             if position_df is None or position_df.empty:
                 continue
 
+            _require_columns(position_df, PASS_RUSH_COLUMNS, path, position)
             position_df.dropna(subset=["PR Opp"], inplace=True)
 
             # Wipe slice before re-insertion.
             sess.execute(
-                delete(PassRushStat).where(
-                    PassRushStat.season == season,
-                    PassRushStat.position == position,
+                delete(NFLPassRushStat).where(
+                    NFLPassRushStat.season == season,
+                    NFLPassRushStat.position == position,
                 )
             )
 
             rows = []
             for _, row in position_df.iterrows():
                 rows.append(
-                    PassRushStat(
+                    NFLPassRushStat(
                         season=season,
                         position=position,
                         team_code=row["Team"],
+                        player_id=_player_id(row, path, position),
                         player=row["Player"],
                         abbr_name=row["Abbr Name"],
                         games=_safe_int(row.get("Games")),
                         pr_opp=_safe_int(row.get("PR Opp")),
                         tps_pr_opp=_safe_int(row.get("TPS PR Opp")),
+                        pass_cov_percent=_complement(row.get("Pass Rush Percent")),
+                        tps_pass_cov_percent=_complement(
+                            row.get("TPS Pass Rush Percent")
+                        ),
                         win_rate=_safe_float(row.get("Win Rate")),
                         tps_win_rate=_safe_float(row.get("TPS Win Rate")),
                         pressure_rate=_safe_float(row.get("Pressure Rate")),
@@ -177,7 +248,7 @@ def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
 def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
     total = 0
     for season in seasons:
-        path = data_dir / "ol_pass_block" / f"{season}.xlsx"
+        path = data_dir / NFL_SUBDIR / "ol_pass_block" / f"{season}.xlsx"
         if not path.exists():
             print(f"Skip pass block {season}: {path} not found")
             continue
@@ -188,22 +259,24 @@ def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
             if position_df is None or position_df.empty:
                 continue
 
+            _require_columns(position_df, PASS_BLOCK_COLUMNS, path, position)
             position_df.dropna(subset=["Non Spike PB Snaps"], inplace=True)
 
             sess.execute(
-                delete(PassBlockStat).where(
-                    PassBlockStat.season == season,
-                    PassBlockStat.position == position,
+                delete(NFLPassBlockStat).where(
+                    NFLPassBlockStat.season == season,
+                    NFLPassBlockStat.position == position,
                 )
             )
 
             rows = []
             for _, row in position_df.iterrows():
                 rows.append(
-                    PassBlockStat(
+                    NFLPassBlockStat(
                         season=season,
                         position=position,
                         team_code=row["Team"],
+                        player_id=_player_id(row, path, position),
                         player=row["Player"],
                         abbr_name=row["Abbr Name"],
                         games=_safe_int(row.get("Games")),

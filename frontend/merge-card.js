@@ -449,7 +449,7 @@ function makeDataCell({ player: { record, pool }, column }, cat) {
     td.className = "merge-metric-cell";
     if (rank) {
       const chip = document.createElement("span");
-      chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
+      chip.className = `merge-pct-chip ${meta.neutral === true ? "merge-pct-neutral" : percentileFillClass(rank.percentile)}`;
       chip.textContent = ordinal(rank.percentile);
       td.appendChild(chip);
     } else {
@@ -526,11 +526,22 @@ function renderReadTable(table, layout, cat) {
   });
 
   const tbody = document.createElement("tbody");
-  layout.body.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.appendChild(labelCell(row.column));
-    row.cells.forEach((cell) => tr.appendChild(makeDataCell(cell, cat)));
-    tbody.appendChild(tr);
+  layout.sections.forEach((section) => {
+    // A heading row spanning the label column and every player column.
+    const headingRow = document.createElement("tr");
+    headingRow.className = "merge-read-section";
+    const heading = document.createElement("th");
+    heading.colSpan = 1 + (layout.head[0] ? layout.head[0].cells.length : 1);
+    heading.textContent = section.title;
+    headingRow.appendChild(heading);
+    tbody.appendChild(headingRow);
+
+    section.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.appendChild(labelCell(row.column));
+      row.cells.forEach((cell) => tr.appendChild(makeDataCell(cell, cat)));
+      tbody.appendChild(tr);
+    });
   });
 
   table.appendChild(thead);
@@ -588,7 +599,9 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MER
   });
 
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
-  const model = buildMergeTableModel(sortedPools, cat.threshold_field, Object.keys(cat.metrics));
+  const metricKeys = Object.keys(cat.metrics);
+  const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
+  const model = buildMergeTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys);
 
   table.innerHTML = "";
   table.classList.toggle("merge-table--read", isRead);
