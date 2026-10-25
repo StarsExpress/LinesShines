@@ -584,11 +584,25 @@
                      scroll less obvious than a bare native scrollbar,
                      especially on a touch viewport now that this card opens
                      on mobile too. -->
-                    <li class="linemate-card-note linemate-card-scroll-hint">Please scroll right for more metrics.</li>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--read">
+                      Please scroll down for more metrics.
+                    </li>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--sort">
+                      Please scroll right for more metrics.
+                    </li>
                     <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
                   </ul>
                 </div>
-                <h4 class="scout-section-title linemate-table-title">Individual</h4>
+                <h4 class="scout-section-title linemate-table-title">
+                  <span>Individual</span>
+                  <span class="merge-mode-switch" role="group" aria-label="Table layout">
+                    <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">
+                      Read
+                    </button>
+                    <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
+                    <span class="merge-mode-info"></span>
+                  </span>
+                </h4>
                 <div class="linemate-table-wrap">
                   <table class="linemate-table"></table>
                 </div>

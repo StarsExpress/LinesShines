@@ -31,8 +31,8 @@ def page(live_server_url):
 # The model on its own: plain strings stand in for players.
 MODEL_JS = """
 async ([players, thresholdField, metricKeys, bonusKeys]) => {
-  const m = await import('/merge-table-model.js');
-  const model = m.buildMergeTableModel(players, thresholdField, metricKeys, bonusKeys);
+  const m = await import('/player-table-model.js');
+  const model = m.buildPlayerTableModel(players, thresholdField, metricKeys, bonusKeys);
   const sort = m.sortLayout(model);
   const read = m.readLayout(model);
   const cell = (c) => [c.player, c.column.key];
@@ -349,3 +349,27 @@ def test_read_shows_a_heading_row_for_each_section_with_the_bonus_metrics_last(p
 
 def test_sort_has_no_section_headings(page):
     assert _render(page, mode="sort")["sections"] == []
+
+
+def test_the_model_takes_its_identity_columns_from_the_caller(page):
+    out = page.evaluate("""async () => {
+  const m = await import('/player-table-model.js');
+  const identity = [
+    { key: 'Player', kind: 'name' },
+    { key: 'Position', kind: 'position' },
+    { key: 'Card', kind: 'card' },
+  ];
+  const model = m.buildPlayerTableModel(['A', 'B'], 'PR Opp', ['M1', 'B1'], ['B1'], identity);
+  const read = m.readLayout(model);
+  return {
+    head: read.head.map((r) => r.column.key),
+    sections: read.sections.map((s) => [s.title, s.rows.map((r) => r.column.key)]),
+  };
+}""")
+
+    assert out["head"] == ["Player", "Position", "Card"]
+    assert out["sections"] == [
+        ["Metadata", ["Games", "PR Opp"]],
+        ["Required Metrics", ["M1"]],
+        ["Bonus Metrics", ["B1"]],
+    ]

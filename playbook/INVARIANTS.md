@@ -16,6 +16,8 @@ These apply to every task. Read them before starting.
 - **Say what you could not verify** (touch, pinch-zoom, standalone mode, real phone). The owner tests those by hand over the LAN IP.
 - **PFF data**: raw CSV/xlsx never enters the repo; test fixtures are synthetic only.
 - **Frontend**: zero npm runtime dependencies, no build step, no framework. `html2canvas` is the one vendored exception.
+- **Several sessions at once**: if another Claude session may be working on the repo, read `next_steps/` and re-read every file you are about to edit first, and say which files you touched. Another session's changes in a file are not yours to overwrite.
+- **Plan files stay current**: when a decision replaces earlier text in a `next_steps/` file, rewrite or delete the old text in place; do not stack "revision" notes on top of it.
 - **Odd-looking code**: check `DECISIONS.md` before "fixing" it.
 - **Record decisions** in `DECISIONS.md` (dated), not in `CLAUDE.md`.
 - **Versioning**: `vSEASON.MINOR.PATCH`; features = MINOR, weekly data refresh = PATCH. MAJOR is reserved for a change of product identity; new-season data alone does not bump MAJOR.

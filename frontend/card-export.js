@@ -47,6 +47,7 @@ function shouldIgnoreForExport(el) {
       el.classList.contains("card-save-btn") ||
       el.classList.contains("merge-mode-switch") ||
       el.classList.contains("merge-card-scroll-hint") ||
+      el.classList.contains("linemate-card-scroll-hint") ||
       el.classList.contains("linemate-see-more"))
   );
 }

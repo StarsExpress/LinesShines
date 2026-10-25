@@ -2496,6 +2496,84 @@ thead .merge-table-frozen { z-index: 3; }
 }
 thead .linemate-table-frozen { z-index: 3; }
 .linemate-table-frozen-edge { box-shadow: 1px 0 0 var(--turf-600); }
+
+/* --- Linemate Card: the Individual table's Read | Sort switch and Read layout ---
+   The switch sits on the "Individual" heading row (it reuses the Comparison Card's
+   .merge-mode-* buttons). Read turns the roster on its side — one column per player,
+   rows grouped under Metadata / Required Metrics / Bonus Metrics — with narrower player
+   columns (76px; the Comparison Card uses 114px) so 8 players still fit under the
+   760px cap. The card fits its table, nothing scrolls sideways or freezes, the head
+   block (name, position, Card button) stays pinned, and the card's panel scrolls. */
+.linemate-table-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.linemate-table-title .merge-mode-switch { align-self: center; }
+.scout-card--linemate.is-read .linemate-card-scroll-hint--sort,
+.scout-card--linemate.is-sort .linemate-card-scroll-hint--read { display: none; }
+.scout-card--linemate.is-read .linemate-table-wrap { overflow: visible; }
+.linemate-table.linemate-table--read th,
+.linemate-table.linemate-table--read td {
+  padding: 7px 6px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+/* Player columns have a minimum rather than a fixed width, so when the card is wider than the
+   table (it is at least 420px) the spare width goes to them and the label column keeps its 104px. */
+.linemate-table--read thead tr:first-child th:not(.linemate-read-label) { min-width: 76px; }
+.linemate-table.linemate-table--read th.linemate-read-label {
+  width: 104px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.linemate-table.linemate-table--read .linemate-table-name {
+  text-align: center;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  color: var(--chalk);
+}
+.linemate-table.linemate-table--read .linemate-table-position { text-align: center; }
+.linemate-table--read thead.merge-read-frozen {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.linemate-table--read thead th { background: var(--turf-800); }
+.linemate-table--read thead tr:last-child th { border-bottom: 2px solid var(--turf-600); }
+/* Section heading rows: the Player Card's gold small heading, with no border of its own
+   (the row above already ends in a divider). */
+.linemate-table.linemate-table--read .linemate-read-section th {
+  padding: 12px 8px 4px;
+  border-bottom: none;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--flag-gold);
+  background: transparent;
+}
+@media (min-width: 861px) {
+  .scout-card--linemate.is-read {
+    width: fit-content;
+    min-width: 420px;
+    max-width: 760px; /* 104px labels + 8 x 76px players + the card's 36px of padding = 748px */
+  }
+  /* The notes and the Line Summary are taken out of the width calculation (width 0, then
+     min-width 100%): the summary is a fixed-layout table at width 100%, which would otherwise
+     make the card as wide as its maximum instead of fitting the Individual table. */
+  .scout-card--linemate.is-read .linemate-card-notes,
+  .scout-card--linemate.is-read .linemate-summary-wrap {
+    width: 0;
+    min-width: 100%;
+  }
+}
 .linemate-see-more {
   appearance: none;
   -webkit-appearance: none;

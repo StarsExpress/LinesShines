@@ -73,7 +73,13 @@ import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 import { createInfoPopover } from "./info-popover.js";
-import { MERGE_MODE_READ, MERGE_MODE_SORT, buildMergeTableModel, sortLayout, readLayout } from "./merge-table-model.js";
+import {
+  TABLE_MODE_READ,
+  TABLE_MODE_SORT,
+  buildPlayerTableModel,
+  sortLayout,
+  readLayout,
+} from "./player-table-model.js";
 
 // Pinned Players Workspace — the
 // persistent Single Cards list, keyed by the same full "player" string as
@@ -427,7 +433,7 @@ function percentileFillClass(percentile) {
   return "merge-pct-violet";
 }
 
-// Builds the DOM for one cell descriptor from merge-table-model.js. Both layouts
+// Builds the DOM for one cell descriptor from player-table-model.js. Both layouts
 // use it, so a cell looks and behaves the same wherever it lands. Percentile-only
 // — never the raw value, never #rank/N (that one is tooltip-only).
 function makeDataCell({ player: { record, pool }, column }, cat) {
@@ -549,7 +555,7 @@ function renderReadTable(table, layout, cat) {
 }
 
 // Percentile-only cells in one of two layouts built from the same model
-// (merge-table-model.js):
+// (player-table-model.js):
 //   Sort — one row per player, one column per metric, every column sortable
 //          (table-sort.js, Excel-style click-to-sort). The original layout.
 //   Read — the same cells turned on their side: one column per player, one row
@@ -565,9 +571,9 @@ function renderReadTable(table, layout, cat) {
 // object because this function only ever receives `cardEl`, and on first
 // mount `entry.el` isn't set yet (mountMergeCardElement() assigns it only
 // after this call returns). `mode` is the entry's `mode`; the PNG export calls
-// this on its off-screen clone with MERGE_MODE_READ whatever mode the card on
+// this on its off-screen clone with TABLE_MODE_READ whatever mode the card on
 // screen is in.
-export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MERGE_MODE_READ) {
+export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TABLE_MODE_READ) {
   const cat = appliedCategoryMeta();
   const titleEl = cardEl.querySelector(".merge-card-title");
   const subtitleEl = cardEl.querySelector(".merge-card-subtitle");
@@ -589,7 +595,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MER
         .join(", ")} ${thresholdClause}.`;
 
   // Drives which scroll hint shows (CSS) and which switch button is lit.
-  const isRead = mode === MERGE_MODE_READ;
+  const isRead = mode === TABLE_MODE_READ;
   cardEl.classList.toggle("is-read", isRead);
   cardEl.classList.toggle("is-sort", !isRead);
   cardEl.querySelectorAll(".merge-mode-btn").forEach((btn) => {
@@ -601,7 +607,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MER
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
-  const model = buildMergeTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys);
+  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys);
 
   table.innerHTML = "";
   table.classList.toggle("merge-table--read", isRead);
@@ -610,7 +616,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = MER
     return; // Nothing to freeze by measurement: the Read layout fits the card.
   }
 
-  const rerender = () => renderMergeCardBody(cardEl, memberRecords, sortState, MERGE_MODE_SORT);
+  const rerender = () => renderMergeCardBody(cardEl, memberRecords, sortState, TABLE_MODE_SORT);
   renderSortTable(table, sortLayout(model), cat, sortState, rerender);
 
   // On first build, table is still off-DOM here (the caller appends cardEl
@@ -745,8 +751,8 @@ export function mountMergeCardElement(entry, memberRecords) {
     // card on screen is never touched, and returns true when the layout changed
     // so the export re-fits the clone to its new size (see exportCardPng()).
     (clone) => {
-      if (entry.mode === MERGE_MODE_READ) return false;
-      renderMergeCardBody(clone, entry.memberKeys.map(findRecordByPlayer).filter(Boolean), entry.sort, MERGE_MODE_READ);
+      if (entry.mode === TABLE_MODE_READ) return false;
+      renderMergeCardBody(clone, entry.memberKeys.map(findRecordByPlayer).filter(Boolean), entry.sort, TABLE_MODE_READ);
       return true;
     },
     () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
@@ -762,7 +768,7 @@ export function openMergeCard(memberRecords) {
   // membership edits (addMergeMember()/removeMergeMember() both rebuild via
   // rebuildMergeCardFromMembers(), which reuses this same object) and across
   // a fold/unfold, since it's never reset anywhere but here.
-  // `mode` is the card's layout (merge-table-model.js): Read by default, and kept across
+  // `mode` is the card's layout (player-table-model.js): Read by default, and kept across
   // membership edits, fold/unfold and a close-then-reopen like the sort state is.
   const entry = {
     id,
@@ -771,7 +777,7 @@ export function openMergeCard(memberRecords) {
     el: null,
     folded: false,
     sort: { key: null, dir: "asc" },
-    mode: MERGE_MODE_READ,
+    mode: TABLE_MODE_READ,
   };
   mergeCards.set(id, entry);
   mountMergeCardElement(entry, memberRecords);
