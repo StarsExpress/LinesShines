@@ -24,6 +24,7 @@ from sqlalchemy.orm import sessionmaker
 from config import (
     ALLOWED_HAVOC_RATE_NOTE,
     HAVOC_RATE_NOTE,
+    PASS_COV_PERCENT_NOTE,
     PBE_NOTE,
     PRP_NOTE,
     TPS_NOTE,
@@ -31,9 +32,9 @@ from config import (
 )
 from database.db_models import (
     Base,
-    PassBlockStat,
-    PassRushStat,
-    Team,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
     pass_block_row_to_dict,
     pass_rush_row_to_dict,
 )
@@ -125,6 +126,34 @@ PASS_RUSH_METRICS = {
         "formula_svg": "/images/metric_formulas/prp.svg",
         "pff_note": "Pass rush productivity on true pass sets",
     },
+    # `line_summary: False` keeps both out of the Linemate Card's Line Summary
+    # (Min/Median/Max/RSWA): a line mixes ED and DI, whose coverage shares sit in
+    # very different ranges, so one summary number would compare them unfairly.
+    # Bonus, so it comes last (axis pickers and the Comparison and Linemate
+    # cards follow this order; the Player Card also puts it in its own section).
+    # Neutral: it describes how wide a rusher's job is (how often he drops into
+    # coverage rather than rushing), not how well he does it, so the cards show
+    # it without the percentile Color Code (`neutral`). Higher is better only sets
+    # direction: rank 1 is the highest value, because a lineman who covers on more
+    # pass plays carries more of the pass defence.
+    "Pass Cov Percent": {
+        "unit": "%",
+        "higher_is_better": True,
+        "neutral": True,
+        "bonus": True,
+        "line_summary": False,
+        "note": PASS_COV_PERCENT_NOTE,
+        "pff_note": "Frequency of dropping into coverage on pass plays",
+    },
+    "TPS Pass Cov Percent": {
+        "unit": "%",
+        "higher_is_better": True,
+        "neutral": True,
+        "bonus": True,
+        "line_summary": False,
+        "note": PASS_COV_PERCENT_NOTE,
+        "pff_note": "Pass cov percent on true pass sets",
+    },
 }
 
 PASS_BLOCK_METRICS = {
@@ -198,7 +227,7 @@ def metadata() -> dict:
         pass_rush_seasons = sorted(
             {
                 season
-                for (season,) in sess.execute(select(PassRushStat.season).distinct())
+                for (season,) in sess.execute(select(NFLPassRushStat.season).distinct())
             },
             reverse=True,
         )
@@ -206,12 +235,14 @@ def metadata() -> dict:
         pass_block_seasons = sorted(
             {
                 season
-                for (season,) in sess.execute(select(PassBlockStat.season).distinct())
+                for (season,) in sess.execute(
+                    select(NFLPassBlockStat.season).distinct()
+                )
             },
             reverse=True,
         )
 
-        teams = sess.execute(select(Team)).scalars().all()
+        teams = sess.execute(select(NFLTeam)).scalars().all()
 
     return {
         # Same Calendar Year comparison resolve_default_threshold() uses to
@@ -269,22 +300,22 @@ def pass_rush(
             f"invalid position: {position!r} — choose from {list(PASS_RUSH_POSITIONS)}",
         )
 
-    filters = [PassRushStat.season == season]
+    filters = [NFLPassRushStat.season == season]
     # Omitted position means "every supported position", not literally every
     # row for the season — the table can carry positions PASS_RUSH_POSITIONS
     # doesn't expose (e.g. LB), left over from a broader raw ingest.
     filters.append(
-        PassRushStat.position == position
+        NFLPassRushStat.position == position
         if position is not None
-        else PassRushStat.position.in_(PASS_RUSH_POSITIONS)
+        else NFLPassRushStat.position.in_(PASS_RUSH_POSITIONS)
     )
 
     with SessionLocal() as sess:
         rows = (
             sess.execute(
-                select(PassRushStat)
+                select(NFLPassRushStat)
                 .where(*filters)
-                .order_by(PassRushStat.pr_opp.desc())
+                .order_by(NFLPassRushStat.pr_opp.desc())
             )
             .scalars()
             .all()
@@ -309,19 +340,19 @@ def pass_block(
             f"invalid position: {position!r} — choose from {list(PASS_BLOCK_POSITIONS)}",
         )
 
-    filters = [PassBlockStat.season == season]
+    filters = [NFLPassBlockStat.season == season]
     filters.append(
-        PassBlockStat.position == position
+        NFLPassBlockStat.position == position
         if position is not None
-        else PassBlockStat.position.in_(PASS_BLOCK_POSITIONS)
+        else NFLPassBlockStat.position.in_(PASS_BLOCK_POSITIONS)
     )
 
     with SessionLocal() as sess:
         rows = (
             sess.execute(
-                select(PassBlockStat)
+                select(NFLPassBlockStat)
                 .where(*filters)
-                .order_by(PassBlockStat.non_spike_pb_snaps.desc())
+                .order_by(NFLPassBlockStat.non_spike_pb_snaps.desc())
             )
             .scalars()
             .all()

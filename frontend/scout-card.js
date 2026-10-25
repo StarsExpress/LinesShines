@@ -93,7 +93,7 @@ export function renderScoutCardStats(cardEl, record) {
   // is only passed for metric rows (Games/threshold field have none) — when
   // present, the whole "#rank/N · Nth pct" string renders inside a colored
   // chip span rather than as plain text.
-  const addRow = (label, value, rankText, percentile) => {
+  const addRow = (gridEl, label, value, rankText, percentile, neutral = false) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
@@ -103,27 +103,60 @@ export function renderScoutCardStats(cardEl, record) {
     rankDd.className = "scout-stat-rank";
     if (rankText && percentile != null) {
       const chip = document.createElement("span");
-      chip.className = `scout-pct-chip ${percentileChipClass(percentile)}`;
+      chip.className = `scout-pct-chip ${neutral ? "scout-pct-neutral" : percentileChipClass(percentile)}`;
       chip.textContent = rankText;
       rankDd.appendChild(chip);
     } else {
       rankDd.textContent = rankText || "—";
     }
-    statsEl.appendChild(dt);
-    statsEl.appendChild(dd);
-    statsEl.appendChild(rankDd);
+    gridEl.appendChild(dt);
+    gridEl.appendChild(dd);
+    gridEl.appendChild(rankDd);
+  };
+
+  // One titled <dl> grid per section, in the order Metadata, Required
+  // Metrics, Bonus Metrics. Each grid keeps the three-children-per-row layout
+  // above, so its columns align inside the section.
+  const addSection = (title) => {
+    const heading = document.createElement("h4");
+    heading.className = "scout-section-title";
+    heading.textContent = title;
+    const grid = document.createElement("dl");
+    grid.className = "scout-stat-grid";
+    statsEl.appendChild(heading);
+    statsEl.appendChild(grid);
+    return grid;
   };
 
   // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
   // stats, not rate metrics — rank/percentile against them wouldn't mean
   // "how well this player performed," so only the metrics loop below gets a rank.
-  addRow("Games", record.games);
-  addRow(cat.threshold_field, record[cat.threshold_field]);
-  Object.entries(cat.metrics).forEach(([key, meta]) => {
-    const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
-    const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
-    addRow(key, formatValue(record[key], meta), rankText, rank ? rank.percentile : null);
-  });
+  const metadataGrid = addSection("Metadata");
+  addRow(metadataGrid, "Games", record.games);
+  addRow(metadataGrid, cat.threshold_field, record[cat.threshold_field]);
+
+  // `bonus` metrics (Pass Cov Percent, DL only) get their own section after
+  // the required ones; a category without any (pass block) gets no Bonus heading.
+  const metricEntries = Object.entries(cat.metrics);
+  const addMetricRows = (gridEl, entries) =>
+    entries.forEach(([key, meta]) => {
+      const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
+      const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
+      addRow(
+        gridEl,
+        key,
+        formatValue(record[key], meta),
+        rankText,
+        rank ? rank.percentile : null,
+        meta.neutral === true
+      );
+    });
+  addMetricRows(
+    addSection("Required Metrics"),
+    metricEntries.filter(([, meta]) => !meta.bonus)
+  );
+  const bonusEntries = metricEntries.filter(([, meta]) => meta.bonus);
+  if (bonusEntries.length) addMetricRows(addSection("Bonus Metrics"), bonusEntries);
 }
 
 // Re-renders every open Player Card's stats against the current
