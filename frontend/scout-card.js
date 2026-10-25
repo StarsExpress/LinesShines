@@ -85,16 +85,6 @@ export function renderScoutCardStats(cardEl, record) {
   const thresholdEl = cardEl.querySelector(".scout-card-threshold");
   thresholdEl.textContent = `Threshold: ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
 
-  // A metric's own one-line explanation (metadata `card_note`, e.g. Pass Cov
-  // Percent) goes right after the threshold line; the line hides when the
-  // category has none (pass block).
-  const metricNoteEl = cardEl.querySelector(".scout-card-metric-note");
-  const metricNotes = Object.entries(cat.metrics)
-    .filter(([, meta]) => meta.card_note)
-    .map(([key, meta]) => `${key}: ${meta.card_note}`);
-  metricNoteEl.textContent = metricNotes.join(" ");
-  metricNoteEl.hidden = metricNotes.length === 0;
-
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
   // children when it has no rank would shift every following row's columns.

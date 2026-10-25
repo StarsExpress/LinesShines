@@ -161,7 +161,7 @@ same-position player the two sets are identical). Percentiles shown before this 
 
 ## Player Card sections
 
-The Player Card reads top to bottom as: the Linemates button (header, outside the folding body), the three note bullets (pool size, threshold, and a metric's `card_note`), then three titled sections built by `renderScoutCardStats()`: **Metadata** (Games, the threshold field), **Required Metrics** (every metric without `bonus`) and **Bonus Metrics** (metrics with `bonus: true`: Pass Cov Percent and TPS Pass Cov Percent, DL only; a category with none, like pass block, gets no Bonus heading). Each section is an `h4.scout-section-title` plus a `dl.scout-stat-grid` inside `.scout-stats`. The API metric order (`PASS_RUSH_METRICS`) already lists the bonus metrics last, so the axis pickers and the Comparison and Linemate cards show the same required-then-bonus order, without headings.
+The Player Card reads top to bottom as: the Linemates button (header, outside the folding body), the two note bullets (pool size and threshold), then three titled sections built by `renderScoutCardStats()`: **Metadata** (Games, the threshold field), **Required Metrics** (every metric without `bonus`) and **Bonus Metrics** (metrics with `bonus: true`: Pass Cov Percent and TPS Pass Cov Percent, DL only; a category with none, like pass block, gets no Bonus heading). Each section is an `h4.scout-section-title` plus a `dl.scout-stat-grid` inside `.scout-stats`. The API metric order (`PASS_RUSH_METRICS`) already lists the bonus metrics last, so the axis pickers and the Comparison and Linemate cards show the same required-then-bonus order, without headings.
 
 ## Linemate Card: Read and Sort for the Individual table
 

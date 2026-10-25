@@ -143,8 +143,7 @@ PASS_RUSH_METRICS = {
         "bonus": True,
         "line_summary": False,
         "note": PASS_COV_PERCENT_NOTE,
-        "pff_note": "Share of pass plays the player did not rush the passer",
-        "card_note": "drop to coverage frequency on pass plays.",
+        "pff_note": "Frequency of dropping into coverage on pass plays",
     },
     "TPS Pass Cov Percent": {
         "unit": "%",

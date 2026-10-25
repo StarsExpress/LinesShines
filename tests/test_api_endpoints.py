@@ -130,18 +130,17 @@ def test_only_the_two_pass_cov_metrics_are_bonus(client, seeded_db):
     assert not any(m.get("bonus") for m in meta["pass_block"]["metrics"].values())
 
 
-def test_only_pass_cov_percent_carries_a_card_note(client, seeded_db):
+def test_pass_cov_percent_popup_text_and_no_card_note(client, seeded_db):
     meta = client.get("/api/metadata").json()
-    noted = [k for k, m in meta["pass_rush"]["metrics"].items() if m.get("card_note")]
-
-    assert noted == ["Pass Cov Percent"]
+    metrics = meta["pass_rush"]["metrics"]
 
     assert (
-        meta["pass_rush"]["metrics"]["Pass Cov Percent"]["card_note"]
-        == "drop to coverage frequency on pass plays."
+        metrics["Pass Cov Percent"]["pff_note"]
+        == "Frequency of dropping into coverage on pass plays"
     )
 
-    assert not any(m.get("card_note") for m in meta["pass_block"]["metrics"].values())
+    for cat in ("pass_rush", "pass_block"):
+        assert not any(m.get("card_note") for m in meta[cat]["metrics"].values())
 
 
 def test_pass_rush_records_carry_player_id_and_pass_cov_percent(client, seeded_db):
