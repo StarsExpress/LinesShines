@@ -1,0 +1,177 @@
+"""The preprocessing scripts take a league: where files live, the column check, the command line."""
+
+from __future__ import annotations
+import pandas as pd
+import pytest
+import config
+from config import League
+from preprocessing.front_7 import preprocess_front_7
+from preprocessing.offensive_line import preprocess_offensive_line
+from preprocessing.preprocess import main, parse_arguments, season_file_path
+
+FRONT_7_RAW = {
+    "player": ["Alex Edge"],
+    "position": ["ED"],
+    "player_game_count": [5],
+    "pass_rush_opp": [100],
+    "sacks": [2],
+    "hits": [3],
+    "total_pressures": [10],
+    "true_pass_set_pass_rush_opp": [60],
+    "true_pass_set_sacks": [1],
+    "true_pass_set_hits": [2],
+    "true_pass_set_total_pressures": [6],
+}
+
+OL_RAW = {
+    "player": ["Taylor Tackle"],
+    "position": ["T"],
+    "player_game_count": [5],
+    "non_spike_pass_block": [200],
+    "sacks_allowed": [1],
+    "hits_allowed": [2],
+    "pressures_allowed": [8],
+    "true_pass_set_non_spike_pass_block": [120],
+    "true_pass_set_sacks_allowed": [0],
+    "true_pass_set_hits_allowed": [1],
+    "true_pass_set_pressures_allowed": [5],
+}
+
+CASES = [
+    ("front_7_pass_rush", preprocess_front_7, FRONT_7_RAW),
+    ("ol_pass_block", preprocess_offensive_line, OL_RAW),
+]
+
+
+@pytest.fixture
+def league_folders(tmp_path, monkeypatch):
+    """Point both leagues at empty temporary folders."""
+    paths = {League.NFL: str(tmp_path / "nfl"), League.NCAAF: str(tmp_path / "ncaaf")}
+    monkeypatch.setattr(config, "LEAGUE_DATA_PATHS", paths)
+    monkeypatch.setattr("preprocessing.preprocess.LEAGUE_DATA_PATHS", paths)
+
+    for folder in paths.values():
+        for category, _, _ in CASES:
+            (tmp_path / folder / category).mkdir(parents=True)
+    return paths
+
+
+def test_there_are_two_leagues_named_after_their_data_folders():
+    assert [league.value for league in League] == ["nfl", "ncaaf"]
+    assert config.LEAGUE_DATA_PATHS[League.NFL] == config.NFL_DATA_PATH
+    assert config.LEAGUE_DATA_PATHS[League.NCAAF] == config.NCAAF_DATA_PATH
+
+
+def test_an_unknown_league_is_refused():
+    with pytest.raises(ValueError):
+        League("mlb")
+
+
+def test_a_season_file_sits_under_its_leagues_folder():
+    path = season_file_path(League.NCAAF, "ol_pass_block", 2026, "csv")
+
+    assert path == f"{config.NCAAF_DATA_PATH}/ol_pass_block/2026.csv"
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+@pytest.mark.parametrize("league", list(League))
+def test_the_workbook_is_written_beside_the_csv_of_the_same_league(
+    league_folders, category, preprocess, raw, league
+):
+    other = next(candidate for candidate in League if candidate != league)
+    pd.DataFrame(raw).to_csv(
+        season_file_path(league, category, 2026, "csv"), index=False
+    )
+
+    preprocess(league, 2026)
+
+    assert pd.ExcelFile(season_file_path(league, category, 2026, "xlsx")).sheet_names
+    assert not pd.io.common.file_exists(season_file_path(other, category, 2026, "xlsx"))
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+def test_a_missing_column_names_the_league_the_season_and_the_column(
+    league_folders, category, preprocess, raw
+):
+    broken = {key: value for key, value in raw.items() if key != "sacks"}
+    broken.pop("sacks_allowed", None)
+    pd.DataFrame(broken).to_csv(
+        season_file_path(League.NCAAF, category, 2025, "csv"), index=False
+    )
+
+    with pytest.raises(ValueError, match=r"ncaaf 2025.*Sacks"):
+        preprocess(League.NCAAF, 2025)
+
+    assert not pd.io.common.file_exists(
+        season_file_path(League.NCAAF, category, 2025, "xlsx")
+    )
+
+
+def test_the_command_line_needs_a_league_and_a_season():
+    with pytest.raises(SystemExit):
+        parse_arguments(["--seasons", "2026"])
+
+    with pytest.raises(SystemExit):
+        parse_arguments(["--league", "nfl"])
+
+
+def test_the_command_line_refuses_an_unknown_league():
+    with pytest.raises(SystemExit):
+        parse_arguments(["--league", "mlb", "--seasons", "2026"])
+
+
+def test_the_command_line_reads_a_league_and_one_season():
+    arguments = parse_arguments(["--league", "ncaaf", "--seasons", "2026"])
+
+    assert (arguments.league, arguments.seasons) == ("ncaaf", [2026])
+
+
+def test_the_command_line_reads_several_seasons():
+    arguments = parse_arguments(["--league", "nfl", "--seasons", "2024", "2025"])
+
+    assert arguments.seasons == [2024, 2025]
+
+
+def test_the_command_line_does_not_accept_a_shortened_flag():
+    with pytest.raises(SystemExit):
+        parse_arguments(["--league", "nfl", "--season", "2026"])
+
+
+def test_an_error_in_one_csv_is_printed_and_the_rest_still_run(monkeypatch, capsys):
+    done = []
+
+    def front_7(league, season):
+        if season == 2025:
+            raise ValueError("ncaaf 2025: the CSV lacks the columns ['PR Opp']")
+        done.append(("front_7", season))
+
+    def offensive_line(league, season):
+        done.append(("ol", season))
+
+    monkeypatch.setattr("preprocessing.front_7.preprocess_front_7", front_7)
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line", offensive_line
+    )
+
+    failures = main(["--league", "ncaaf", "--seasons", "2024", "2025", "2026"])
+
+    assert done == [
+        ("front_7", 2024),
+        ("ol", 2024),
+        ("ol", 2025),
+        ("front_7", 2026),
+        ("ol", 2026),
+    ]
+    assert len(failures) == 1
+    assert failures[0].startswith("ncaaf 2025 front_7_pass_rush:")
+    assert "FAILED ncaaf 2025 front_7_pass_rush" in capsys.readouterr().err
+
+
+def test_without_an_error_nothing_is_reported_as_failed(monkeypatch, capsys):
+    monkeypatch.setattr("preprocessing.front_7.preprocess_front_7", lambda *_: None)
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line", lambda *_: None
+    )
+
+    assert main(["--league", "nfl", "--seasons", "2026"]) == []
+    assert capsys.readouterr().err == ""

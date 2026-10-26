@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = ROOT / "tests"
 DOCS_DIR = ROOT / "playbook" / "tests"
 
-# Third line of each document is what `grep -H "Add tests here when" ...` scans.
+# 3rd line of each document is what `grep -H "Add tests here when" ...` scans.
 TRIGGER = "Add tests here when:"
 
 # Target of a Markdown link: the part in parentheses right after `]`.

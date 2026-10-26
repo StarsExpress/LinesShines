@@ -19,7 +19,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
 import pytest
 import uvicorn
 from fastapi.testclient import TestClient
-from database.db_models import Base, PassBlockStat, PassRushStat, Team
+from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
 from main import app, engine, SessionLocal
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -40,24 +40,31 @@ def client():
 def seeded_db():
     """Wipe and load a small, deterministic dataset for API-level tests."""
     with SessionLocal() as sess:
-        sess.query(PassRushStat).delete()
-        sess.query(PassBlockStat).delete()
-        sess.query(Team).delete()
+        sess.query(NFLPassRushStat).delete()
+        sess.query(NFLPassBlockStat).delete()
+        sess.query(NFLTeam).delete()
         sess.commit()
 
-        sess.add(Team(code="BUF", full_name="Buffalo Bills", primary_color="#00338D"))
-        sess.add(Team(code="MIA", full_name="Miami Dolphins", primary_color="#008E97"))
+        sess.add(
+            NFLTeam(code="BUF", full_name="Buffalo Bills", primary_color="#00338D")
+        )
+        sess.add(
+            NFLTeam(code="MIA", full_name="Miami Dolphins", primary_color="#008E97")
+        )
 
         sess.add(
-            PassRushStat(
+            NFLPassRushStat(
                 season=2025,
                 position="ED",
                 team_code="BUF",
+                player_id=1001,
                 player="T. Test",
                 abbr_name="T. Test",
                 games=17,
                 pr_opp=300,
                 tps_pr_opp=120,
+                pass_cov_percent=8.0,
+                tps_pass_cov_percent=5.0,
                 win_rate=15.0,
                 tps_win_rate=18.0,
                 pressure_rate=20.0,
@@ -73,15 +80,18 @@ def seeded_db():
         # so a no-position request has something real to aggregate.
         # See `test_pass_rush_no_position_returns_all_positions`.
         sess.add(
-            PassRushStat(
+            NFLPassRushStat(
                 season=2025,
                 position="DI",
                 team_code="BUF",
+                player_id=1002,
                 player="D. Test",
                 abbr_name="D. Test",
                 games=17,
                 pr_opp=280,
                 tps_pr_opp=110,
+                pass_cov_percent=12.0,
+                tps_pass_cov_percent=10.0,
                 win_rate=12.0,
                 tps_win_rate=14.0,
                 pressure_rate=18.0,
@@ -94,10 +104,11 @@ def seeded_db():
         )
 
         sess.add(
-            PassBlockStat(
+            NFLPassBlockStat(
                 season=2025,
                 position="T",
                 team_code="MIA",
+                player_id=2001,
                 player="O. Line",
                 abbr_name="O. Line",
                 games=17,
@@ -114,10 +125,11 @@ def seeded_db():
 
         # Second position, mirrors pass-rush DI row above.
         sess.add(
-            PassBlockStat(
+            NFLPassBlockStat(
                 season=2025,
                 position="G",
                 team_code="MIA",
+                player_id=2002,
                 player="G. Uard",
                 abbr_name="G. Uard",
                 games=17,

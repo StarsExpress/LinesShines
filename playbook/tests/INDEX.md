@@ -18,6 +18,9 @@ grep -H "Add tests here when" playbook/tests/*.md
 | How the app is assembled: mounts, `/health`, how `sw.js` and `index.html` are served | `test_app_startup.py` ([doc](TEST_APP_STARTUP.md)) | API |
 | Season-threshold routing in `config.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
+| The `nfl_*` table names, unique key, NOT NULL `player_id`, and which table has the pass-rush percent columns | `test_db_models.py` ([doc](TEST_DB_MODELS.md)) | pure Python |
+| Neutral metrics: Pass Cov Percent order, grey chip on Player/Comparison/Linemate cards, chip contrast | `test_neutral_metric.py` ([doc](TEST_NEUTRAL_METRIC.md)) | browser |
+| The league handling of the preprocessing scripts: `League`, per-league paths, the required-column check, the command line | `test_preprocessing_league.py` ([doc](TEST_PREPROCESSING_LEAGUE.md)) | pure Python |
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
 | The Comparison (Merge) Card's table: Read and Sort layouts, and how it follows the sort order | `test_merge_table.py` ([doc](TEST_MERGE_TABLE.md)) | browser |
 | How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
@@ -26,6 +29,8 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
 | Card buttons (Save, Fold, Close; the gold open-a-card buttons): size, colours, contrast | `test_card_buttons.py` ([doc](TEST_CARD_BUTTONS.md)) | CSS only |
 | Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
+| Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
+| Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |

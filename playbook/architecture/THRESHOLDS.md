@@ -29,8 +29,8 @@ whatever year the process happened to start in and drift out of sync with
 `resolve_default_threshold()`'s own fresh-per-call `date.today().year`; worse, a computed key could
 never be "missing" for the current season, silently carrying forward last season's stale eyeballed
 number instead of falling back to the static default and printing the `db_ingestion.py` reminder.
-Add a new `YYYY: {...}` entry by hand each time a new season starts (same habit as
-`preprocess_front_7()`'s hardcoded season argument) — no code change needed for the transition.
+Add a new `YYYY: {...}` entry by hand each time a new season starts — no code change needed for the
+transition.
 
 **Threshold number box's clamp ceiling only moves when the value actually needs it to** (`filters.js`'s
 `updatePendingThresholdMax()`, called from `updatePlayerPool()`, and its Apply-time twin

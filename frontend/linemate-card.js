@@ -38,6 +38,7 @@ import {
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
+import { TABLE_MODE_READ, buildPlayerTableModel, readLayout } from "./player-table-model.js";
 import { placePopup } from "./popup-position.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
@@ -164,6 +165,15 @@ function linemateDisplayRoster(entry) {
   return combined;
 }
 
+// The metrics the Line Summary covers: all of them except those flagged
+// `line_summary: false` (Pass Cov Percent). A line mixes ED and DI, and their
+// coverage shares sit in very different ranges, so a single Min/Median/Max/
+// RSWA for it would compare them unfairly. The roster table still shows each
+// player's own percentile among his position.
+function summaryMetricEntries(cat) {
+  return Object.entries(cat.metrics).filter(([, meta]) => meta.line_summary !== false);
+}
+
 // Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
 // capped roster, regardless of "See more" state (that
 // control is display-only). RSWA (Relative Snaps Weighted Average) weights
@@ -174,7 +184,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   const perPlayer = rosterRecords.map((t) => {
     const pool = positionPool(t.position);
     const percentiles = {};
-    Object.entries(cat.metrics).forEach(([key, meta]) => {
+    summaryMetricEntries(cat).forEach(([key, meta]) => {
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
       percentiles[key] = rank ? rank.percentile : null;
     });
@@ -184,7 +194,7 @@ export function computeThreeMRSWA(rosterRecords, cat) {
   const totalSnaps = perPlayer.reduce((sum, p) => sum + p.snaps, 0);
 
   const results = {};
-  Object.keys(cat.metrics).forEach((key) => {
+  summaryMetricEntries(cat).forEach(([key]) => {
     const values = perPlayer.map((p) => p.percentiles[key]).filter((v) => v != null);
     let rswa = null;
     if (totalSnaps > 0) {
@@ -324,10 +334,131 @@ function percentileFillClass(percentile) {
 // Header of the column that holds each row's "open this player's card" button.
 const PLAYER_CARD_COLUMN = "Card";
 
+// One roster cell, built the same way in both layouts. `column.kind` is one of
+// name, position, card, games, snaps or metric (player-table-model.js).
+function makeRosterCell(t, column, cat) {
+  const td = document.createElement("td");
+
+  if (column.kind === "name") {
+    td.className = "linemate-table-name";
+    td.textContent = t.abbr_name || t.player;
+  } else if (column.kind === "position") {
+    td.className = "linemate-table-position";
+    td.textContent = t.position;
+  } else if (column.kind === "card") {
+    td.className = "linemate-table-card";
+    const cardBtn = document.createElement("button");
+    cardBtn.type = "button";
+    cardBtn.className = "linemate-row-card-btn";
+    cardBtn.innerHTML = '<i class="fa-solid fa-id-card"></i>';
+    cardBtn.setAttribute("aria-label", `Open ${t.player}'s card`);
+    cardBtn.title = `Open ${t.abbr_name || t.player}'s card`;
+    cardBtn.addEventListener("click", () => {
+      if (openPlayerCard) openPlayerCard(t);
+    });
+    td.appendChild(cardBtn);
+  } else if (column.kind === "games") {
+    td.textContent = t.games ?? "—";
+  } else if (column.kind === "snaps") {
+    td.textContent = t[cat.threshold_field] ?? "—";
+  } else {
+    const key = column.key;
+    const meta = cat.metrics[key];
+    const rank = rankAndPercentile(positionPool(t.position), key, meta.higher_is_better, t[key]);
+    td.className = "linemate-metric-cell";
+    if (rank) {
+      const chip = document.createElement("span");
+      chip.className = `merge-pct-chip ${meta.neutral === true ? "merge-pct-neutral" : percentileFillClass(rank.percentile)}`;
+      chip.textContent = ordinal(rank.percentile);
+      td.appendChild(chip);
+    } else {
+      td.textContent = "—";
+    }
+    // Displayed text stays percentile-only, same as Merge Card; the exact
+    // #rank/N is still hover-only (attachAppTooltip), since the column
+    // header already labels which metric this is — nothing left for a
+    // "tooltip each percentile" disclaimer to explain.
+    attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key);
+  }
+  return td;
+}
+
+// The Read layout's per-player head cells: name, position and the "Card" button.
+const READ_IDENTITY_COLUMNS = [
+  { key: "Player", kind: "name" },
+  { key: "Position", kind: "position" },
+  { key: PLAYER_CARD_COLUMN, kind: "card" },
+];
+
+// Read layout: players as columns, metrics as rows, grouped under Metadata /
+// Required Metrics / Bonus Metrics headings like the Comparison Card's Read. The
+// head block (name, position, Card button) is pinned at the top by CSS
+// (.merge-read-frozen) while the rows scroll vertically with the card's panel;
+// the card is sized to fit this table, so nothing scrolls sideways or freezes.
+function renderLinemateReadTable(tableEl, players, cat) {
+  const metricKeys = Object.keys(cat.metrics);
+  const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
+  const model = buildPlayerTableModel(players, cat.threshold_field, metricKeys, bonusKeys, READ_IDENTITY_COLUMNS);
+  const layout = readLayout(model);
+
+  const labelCell = (column) => {
+    const th = document.createElement("th");
+    th.className = "linemate-read-label";
+    th.textContent = column.key;
+    return th;
+  };
+
+  const thead = document.createElement("thead");
+  thead.classList.add("merge-read-frozen");
+  layout.head.forEach((row) => {
+    const tr = document.createElement("tr");
+    if (row.column.kind === "card") tr.className = "linemate-read-card-row";
+    tr.appendChild(labelCell(row.column));
+    row.cells.forEach(({ player, column }) => {
+      const td = makeRosterCell(player, column, cat);
+      const th = document.createElement("th");
+      th.className = td.className;
+      while (td.firstChild) th.appendChild(td.firstChild);
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+  });
+
+  const tbody = document.createElement("tbody");
+  layout.sections.forEach((section) => {
+    const headingRow = document.createElement("tr");
+    headingRow.className = "linemate-read-section";
+    const heading = document.createElement("th");
+    heading.colSpan = 1 + players.length;
+    heading.textContent = section.title;
+    headingRow.appendChild(heading);
+    tbody.appendChild(headingRow);
+
+    section.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.appendChild(labelCell(row.column));
+      row.cells.forEach(({ player, column }) => tr.appendChild(makeRosterCell(player, column, cat)));
+      tbody.appendChild(tr);
+    });
+  });
+
+  tableEl.appendChild(thead);
+  tableEl.appendChild(tbody);
+}
+
 export function renderLinemateRoster(entry, roster, tableEl) {
   const cat = appliedCategoryMeta();
   tableEl.innerHTML = "";
   const sortedRoster = sortRows(roster, entry.rosterSort, (t) => linemateSortValue(t, entry.rosterSort.key, cat));
+  // Only an entry that asks for Read gets it; a bare { seeMore, rosterSort } (tests, older callers) is Sort.
+  const isRead = entry.mode === TABLE_MODE_READ;
+  tableEl.classList.toggle("linemate-table--read", isRead);
+  if (isRead) {
+    // Read shows every player (no "See more") and nothing sorts: the order is whatever sortRows() gave.
+    renderLinemateReadTable(tableEl, sortedRoster, cat);
+    return;
+  }
+
   const visibleCount = entry.seeMore ? sortedRoster.length : Math.min(LINEMATE_VISIBLE_DEFAULT, sortedRoster.length);
   const metricKeys = Object.keys(cat.metrics);
 
@@ -348,67 +479,21 @@ export function renderLinemateRoster(entry, roster, tableEl) {
   });
   thead.appendChild(headRow);
 
+  const columns = [
+    { key: "Player", kind: "name" },
+    { key: PLAYER_CARD_COLUMN, kind: "card" },
+    { key: "Position", kind: "position" },
+    { key: "Games", kind: "games" },
+    { key: cat.threshold_field, kind: "snaps" },
+    ...metricKeys.map((key) => ({ key, kind: "metric" })),
+  ];
   const tbody = document.createElement("tbody");
   sortedRoster.slice(0, visibleCount).forEach((t) => {
-    const pool = positionPool(t.position);
-    const tr = document.createElement("tr");
-
-    // Frozen status (both this cell and Position below) is applied after
+    // Frozen status (the Player, Card and Position cells) is applied after
     // append, by applyStickyLinemateColumns() — see the rAF call at the
     // bottom of this function.
-    const nameTd = document.createElement("td");
-    nameTd.className = "linemate-table-name";
-    nameTd.textContent = t.abbr_name || t.player;
-    tr.appendChild(nameTd);
-
-    const cardTd = document.createElement("td");
-    cardTd.className = "linemate-table-card";
-    const cardBtn = document.createElement("button");
-    cardBtn.type = "button";
-    cardBtn.className = "linemate-row-card-btn";
-    cardBtn.innerHTML = '<i class="fa-solid fa-id-card"></i>';
-    cardBtn.setAttribute("aria-label", `Open ${t.player}'s card`);
-    cardBtn.title = `Open ${t.abbr_name || t.player}'s card`;
-    cardBtn.addEventListener("click", () => {
-      if (openPlayerCard) openPlayerCard(t);
-    });
-    cardTd.appendChild(cardBtn);
-    tr.appendChild(cardTd);
-
-    const positionTd = document.createElement("td");
-    positionTd.className = "linemate-table-position";
-    positionTd.textContent = t.position;
-    tr.appendChild(positionTd);
-
-    const gamesTd = document.createElement("td");
-    gamesTd.textContent = t.games ?? "—";
-    tr.appendChild(gamesTd);
-
-    const snapsTd = document.createElement("td");
-    snapsTd.textContent = t[cat.threshold_field] ?? "—";
-    tr.appendChild(snapsTd);
-
-    metricKeys.forEach((key) => {
-      const meta = cat.metrics[key];
-      const rank = rankAndPercentile(pool, key, meta.higher_is_better, t[key]);
-      const td = document.createElement("td");
-      td.className = "linemate-metric-cell";
-      if (rank) {
-        const chip = document.createElement("span");
-        chip.className = `merge-pct-chip ${percentileFillClass(rank.percentile)}`;
-        chip.textContent = ordinal(rank.percentile);
-        td.appendChild(chip);
-      } else {
-        td.textContent = "—";
-      }
-      // Displayed text stays percentile-only, same as Merge Card; the exact
-      // #rank/N is still hover-only (attachAppTooltip), since the column
-      // header already labels which metric this is — nothing left for a
-      // "tooltip each percentile" disclaimer to explain.
-      attachAppTooltip(td, rank ? `${key}:\n#${rank.rank}/${rank.n} ${cat.positions[t.position] || t.position}` : key);
-      tr.appendChild(td);
-    });
-
+    const tr = document.createElement("tr");
+    columns.forEach((column) => tr.appendChild(makeRosterCell(t, column, cat)));
     tbody.appendChild(tr);
   });
 
@@ -471,8 +556,17 @@ export function renderLinemateCardBody(entry) {
   // "See more" back to collapsed — there's nothing left to hide, so a
   // lingering "See less" state would just be confusing.
   if (displayRoster.length <= LINEMATE_VISIBLE_DEFAULT) entry.seeMore = false;
+  const isRead = entry.mode === TABLE_MODE_READ;
+  cardEl.classList.toggle("is-read", isRead);
+  cardEl.classList.toggle("is-sort", !isRead);
+  cardEl.querySelectorAll(".merge-mode-btn").forEach((btn) => {
+    const active = btn.dataset.mode === entry.mode;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
   renderLinemateRoster(entry, displayRoster, tableEl);
-  seeMoreBtn.hidden = displayRoster.length <= LINEMATE_VISIBLE_DEFAULT;
+  // Read shows every player, so "See more" has nothing to reveal there.
+  seeMoreBtn.hidden = isRead || displayRoster.length <= LINEMATE_VISIBLE_DEFAULT;
   seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
 
   // 3M + RSWA summary, computed over every qualifying (capped) linemate —
@@ -503,7 +597,7 @@ function summarySortValue(row, label) {
 export function renderLinemateSummary(entry, roster, summaryTable) {
   const cat = appliedCategoryMeta();
   const summary = computeThreeMRSWA(roster, cat);
-  const summaryRows = Object.keys(cat.metrics).map((key) => ({ key, ...summary[key] }));
+  const summaryRows = summaryMetricEntries(cat).map(([key]) => ({ key, ...summary[key] }));
   const sortedRows = sortRows(summaryRows, entry.summarySort, (row) => summarySortValue(row, entry.summarySort.key));
 
   summaryTable.innerHTML = "";
@@ -595,6 +689,12 @@ export function retargetLinemateCard(entry, anchorRecord) {
   setLinemateCardIdentity(entry.el, anchorRecord);
 }
 
+const MODE_SWITCH_HELP = [
+  "Read: players as columns and metrics as rows. No sorting in this mode.",
+  "Sort: players as rows and metrics as columns. Click a column header to order players by that metric.",
+  "Only the Individual table switches; the Line Summary stays as it is.",
+];
+
 export function openLinemateCard(anchorRecord) {
   const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
 
@@ -622,6 +722,9 @@ export function openLinemateCard(anchorRecord) {
     el: cardEl,
     folded: false,
     seeMore: false,
+    // The Individual table's layout (player-table-model.js): Read by default, kept across
+    // refreshes, fold/unfold and "Include anchor" like the sort state is.
+    mode: TABLE_MODE_READ,
     includeAnchor: false,
     // Excel-style click-to-sort state for the roster and Line Summary
     // tables (table-sort.js) — independent of each other and of seeMore,
@@ -649,6 +752,21 @@ export function openLinemateCard(anchorRecord) {
     entry.includeAnchor = anchorToggle.checked;
     renderLinemateCardBody(entry);
   });
+
+  // The Read | Sort switch on the "Individual" heading, and the (i) saying what it covers.
+  const modeSwitch = cardEl.querySelector(".merge-mode-switch");
+  modeSwitch
+    .querySelector(".merge-mode-info")
+    .appendChild(
+      createInfoPopover({ bullets: MODE_SWITCH_HELP }, { ariaLabel: MODE_SWITCH_HELP.join(" "), label: "ⓘ" })
+    );
+  modeSwitch.querySelectorAll(".merge-mode-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      if (entry.mode === btn.dataset.mode) return;
+      entry.mode = btn.dataset.mode;
+      renderLinemateCardBody(entry);
+    })
+  );
 
   renderLinemateCardBody(entry);
 
@@ -688,33 +806,24 @@ export function openLinemateCard(anchorRecord) {
     // currently showing (anchor included or not, per the "Include anchor
     // player" checkbox) — so the export always shows the full capped
     // roster, unfolded, exactly matching whatever's on screen.
+    // The export is always the Read layout, whichever mode is on screen: the Sort layout is too
+    // wide to share. Re-renders the off-screen CLONE only (the card on screen is never touched),
+    // carries the card's current sort order along, and returns true so the export re-fits the clone
+    // to its new size (see exportCardPng()).
     (clone) => {
       const cloneTableEl = clone.querySelector(".linemate-table");
-      // Carries the live card's current sort along into the export (its own
-      // { key, dir } object, not a fresh one) rather than resetting it — the
-      // export should look exactly like what's on screen, just unfolded.
+      clone.classList.add("is-read");
+      clone.classList.remove("is-sort");
       if (cloneTableEl) {
         renderLinemateRoster(
-          { seeMore: true, rosterSort: entry.rosterSort },
+          { mode: TABLE_MODE_READ, seeMore: true, rosterSort: entry.rosterSort },
           linemateDisplayRoster(entry),
           cloneTableEl
         );
-        // renderLinemateRoster() wipes and rebuilds every cell, which re-adds
-        // .linemate-table-frozen (position:sticky) via applyStickyLinemateColumns()
-        // — undoing buildExportClone()'s static-position fix, which only ever
-        // touched the pre-rebuild cells it can no longer see. Re-apply it here
-        // to the freshly built ones, or the Player/Position columns drift to
-        // the row's right edge in the exported PNG (same failure mode
-        // buildExportClone's own fix exists to prevent).
-        cloneTableEl.querySelectorAll(".linemate-table-frozen").forEach((cell) => {
-          cell.style.position = "static";
-          cell.style.left = "";
-        });
-        // The "Card" buttons do nothing in a picture, so the whole column is dropped from the export.
-        cloneTableEl
-          .querySelectorAll(".linemate-table-card, .linemate-table-card-head")
-          .forEach((cell) => cell.remove());
+        // The "Card" buttons do nothing in a picture, so their row is left out of the export.
+        cloneTableEl.querySelectorAll(".linemate-read-card-row").forEach((row) => row.remove());
       }
+      return true;
     },
     () => (els.metricNotesToggle.checked ? categoryAppendixNotes(appliedCategoryMeta(), metadata.tps_note) : [])
   );
