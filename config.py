@@ -2,12 +2,28 @@
 
 import os
 from datetime import date
+from enum import Enum
 
 NFL_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER_PATH = os.path.join(NFL_BASE_PATH, "data")
-# NFL files live in their own subfolder: data/nfl/{front_7_pass_rush,ol_pass_block}/.
-# DATA_FOLDER_PATH stays the root of all data (the college side gets data/ncaaf/).
+# Each league keeps its files in its own subfolder:
+# data/{nfl,ncaaf}/{front_7_pass_rush,ol_pass_block}/.
+# DATA_FOLDER_PATH stays the root of all data.
 NFL_DATA_PATH = os.path.join(DATA_FOLDER_PATH, "nfl")
+NCAAF_DATA_PATH = os.path.join(DATA_FOLDER_PATH, "ncaaf")
+
+
+class League(str, Enum):
+    """The leagues the data pipeline knows. The value is the data folder name."""
+
+    NFL = "nfl"
+    NCAAF = "ncaaf"
+
+
+LEAGUE_DATA_PATHS: dict[League, str] = {
+    League.NFL: NFL_DATA_PATH,
+    League.NCAAF: NCAAF_DATA_PATH,
+}
 
 
 ROUNDING_DECIMALS = 3  # Better precision alleviates overlaps in plots.
@@ -58,8 +74,8 @@ DEFAULT_THRESHOLDS: dict[str, int] = {
 # Key, which means current season, must be "renamed" when a new season comes.
 DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 80,  # Min PR Opp for pass rush filter.
-        "pass_block": 100,  # Min Non Spike PB Snaps for pass block filter.
+        "pass_rush": 95,  # Min PR Opp for pass rush filter.
+        "pass_block": 105,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
 

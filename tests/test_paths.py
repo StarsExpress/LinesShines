@@ -26,6 +26,10 @@ def test_nfl_data_path_is_the_nfl_subfolder_of_the_data_folder():
     assert config.NFL_DATA_PATH == str(REPO_ROOT / "data" / "nfl")
 
 
+def test_ncaaf_data_path_is_the_ncaaf_subfolder_of_the_data_folder():
+    assert config.NCAAF_DATA_PATH == str(REPO_ROOT / "data" / "ncaaf")
+
+
 def test_no_legacy_flat_data_files():
     """Catches regression back to the old `{season} NFL ....csv` flat files."""
     legacy = list(Path(config.DATA_FOLDER_PATH).glob("* NFL *"))

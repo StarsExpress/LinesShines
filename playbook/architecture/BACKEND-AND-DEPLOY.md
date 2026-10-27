@@ -10,10 +10,11 @@
 1. `data/nfl/front_7_pass_rush/{season}.csv` and `data/nfl/ol_pass_block/{season}.csv` are raw PFF exports
    (one row per player-season).
 
-2. `preprocessing/front_7.py` and `preprocessing/offensive_line.py` each read the season CSV,
+2. `preprocessing/preprocess.py --league nfl --seasons {season ...}` (both required) calls
+   `preprocessing/front_7.py` and `preprocessing/offensive_line.py`, which each read the season CSV,
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
    metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants), split by position
-   into separate sheets, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`).
+   into separate sheets, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
 
 3. `database/db_ingestion.py` reads those xlsx workbooks and upserts rows into `nfl_pass_rush_stats` /
    `nfl_pass_block_stats`. Every row carries PFF's `player_id` (NOT NULL; a null Player Id or a missing required column raises `ValueError`), and the unique key is `(season, position, player_id)`. It's idempotent by deleting all rows for a given `(season, position)` slice
