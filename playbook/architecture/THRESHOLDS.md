@@ -39,14 +39,14 @@ derived from `value`/`max`, so reassigning `.max` visibly moves the handle even 
 untouched — the driving rule behind every case below is "never reassign `.max` unless `.value` is
 also genuinely changing." `updatePendingThresholdMax()` checks two triggers, in priority order:
 
-1. **`resetThresholdOnNextRange` is still `true`** — a Category switch or an ongoing→historical Season
-   switch is pending. A Category switch (`main.js`'s category `"change"` handler) still calls
+1. **`resetThresholdOnNextRange` is still `true`** — a Category switch or an ongoing↔historical Season
+   switch (either direction) is pending. A Category switch (`main.js`'s category `"change"` handler) still calls
    `resetThresholdToCategoryDefault()` synchronously first, for instant feedback — leaving the
    outgoing category's number on screen, even briefly, is actively misleading since the two
    categories' threshold fields are entirely different units (PR Opp vs Non Spike PB Snaps). That
    function can only grow `.max` just far enough to fit the new default off whatever pending data
    happens to already be on hand (the *outgoing* slice's, not the incoming one's real numbers) — a
-   rough placeholder, corrected here once real data lands. A Season switch crossing ongoing→historical
+   rough placeholder, corrected here once real data lands. A Season switch crossing ongoing↔historical
    has no such units mismatch, so it *skips* that synchronous call entirely (only sets the flag) and
    leaves both `.value` and `.max` untouched until this function runs with real fetched data. Either
    way, this branch applies the real default + real max together, atomically, in one write, the moment
@@ -64,6 +64,12 @@ also genuinely changing." `updatePendingThresholdMax()` checks two triggers, in 
    number box to whatever snap count the in-progress season happened to have racked up by that week (a
    moving, arbitrary target), instead of the number actually configured as sensible for it via
    `DYNAMIC_THRESHOLDS`/`DEFAULT_THRESHOLDS`.
+
+The "reset pending" trigger covers both directions on purpose (`seasonSwitchChangesThresholdDefault()` in
+`data.js`, true when the two seasons carry different `default_thresholds`). Going from a finalized season
+back to the ongoing one used to rely on trigger 2 alone: the historical 230/300 only fell back to the
+dynamic default while the ongoing season's pool max stayed below it. Once enough weeks were played (2026
+Week 7: ED 256, DI 244, OL 304) the old value fit again and the threshold stayed put.
 
 Neither trigger fires for a no-op swap (e.g. one historical season to another, sharing
 `DEFAULT_THRESHOLDS`' one static value) — the very first version of this function recomputed `.max`
