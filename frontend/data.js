@@ -11,7 +11,7 @@
  */
 import { els } from "./dom.js";
 
-export const LOGO_PATH = (team) => `logos/${team}.png`;
+export const LOGO_PATH = (team) => `logos/nfl/${team}.png`;
 
 export let metadata = null; // /api/metadata payload
 export const sliceCache = new Map(); // key = `${category}:${season}:${position}` → records[]
@@ -47,7 +47,7 @@ export let playerPoolCategory = null;
 export let appliedFilters = null;
 
 // Decoded Image objects, keyed by team code, filled once at page load so
-// filter changes never wait on the browser to re-resolve/decode /logos/*.png
+// filter changes never wait on the browser to re-resolve/decode /logos/nfl/*.png
 // again — layout.images and the scout card both just point at these.
 export const logoCache = {};
 

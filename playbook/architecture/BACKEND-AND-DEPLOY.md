@@ -41,7 +41,7 @@
    query param — omitted, it returns every position in the category in one response, filtered,
    it keeps the old single-position behavior), `/health`. It also mounts `frontend/` as static
    files (mounted *last* so `/api/*` routes take precedence) and `frontend/images/team_logos/`
-   under `/logos/`. `index.html` is served through a small handler that replaces `{{VERSION}}`
+   under `/logos/` (NFL logos at `/logos/nfl/{team code}.png`, NCAAF logos at `/logos/ncaaf/{franchise_id}.png`). `index.html` is served through a small handler that replaces `{{VERSION}}`
    with the Railway commit SHA for cache-busting on deploy.
 
 **Team codes** follow PFF's spellings (e.g. `ARZ`, `BLT`, `CLV`, `HST`, not the more common

@@ -8,7 +8,7 @@ which was the case in earlier static-JSON version).
 
 # Team code → (full name, primary brand color hex).
 # Codes match abbreviations used by LinesShines repo's PFF
-# exports and /logos/ folder (e.g. ARZ, BLT, CLV, HST — PFF's spellings).
+# exports and /logos/nfl/ folder (e.g. ARZ, BLT, CLV, HST — PFF's spellings).
 TEAMS: dict[str, tuple[str, str]] = {
     "ARZ": ("Arizona Cardinals", "#97233F"),
     "ATL": ("Atlanta Falcons", "#A71930"),
