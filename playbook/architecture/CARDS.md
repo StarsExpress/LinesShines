@@ -58,11 +58,12 @@ member row, keyed by anchor so the same toggle re-fires as a close — this is w
 recursion guard (a Linemate Card renders no linemate toggle of its own) trivial rather than
 enforced. Roster = same team/season/category, **including same-position linemates**
 (`LINEMATE_POSITIONS`), excluding the anchor, filtered to the applied snap threshold, sorted by
-snap count descending and capped per category (`LINEMATE_CAP`: 5 for OL, 7 for DL) — dropping the
-lowest first, no positional reservation. First 5 show by default; a "See more" control (DL-only in
-practice, since the OL cap is 5) reveals the rest, and resets to collapsed on fold→unfold. The
+snap count descending. **There is no roster cap and no "See more"**: the snap threshold is the only
+gate, and every qualifying linemate is on the card. When the roster reaches
+`LINEMATE_SIZE_REMINDER_AT` (OL 6, DL 8 players; the old cap numbers, used only as the trigger), a
+reminder bullet says a higher threshold keeps the card compact (left out of the PNG). The
 summary block (Min/Median/RSWA/Max per metric, in that column order; metrics flagged `line_summary: false` — Pass Cov Percent and its TPS twin, whose ED and DI ranges differ too much for one line-wide number — are left out) is always computed over the
-**full capped roster**, regardless of "See more" state — RSWA (Relative Snaps Weighted Average)
+**full roster on the card** — RSWA (Relative Snaps Weighted Average)
 weights each linemate's percentile by his own share of the roster's total snaps
 (`weight[t] = snaps[t] / sum(snaps)`), so a linemate who played more counts
 for more of the summary. **Deliberately uses each linemate's raw, uncapped snap count** — an earlier
@@ -78,7 +79,7 @@ click a header to sort ascending, click again to flip, click a different header 
 ascending on that column (`table-sort.js`'s `toggleSortState()`/`sortRows()`/
 `makeSortableHeader()`) — except a Merge Card's Linemates column, which holds a button, not data.
 Sort state (`{ key, dir }`) lives on the card's own entry and survives re-renders (a snap-threshold
-refresh, a roster "See more" toggle) but resets on card close; `null`/`undefined` values always
+refresh) but resets on card close; `null`/`undefined` values always
 sort last regardless of direction, so a metric with no qualifying pool doesn't scatter through a
 ranked column. Both `table-sort.js` and `info-popover.js` are dependency-free leaves specifically
 so `linemate-card.js` can import them without acquiring a dependency on `merge-card.js` (or vice
@@ -87,19 +88,19 @@ versa) — see item 6 above.
 **"Include {player} into tables" toggle** (`entry.includeAnchor`, default off,
 `linemateDisplayRoster()`): a checkbox on every Linemate Card that folds the anchor's own row into
 the roster table and the Line Summary, turning the card into a full starting-lineup view rather than
-just teammates. `computeLinemateRoster()` itself never sees the anchor — the OL/DL cap and the
+just teammates. `computeLinemateRoster()` itself never sees the anchor — the
 threshold-qualifying roster-size note (`"N linemates with ≥ X ..."`) stay teammates-only and
 unaffected either way. `linemateDisplayRoster()` inserts the anchor into his rank position by the
 category's `threshold_field` (the same field `entry.roster` is already sorted descending by), not a
 fixed prepend — so toggling on reads as one snap-ranked line, anchor included, rather than the
 anchor pinned to a slot regardless of his own snap count; a header click still re-sorts everyone
-same as before. Every render call site (roster table, Line Summary, "See more", fold/unfold,
+same as before. Every render call site (roster table, Line Summary, fold/unfold,
 PNG export's `prepareClone`) reads through this one helper instead of `entry.roster` directly, so
 toggling always reflects consistently everywhere with no special-casing per call site — PNG export
 in particular needs zero toggle-awareness of its own, it just captures whatever
 `linemateDisplayRoster()` currently returns. Title swaps to `"{player} & His Linemates"` when on;
 rows carry no visual distinction between anchor and teammates, the title alone frames it as one
-group. Persists across a threshold-only refresh the same way `seeMore`/`rosterSort` do; a
+group. Persists across a threshold-only refresh the same way `rosterSort` does; a
 season/category/position change dissolves the card outright as usual.
 
 **Design rationale for Merge Cards and Linemate Cards**
@@ -109,9 +110,9 @@ season/category/position change dissolves the card outright as usual.
 - **Quota.** The 8-player quota governs analytical complexity; Fold/Unfold governs screen space. That is why Linemate Cards do not count
   against the quota.
 - **One linemate toggle per merged member**, even when two members are linemates of each other. Never dedupe by team.
-- **Why the caps are 5 and 7.** OL 5 is the other four starters plus one backup. DL 7, together with the anchor, is two 4-man rush packages.
-  When more players qualify than slots exist, drop the lowest snap counts first and do not reserve slots by position: a 4-man rush is not
-  required to be two interior plus two edge, and more snaps mean more genuine opportunity to have shared the field with the anchor.
+- **Why there is no cap.** The cap (OL 5, DL 7) was set when the table was Sort-only and a long list was costly. Read mode with sideways
+  scrolling and a widened PNG removed that cost, and a user who lowers the threshold chooses the longer card. The reminder is the only nudge.
+  It triggers on roster size, not threshold value, because the threshold scales differ between categories and seasons.
 - **Summary block meaning.** Min is the unit's floor (its weakest link), Median its water level, RSWA the effectively experienced centre,
   and Max its ceiling (its anchor). All four carry equal weight and are identical for OL and DL; the point is the full picture, so no single
   statistic is favoured per line.
@@ -165,5 +166,5 @@ The Player Card reads top to bottom as: the Linemates button (header, outside th
 
 ## Linemate Card: Read and Sort for the Individual table
 
-The "Individual" table has the Comparison Card's Read | Sort switch, right-aligned on its heading row (reusing the `.merge-mode-*` buttons; its (i) says only this table switches, the Line Summary does not). `entry.mode` defaults to Read and survives refreshes, fold/unfold and "Include anchor". **Sort** is the original table (players as rows, frozen Player/Card/Position columns, click-to-sort, "See more" over the first five). **Read** (`renderLinemateReadTable()`) puts players in columns under a pinned three-row head (name, position, Card button), with the rows grouped under Metadata / Required Metrics / Bonus Metrics headings (`.linemate-read-section`) like the Comparison Card. Differences from the Comparison Card: player columns are 76px (it uses 114px) so 8 players fit (the card fits its table: at least 420px, at most 760px = 104px labels + 8 x 76px + 36px of padding; spare width goes to the player columns, the label column stays 104px; the Line Summary and the notes are taken out of the width calculation, because the fixed-layout summary table would otherwise make the card as wide as its maximum), and "See more" is hidden because Read shows every player. Cells are built by `makeRosterCell()` for both layouts. The PNG export is always Read, re-rendered in the clone with the current sort order and without the Card row; the switch and the scroll hints (`.linemate-card-scroll-hint`) are left out of the PNG.
+The "Individual" table has the Comparison Card's Read | Sort switch, right-aligned on its heading row (reusing the `.merge-mode-*` buttons; its (i) says only this table switches, the Line Summary does not). `entry.mode` defaults to Read and survives refreshes, fold/unfold and "Include anchor". **Sort** is the original table (players as rows, frozen Player/Card/Position columns, click-to-sort, every player). **Read** (`renderLinemateReadTable()`) puts players in columns under a pinned three-row head (name, position, Card button), with the rows grouped under Metadata / Required Metrics / Bonus Metrics headings (`.linemate-read-section`) like the Comparison Card. Differences from the Comparison Card: player columns are 76px (it uses 114px) so 8 players fit (the card fits its table: at least 420px, at most 760px = 104px labels + 8 x 76px + 36px of padding; beyond that the card stays 760px, gets `is-wide` from `updateLinemateReadOverflow()`, and the table scrolls sideways inside a wrap with `max-height: 70vh`, a sticky label column and a "Please scroll right for more players." hint; spare width goes to the player columns, the label column stays 104px; the Line Summary and the notes are taken out of the width calculation, because the fixed-layout summary table would otherwise make the card as wide as its maximum), and Read shows every player. Cells are built by `makeRosterCell()` for both layouts. The PNG export is always Read, re-rendered in the clone with the current sort order and without the Card row; the switch, the scroll hints and the size reminder are left out of the PNG, and `card-export.js` un-clips the scroller, makes the sticky cells static and widens the clone to the table's full width, so the image shows every column with no scrollbar.
 
