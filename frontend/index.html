@@ -577,6 +577,7 @@
                   </label>
                   <ul class="linemate-card-note-list">
                     <li class="linemate-card-note linemate-card-roster-note"></li>
+                    <li class="linemate-card-note linemate-card-size-reminder" hidden></li>
                     <!-- Same scroll cue as Merge Card's .merge-card-scroll-hint — the
                      roster table's frozen Player/Position columns (see
                      .linemate-table-frozen in style.css) make the horizontal
@@ -585,6 +586,9 @@
                      on mobile too. -->
                     <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--read">
                       Please scroll down for more metrics.
+                    </li>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--read-wide">
+                      Please scroll right for more players.
                     </li>
                     <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--sort">
                       Please scroll right for more metrics.
@@ -605,7 +609,6 @@
                 <div class="linemate-table-wrap">
                   <table class="linemate-table"></table>
                 </div>
-                <button type="button" class="linemate-see-more" hidden>See more</button>
                 <div class="linemate-summary-wrap">
                   <h4 class="scout-section-title">Line Summary</h4>
                   <table class="linemate-summary-table"></table>

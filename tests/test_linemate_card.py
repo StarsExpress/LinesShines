@@ -47,7 +47,7 @@ async () => {
   const table = document.createElement('table');
   table.className = 'linemate-table';
   document.body.appendChild(table);
-  l.renderLinemateRoster({ seeMore: true, rosterSort: { key: null, dir: 'asc' } }, records, table);
+  l.renderLinemateRoster({ rosterSort: { key: null, dir: 'asc' } }, records, table);
 
   const label = (th) => (th.querySelector('span') ? th.querySelector('span').textContent : th.textContent).trim();
   const heads = [...table.querySelectorAll('thead th')];
@@ -84,7 +84,7 @@ async () => {
   const table = document.createElement('table');
   table.className = 'linemate-table';
   document.body.appendChild(table);
-  l.renderLinemateRoster({ seeMore: true, rosterSort: { key: null, dir: 'asc' } }, [record], table);
+  l.renderLinemateRoster({ rosterSort: { key: null, dir: 'asc' } }, [record], table);
   l.setPlayerCardOpener(s.viewFloatingCard);
 
   const button = table.querySelector('.linemate-row-card-btn');
@@ -208,7 +208,7 @@ READ_TABLE_JS = "async ([category, count]) => {" + LINE_SETUP_JS + """
   const table = document.createElement('table');
   table.className = 'linemate-table';
   document.body.appendChild(table);
-  l.renderLinemateRoster({ mode: 'read', seeMore: false, rosterSort: { key: null, dir: 'asc' } }, records, table);
+  l.renderLinemateRoster({ mode: 'read', rosterSort: { key: null, dir: 'asc' } }, records, table);
   const text = (c) => c.textContent.replace(/[▲▼]/g, '').trim();
   const out = {
     isRead: table.classList.contains('linemate-table--read'),
@@ -271,13 +271,12 @@ CARD_MODE_JS = (
   const dom = await import('/dom.js');
   const card = dom.els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
   const entry = {
-    anchorRecord: records[0], roster: [], el: card, seeMore: false, mode: 'read', includeAnchor: false,
+    anchorRecord: records[0], roster: [], el: card, mode: 'read', includeAnchor: false,
     rosterSort: { key: null, dir: 'asc' }, summarySort: { key: null, dir: 'asc' },
   };
   const snapshot = () => ({
     isRead: card.classList.contains('is-read'),
     isSort: card.classList.contains('is-sort'),
-    seeMoreHidden: card.querySelector('.linemate-see-more').hidden,
     tableIsRead: card.querySelector('.linemate-table').classList.contains('linemate-table--read'),
     active: [...card.querySelectorAll('.merge-mode-btn.is-active')].map((b) => b.dataset.mode),
     summaryRows: [...card.querySelectorAll('.linemate-summary-table tbody tr')].map((tr) => tr.firstElementChild.textContent),
@@ -291,20 +290,119 @@ CARD_MODE_JS = (
 )
 
 
-def test_the_card_reads_by_default_hides_see_more_there_and_keeps_the_summary(page):
+def test_the_card_reads_by_default_and_keeps_the_summary_in_both_modes(page):
     out = page.evaluate(CARD_MODE_JS)
 
     assert out["read"]["isRead"] and not out["read"]["isSort"]
     assert out["read"]["tableIsRead"] and out["read"]["active"] == ["read"]
-    assert out["read"]["seeMoreHidden"]  # Read shows every player.
 
     assert out["sort"]["isSort"] and not out["sort"]["isRead"]
     assert not out["sort"]["tableIsRead"] and out["sort"]["active"] == ["sort"]
-    assert not out["sort"][
-        "seeMoreHidden"
-    ]  # Seven teammates: more than the default five.
 
     # The Line Summary does not depend on the mode (and leaves out Pass Cov Percent).
     assert out["read"]["summaryRows"] == out["sort"]["summaryRows"]
     assert "Win Rate" in out["read"]["summaryRows"]
     assert "Pass Cov Percent" not in out["read"]["summaryRows"]
+
+
+# --- No roster cap: the threshold is the only gate -------------------------------------------------
+
+# Opens a real card body for the first synthetic player and reports what it shows. The card is
+# attached to the page at fixed position so the browser lays it out and the width can be measured.
+OPEN_CARD_JS = "async ([category, count, mode]) => {" + LINE_SETUP_JS + """
+  const l = await import('/linemate-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
+  card.style.position = 'fixed';
+  card.style.top = '0';
+  card.style.left = '0';
+  document.body.appendChild(card);
+  const entry = {
+    anchorRecord: records[0], roster: [], el: card, mode, includeAnchor: false,
+    rosterSort: { key: null, dir: 'asc' }, summarySort: { key: null, dir: 'asc' },
+  };
+  l.renderLinemateCardBody(entry);
+  l.updateLinemateReadOverflow(card);
+  const reminder = card.querySelector('.linemate-card-size-reminder');
+  const hint = card.querySelector('.linemate-card-scroll-hint--read-wide');
+  const wrap = card.querySelector('.linemate-table-wrap');
+  const label = card.querySelector('.linemate-read-label');
+  const out = {
+    rosterSize: l.computeLinemateRoster(records[0]).length,
+    sortRows: card.querySelectorAll('.linemate-table tbody tr').length,
+    readColumns: card.querySelectorAll('.linemate-table thead tr:first-child th:not(.linemate-read-label)').length,
+    reminderHidden: reminder.hidden,
+    reminderText: reminder.textContent,
+    isWide: card.classList.contains('is-wide'),
+    hintDisplay: getComputedStyle(hint).display,
+    wrapOverflowX: getComputedStyle(wrap).overflowX,
+    labelPosition: label ? getComputedStyle(label).position : null,
+    summaryRows: card.querySelectorAll('.linemate-summary-table tbody tr').length,
+  };
+  card.remove();
+  return out;
+}"""
+
+
+@pytest.mark.parametrize("category, count", [("pass_rush", 12), ("pass_block", 9)])
+def test_the_roster_has_every_player_above_the_threshold(page, category, count):
+    out = page.evaluate(OPEN_CARD_JS, [category, count, "sort"])
+
+    # Everyone but the anchor, however many there are: the old cap was 7 for DL and 5 for OL.
+    assert out["rosterSize"] == count - 1
+    assert out["sortRows"] == count - 1
+
+
+def test_sort_has_no_see_more_button():
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    css = (FRONTEND / "style.css").read_text(encoding="utf-8")
+    script = (FRONTEND / "linemate-card.js").read_text(encoding="utf-8")
+
+    assert "linemate-see-more" not in html + css + script
+    assert "seeMore" not in script
+    assert "slice(0, cap)" not in script
+
+
+@pytest.mark.parametrize(
+    "category, count, shown",
+    [
+        ("pass_rush", 8, False),  # 7 linemates: the old DL cap, still fine.
+        ("pass_rush", 9, True),
+        ("pass_block", 6, False),  # 5 linemates: the old OL cap, still fine.
+        ("pass_block", 7, True),
+    ],
+)
+def test_the_card_asks_for_a_higher_threshold_only_above_the_old_cap(
+    page, category, count, shown
+):
+    out = page.evaluate(OPEN_CARD_JS, [category, count, "read"])
+
+    assert out["reminderHidden"] is (not shown)
+
+    if shown:
+        assert f"{count - 1} linemates qualify" in out["reminderText"]
+        assert "higher threshold" in out["reminderText"]
+
+
+def test_read_scrolls_sideways_with_a_frozen_label_column_when_players_overflow(page):
+    wide = page.evaluate(OPEN_CARD_JS, ["pass_rush", 16, "read"])
+
+    assert wide["readColumns"] == 15  # 16 players, the anchor is not a linemate.
+    assert wide["isWide"] is True
+    assert wide["hintDisplay"] == "list-item"  # "Please scroll right for more players."
+    assert wide["wrapOverflowX"] == "auto"
+    assert wide["labelPosition"] == "sticky"
+
+
+def test_read_does_not_scroll_when_every_player_fits(page):
+    narrow = page.evaluate(OPEN_CARD_JS, ["pass_rush", 4, "read"])
+
+    assert narrow["isWide"] is False
+    assert narrow["hintDisplay"] == "none"
+    assert narrow["wrapOverflowX"] == "visible"
+
+
+def test_the_line_summary_covers_every_player_on_the_card(page):
+    out = page.evaluate(OPEN_CARD_JS, ["pass_rush", 12, "read"])
+
+    assert out["summaryRows"] > 0

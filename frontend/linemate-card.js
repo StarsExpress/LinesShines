@@ -22,7 +22,7 @@ import {
   teamName,
   metadata,
 } from "./data.js";
-import { LINEMATE_POSITIONS, LINEMATE_CAP, LINEMATE_VISIBLE_DEFAULT } from "./config.js";
+import { LINEMATE_POSITIONS, LINEMATE_SIZE_REMINDER_AT } from "./config.js";
 import {
   ordinal,
   nextCardId,
@@ -48,11 +48,11 @@ import { sortRows, makeSortableHeader } from "./table-sort.js";
 // trivial: a Linemate Card never renders a linemate
 // toggle of its own, so there's no second layer of anchors to key around.
 // Entry: { id, origin:'linemate', anchorKey, anchorRecord, roster, el,
-// folded, seeMore, includeAnchor }. anchorRecord/roster are read and
+// folded, includeAnchor }. anchorRecord/roster are read and
 // overwritten by renderLinemateCardBody() on every open/refresh — see
 // refreshOpenLinemateCards(). includeAnchor (default false, toggled by the
 // card's own "Include anchor player" checkbox) persists across a refresh the
-// same way seeMore/rosterSort/summarySort do — renderLinemateCardBody()
+// same way rosterSort/summarySort do — renderLinemateCardBody()
 // only ever reads it, never resets it.
 export const linemateCards = new Map();
 
@@ -112,8 +112,8 @@ export function attachAppTooltip(el, text) {
 // including same-position linemates,
 // excluding the anchor himself and anyone below the applied snap threshold,
 // then sorts by snap count (the category's threshold_field, the only volume
-// stat available per player) descending and caps at the category's limit —
-// dropping the lowest first, no positional reservation.
+// stat available per player) descending. No size limit: the threshold is the
+// only gate, and every qualifying player is on the card.
 export function computeLinemateRoster(anchorRecord) {
   const cat = appliedCategoryMeta();
   const positions = LINEMATE_POSITIONS[appliedFilters.category];
@@ -127,10 +127,7 @@ export function computeLinemateRoster(anchorRecord) {
       r[cat.threshold_field] >= threshold
   );
 
-  const sorted = qualifying.slice().sort((a, b) => b[cat.threshold_field] - a[cat.threshold_field]);
-  const cap = LINEMATE_CAP[appliedFilters.category];
-
-  return sorted.slice(0, cap);
+  return qualifying.slice().sort((a, b) => b[cat.threshold_field] - a[cat.threshold_field]);
 }
 
 // Rows actually shown/summarized — computeLinemateRoster()'s cap/threshold
@@ -174,9 +171,8 @@ function summaryMetricEntries(cat) {
   return Object.entries(cat.metrics).filter(([, meta]) => meta.line_summary !== false);
 }
 
-// Min/Median/RSWA/Max per metric over `rosterRecords` — always the full
-// capped roster, regardless of "See more" state (that
-// control is display-only). RSWA (Relative Snaps Weighted Average) weights
+// Min/Median/RSWA/Max per metric over `rosterRecords` — every player on the
+// card. RSWA (Relative Snaps Weighted Average) weights
 // each linemate's percentile by his own share of the roster's total snaps —
 // weight[t] = snaps[t] / sum(snaps) — so a linemate who played more snaps alongside the anchor's unit
 // counts for more of the summary.
@@ -317,10 +313,9 @@ function percentileFillClass(percentile) {
   return "merge-pct-violet";
 }
 
-// Renders the visible slice of the roster (first 5 by snap count, or all of
-// it once "See more" is toggled — the DEFAULT order and cap; sorting via a
-// header click, see sortRows()/makeSortableHeader() below, reorders the same
-// capped roster for display, it never re-qualifies/re-caps who's on it) into
+// Renders the whole roster (the DEFAULT order is snap count descending; sorting
+// via a header click, see sortRows()/makeSortableHeader() below, reorders the
+// same roster for display, it never changes who's on it) into
 // tableEl as a DataFrame-style table — same column style/order as Merge
 // Card's (renderMergeCardBody() in merge-card.js), minus the NFL Team column
 // (redundant here — every roster row already shares the anchor's team by
@@ -450,16 +445,15 @@ export function renderLinemateRoster(entry, roster, tableEl) {
   const cat = appliedCategoryMeta();
   tableEl.innerHTML = "";
   const sortedRoster = sortRows(roster, entry.rosterSort, (t) => linemateSortValue(t, entry.rosterSort.key, cat));
-  // Only an entry that asks for Read gets it; a bare { seeMore, rosterSort } (tests, older callers) is Sort.
+  // Only an entry that asks for Read gets it; a bare { rosterSort } (tests, older callers) is Sort.
   const isRead = entry.mode === TABLE_MODE_READ;
   tableEl.classList.toggle("linemate-table--read", isRead);
   if (isRead) {
-    // Read shows every player (no "See more") and nothing sorts: the order is whatever sortRows() gave.
+    // Nothing sorts in Read: the order is whatever sortRows() gave.
     renderLinemateReadTable(tableEl, sortedRoster, cat);
     return;
   }
 
-  const visibleCount = entry.seeMore ? sortedRoster.length : Math.min(LINEMATE_VISIBLE_DEFAULT, sortedRoster.length);
   const metricKeys = Object.keys(cat.metrics);
 
   const thead = document.createElement("thead");
@@ -488,7 +482,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
     ...metricKeys.map((key) => ({ key, kind: "metric" })),
   ];
   const tbody = document.createElement("tbody");
-  sortedRoster.slice(0, visibleCount).forEach((t) => {
+  sortedRoster.forEach((t) => {
     // Frozen status (the Player, Card and Position cells) is applied after
     // append, by applyStickyLinemateColumns() — see the rAF call at the
     // bottom of this function.
@@ -503,8 +497,8 @@ export function renderLinemateRoster(entry, roster, tableEl) {
   // On first build (openLinemateCard() calls this before appending cardEl to
   // the DOM), tableEl isn't connected yet — column widths aren't measurable
   // until a frame after that append lands, same reasoning as Merge Card's
-  // own deferred applyStickyMetaColumns() call. Every other caller (See
-  // more/unfold refreshes, and card-export.js's prepareClone rebuilding this
+  // own deferred applyStickyMetaColumns() call. Every other caller (refreshes,
+  // and card-export.js's prepareClone rebuilding this
   // table inside an *already-attached* off-screen export clone) has tableEl
   // connected already, so measuring synchronously here — rather than always
   // deferring — matters: card-export.js calls html2canvas right after
@@ -516,6 +510,22 @@ export function renderLinemateRoster(entry, roster, tableEl) {
   } else {
     requestAnimationFrame(() => applyStickyLinemateColumns(tableEl));
   }
+}
+
+// In Read, a roster with more players than fit the card's width scrolls
+// sideways (the label column stays put, a hint says so). The card marks itself
+// "is-wide" for that, and style.css does the rest. Measured, not computed: how
+// wide the table is depends on how many players there are, the card's width and
+// what the user dragged it to, so it runs after every render and whenever the
+// card or its table changes size (see openLinemateCard()). A folded card has no
+// layout to measure, so it keeps whatever it had.
+export function updateLinemateReadOverflow(cardEl) {
+  const wrapEl = cardEl.querySelector(".linemate-table-wrap");
+  const tableEl = cardEl.querySelector(".linemate-table");
+  if (!wrapEl || !tableEl || !wrapEl.offsetParent) return;
+
+  const isWide = cardEl.classList.contains("is-read") && tableEl.offsetWidth > wrapEl.clientWidth + 1;
+  cardEl.classList.toggle("is-wide", isWide);
 }
 
 // Fully rebuilds a Linemate Card's title tooltip, roster, and Line Summary
@@ -530,14 +540,13 @@ export function renderLinemateCardBody(entry) {
   const cardEl = entry.el;
   const titleEl = cardEl.querySelector(".linemate-card-title");
   const tableEl = cardEl.querySelector(".linemate-table");
-  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
   const summaryTable = cardEl.querySelector(".linemate-summary-table");
 
   entry.roster = computeLinemateRoster(entry.anchorRecord);
   const roster = entry.roster;
   // What actually renders — teammates, plus the anchor's own row when
   // "Include anchor player" is on. See linemateDisplayRoster()'s own
-  // comment for why roster (cap/threshold-relevant) and this stay separate.
+  // comment for why roster (threshold-relevant) and this stay separate.
   const displayRoster = linemateDisplayRoster(entry);
 
   titleEl.textContent = entry.includeAnchor
@@ -545,17 +554,17 @@ export function renderLinemateCardBody(entry) {
     : `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
   // The roster-size/threshold sentence sits on its own line above the "All
   // numbers are..." disclaimer, rather than behind a hover-only info icon.
-  // Always describes the teammates-only, cap-relevant pool (roster, not
-  // displayRoster) regardless of the anchor toggle — this is the OL/DL cap
-  // and threshold talking, not a literal count of the table's current rows.
+  // Always describes the teammates-only pool (roster, not displayRoster)
+  // regardless of the anchor toggle — this is the threshold talking, not a
+  // literal count of the table's current rows.
   const rosterNoteEl = cardEl.querySelector(".linemate-card-roster-note");
   rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
 
-  // A refresh that shrinks the *displayed* roster (teammates, plus the
-  // anchor when the toggle is on) to <= the default visible count resets
-  // "See more" back to collapsed — there's nothing left to hide, so a
-  // lingering "See less" state would just be confusing.
-  if (displayRoster.length <= LINEMATE_VISIBLE_DEFAULT) entry.seeMore = false;
+  // With no roster cap, a very low threshold puts many players on the card;
+  // past the old cap's size the card says a higher threshold keeps it compact.
+  const reminderEl = cardEl.querySelector(".linemate-card-size-reminder");
+  reminderEl.textContent = `${roster.length} linemates qualify at this threshold. A higher threshold keeps the card compact.`;
+  reminderEl.hidden = roster.length <= LINEMATE_SIZE_REMINDER_AT[appliedFilters.category];
   const isRead = entry.mode === TABLE_MODE_READ;
   cardEl.classList.toggle("is-read", isRead);
   cardEl.classList.toggle("is-sort", !isRead);
@@ -565,13 +574,10 @@ export function renderLinemateCardBody(entry) {
     btn.setAttribute("aria-pressed", String(active));
   });
   renderLinemateRoster(entry, displayRoster, tableEl);
-  // Read shows every player, so "See more" has nothing to reveal there.
-  seeMoreBtn.hidden = isRead || displayRoster.length <= LINEMATE_VISIBLE_DEFAULT;
-  seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
+  updateLinemateReadOverflow(cardEl);
 
-  // 3M + RSWA summary, computed over every qualifying (capped) linemate —
-  // plus the anchor himself when the toggle is on — regardless of "See
-  // more" state.
+  // 3M + RSWA summary, computed over every qualifying linemate — plus the
+  // anchor himself when the toggle is on.
   renderLinemateSummary(entry, displayRoster, summaryTable);
 }
 
@@ -589,8 +595,8 @@ function summarySortValue(row, label) {
 }
 
 // Renders the Line Summary table (Min/Median/RSWA/Max per metric) from
-// `roster` — always the full capped roster regardless of "See more" state,
-// see computeThreeMRSWA()'s own header comment. Extracted from
+// `roster` — every player on the card, see computeThreeMRSWA()'s own header
+// comment. Extracted from
 // renderLinemateCardBody() so a header click can re-run just this table
 // (sortRows()/makeSortableHeader(), same pattern as renderLinemateRoster()
 // above) without recomputing the roster table too.
@@ -702,7 +708,6 @@ export function openLinemateCard(anchorRecord) {
   const foldBtn = cardEl.querySelector(".scout-fold");
   const dragHandle = cardEl.querySelector(".scout-drag-handle");
   const tableEl = cardEl.querySelector(".linemate-table");
-  const seeMoreBtn = cardEl.querySelector(".linemate-see-more");
   const anchorToggle = cardEl.querySelector(".linemate-anchor-checkbox");
   const anchorToggleLabel = cardEl.querySelector(".linemate-anchor-toggle-label");
 
@@ -721,33 +726,23 @@ export function openLinemateCard(anchorRecord) {
     roster: [],
     el: cardEl,
     folded: false,
-    seeMore: false,
     // The Individual table's layout (player-table-model.js): Read by default, kept across
     // refreshes, fold/unfold and "Include anchor" like the sort state is.
     mode: TABLE_MODE_READ,
     includeAnchor: false,
     // Excel-style click-to-sort state for the roster and Line Summary
-    // tables (table-sort.js) — independent of each other and of seeMore,
-    // and persists across a threshold-only refresh the same way seeMore
-    // does (renderLinemateCardBody() never resets either).
+    // tables (table-sort.js) — independent of each other, and persisted
+    // across a threshold-only refresh (renderLinemateCardBody() never resets
+    // either).
     rosterSort: { key: null, dir: "asc" },
     summarySort: { key: null, dir: "asc" },
   };
 
-  // Wired once — reads entry.roster/entry.seeMore/entry.includeAnchor fresh
-  // on every click, so it keeps working correctly across
-  // renderLinemateCardBody() refreshes without needing to be re-attached.
-  seeMoreBtn.addEventListener("click", () => {
-    entry.seeMore = !entry.seeMore;
-    seeMoreBtn.textContent = entry.seeMore ? "See less" : "See more";
-    renderLinemateRoster(entry, linemateDisplayRoster(entry), tableEl);
-  });
-
   // Full rebuild (title/roster/summary all depend on includeAnchor) rather
   // than a partial patch, same reason a threshold refresh reuses this whole
   // function too — entry.roster itself is untouched by this (computed fresh
-  // from computeLinemateRoster() either way), so the OL/DL cap never sees
-  // this toggle.
+  // from computeLinemateRoster() either way), so the roster never sees this
+  // toggle.
   anchorToggle.addEventListener("change", () => {
     entry.includeAnchor = anchorToggle.checked;
     renderLinemateCardBody(entry);
@@ -775,17 +770,19 @@ export function openLinemateCard(anchorRecord) {
   cardEl.classList.add("is-active");
   bringScoutCardToFront(cardEl);
 
-  // Shared by the fold button and the resize-driven auto-unfold (see
-  // beginScoutResize) so both paths reset "See more" the same way.
-  const onUnfold = () => {
-    entry.seeMore = false;
-    seeMoreBtn.textContent = "See more";
-    renderLinemateRoster(entry, linemateDisplayRoster(entry), tableEl);
-  };
-  attachScoutResize(cardEl, entry, onUnfold);
+  attachScoutResize(cardEl, entry);
+
+  // The table's width follows its players and the card's width follows the user's
+  // dragging, so the sideways-scroll state is re-measured whenever either changes.
+  // ResizeObserver is missing in very old browsers, where the render-time call is all it gets.
+  if (typeof ResizeObserver === "function") {
+    const overflowObserver = new ResizeObserver(() => updateLinemateReadOverflow(cardEl));
+    overflowObserver.observe(cardEl);
+    overflowObserver.observe(tableEl);
+  }
 
   closeBtn.addEventListener("click", () => closeLinemateCard(anchorRecord.player));
-  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry, onUnfold));
+  foldBtn.addEventListener("click", () => toggleCardFold(cardEl, entry));
   dragHandle.addEventListener("pointerdown", (e) => beginScoutDrag(e, cardEl));
   dragHandle.addEventListener("pointermove", onScoutDragMove);
   dragHandle.addEventListener("pointerup", endScoutDrag);
@@ -798,14 +795,6 @@ export function openLinemateCard(anchorRecord) {
     // own title, just applied to the downloaded filename too.
     () =>
       `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
-    // "See more" only ever renders roster.slice(0, visibleCount) into the DOM
-    // in the first place (see renderLinemateRoster) — a collapsed roster's
-    // hidden rows don't exist for html2canvas to reveal via CSS. Re-render
-    // straight into the clone's own roster element with seeMore forced on,
-    // via linemateDisplayRoster(entry) — the same rows the live card is
-    // currently showing (anchor included or not, per the "Include anchor
-    // player" checkbox) — so the export always shows the full capped
-    // roster, unfolded, exactly matching whatever's on screen.
     // The export is always the Read layout, whichever mode is on screen: the Sort layout is too
     // wide to share. Re-renders the off-screen CLONE only (the card on screen is never touched),
     // carries the card's current sort order along, and returns true so the export re-fits the clone
@@ -816,7 +805,7 @@ export function openLinemateCard(anchorRecord) {
       clone.classList.remove("is-sort");
       if (cloneTableEl) {
         renderLinemateRoster(
-          { mode: TABLE_MODE_READ, seeMore: true, rosterSort: entry.rosterSort },
+          { mode: TABLE_MODE_READ, rosterSort: entry.rosterSort },
           linemateDisplayRoster(entry),
           cloneTableEl
         );
