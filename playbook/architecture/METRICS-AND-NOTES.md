@@ -16,7 +16,10 @@ PRP/PBE. `higher_is_better` is an explicit per-metric flag in `main.py`'s `PASS_
 `PASS_BLOCK_METRICS` dicts, not inferred from category or name — it drives frontend sort/color
 direction and, in `render.js`, each axis's own inversion independently (`xMeta`/`yMeta`, not a
 category-wide check). Direction by metric: every pass-rush metric is higher-is-better for the
-defender; pass-block "Allowed" metrics are lower-is-better, but PBE/TPS PBE are the deliberate
+defender, except the neutral Pass Cov Percent / TPS Pass Cov Percent (`neutral: true`,
+`higher_is_better: true`: 100 minus Pass Rush Percent, computed at ingestion; a versatility measure,
+not good or bad). Neutral metrics are ranked (highest = #1) and shown in a grey chip with no Color Code on Player,
+Comparison and Linemate cards, and the plot axis is not reversed; pass-block "Allowed" metrics are lower-is-better, but PBE/TPS PBE are the deliberate
 exception — higher-is-better despite being in the pass-block category, same as PRP/TPS PRP on the
 pass-rush side. Any future per-category direction shortcut (frontend or backend) must special-case
 these two rather than assume category implies direction.

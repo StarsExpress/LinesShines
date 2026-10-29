@@ -777,7 +777,7 @@ export async function updatePlayerPool() {
 // reassigns .max/.value, checked in priority order below:
 //
 // 1. resetThresholdOnNextRange is still true — a Category switch or an
-//    ongoing→historical Season switch is still pending. A Category switch
+//    ongoing↔historical Season switch is still pending. A Category switch
 //    already ran resetThresholdToCategoryDefault() synchronously (a rough
 //    placeholder — it can only grow .max just far enough to fit the new
 //    default off whatever pending data was already on hand, not this
@@ -873,7 +873,7 @@ export function updateThresholdRange() {
     resetThresholdOnNextRange = false;
   } else if (Number(els.threshold.value) > max) {
     // Every other Season/Position change (Position always; Season only
-    // when it isn't an ongoing→historical transition — main.js's season
+    // when it isn't an ongoing↔historical transition — main.js's season
     // "change" handler already forces resetThresholdOnNextRange for that
     // case via resetThresholdToCategoryDefault(), so this branch won't even
     // run for it) — keep the user's value if it still fits; otherwise fall

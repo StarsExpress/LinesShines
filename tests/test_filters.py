@@ -149,3 +149,52 @@ def test_threshold_is_a_hard_gate_even_for_a_selected_player_or_team(page):
 
     assert "E. Low" not in plotted
     assert "E. Low" not in highlighted
+
+
+# Switching between an ongoing season and a finalized one changes the default threshold; two finalized seasons share one.
+SEASON_SWITCH_JS = """
+async () => {
+  const d = await import('/data.js');
+  const cat = d.currentCategoryMeta();
+  const before = cat.default_thresholds;
+  cat.default_thresholds = { 2024: 230, 2025: 230, 2026: 80 };
+
+  try {
+    const changes = (from, to) => d.seasonSwitchChangesThresholdDefault(from, to);
+    return {
+      ongoingToHistorical: changes('2026', '2025'),
+      historicalToOngoing: changes('2025', '2026'),
+      historicalToHistorical: changes('2024', '2025'),
+      sameSeason: changes('2026', '2026'),
+    };
+  } finally {
+    cat.default_thresholds = before;
+  }
+}
+"""
+
+
+def test_a_season_switch_resets_the_threshold_in_both_directions(page):
+    result = page.evaluate(SEASON_SWITCH_JS)
+
+    assert result["ongoingToHistorical"] is True
+    assert result["historicalToOngoing"] is True
+
+
+def test_two_finalized_seasons_keep_the_users_threshold(page):
+    result = page.evaluate(SEASON_SWITCH_JS)
+
+    assert result["historicalToHistorical"] is False
+    assert result["sameSeason"] is False
+
+
+def test_the_season_change_handler_asks_that_rule_and_not_only_the_leaving_direction():
+    # The handler is wired inside attachEvents(), so this is checked from source.
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parent.parent / "frontend" / "main.js"
+    ).read_text(encoding="utf-8")
+
+    assert "seasonSwitchChangesThresholdDefault(previousSeasonValue" in source
+    assert "isOngoingSeason(previousSeasonValue)" not in source

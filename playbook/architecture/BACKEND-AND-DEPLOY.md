@@ -7,16 +7,17 @@
 
 **Pipeline: raw PFF export → preprocessing → xlsx → ingestion → DB → API → frontend.**
 
-1. `data/front_7_pass_rush/{season}.csv` and `data/ol_pass_block/{season}.csv` are raw PFF exports
+1. `data/nfl/front_7_pass_rush/{season}.csv` and `data/nfl/ol_pass_block/{season}.csv` are raw PFF exports
    (one row per player-season).
 
-2. `preprocessing/front_7.py` and `preprocessing/offensive_line.py` each read the season CSV,
+2. `preprocessing/preprocess.py --league nfl --seasons {season ...}` (both required) calls
+   `preprocessing/front_7.py` and `preprocessing/offensive_line.py`, which each read the season CSV,
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
    metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants), split by position
-   into separate sheets, and write `data/{front_7_pass_rush,ol_pass_block}/{season}.xlsx`.
+   into separate sheets, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
 
-3. `database/db_ingestion.py` reads those xlsx workbooks and upserts rows into `pass_rush_stats` /
-   `pass_block_stats`. It's idempotent by deleting all rows for a given `(season, position)` slice
+3. `database/db_ingestion.py` reads those xlsx workbooks and upserts rows into `nfl_pass_rush_stats` /
+   `nfl_pass_block_stats`. Every row carries PFF's `player_id` (NOT NULL; a null Player Id or a missing required column raises `ValueError`), and the unique key is `(season, position, player_id)`. It's idempotent by deleting all rows for a given `(season, position)` slice
    and bulk-reinserting — simpler and dialect-portable vs. per-row upsert. Must be run from the
    repo root; it locates the repo root by walking up for a `.gitignore` marker, and resolves the
    data directory via `--data-dir` / `LINESHINES_DATA_DIR` / `LINESHINES_REPO_ROOT` env vars, in
@@ -30,7 +31,7 @@
    with `--seasons` omitted will scan the default location's `DEFAULT_SEASONS`, not the directory
    actually pointed at.
 
-4. `database/db_models.py` defines the SQLAlchemy schema (`Team`, `PassRushStat`, `PassBlockStat`)
+4. `database/db_models.py` defines the SQLAlchemy schema (`NFLTeam`, `NFLPassRushStat`, `NFLPassBlockStat`; the `nfl_` prefix leaves room for NCAAF tables)
    plus `pass_rush_row_to_dict` / `pass_block_row_to_dict` serializers that intentionally reproduce
    PFF's original space-and-mixed-case column names (e.g. `"PR Opp"`, `"TPS Havoc Rate"`) in the API
    JSON payload — this keeps the frontend's key names stable across the CSV→xlsx→DB migration.
@@ -44,7 +45,7 @@
    with the Railway commit SHA for cache-busting on deploy.
 
 **Team codes** follow PFF's spellings (e.g. `ARZ`, `BLT`, `CLV`, `HST`, not the more common
-`ARI`/`BAL`/`CLE`/`HOU`), defined once in `teams_reference.py` and used by both ingestion (team
+`ARI`/`BAL`/`CLE`/`HOU`), defined once in `teams/nfl.py` and used by both ingestion (team
 upsert) and `/api/metadata` (colors, full names) — the frontend never hardcodes team data.
 
 **Deploy**: Railway, per `Procfile` (`uvicorn main:app`). `RAILWAY_GIT_COMMIT_SHA` env var drives
@@ -59,7 +60,7 @@ not production. There's no Alembic yet, so this is a one-off DDL statement run b
 `DATABASE_URL` (e.g. via `psql`, or a throwaway `python -c` using this repo's own already-resolved
 `main.engine` if `psql` isn't installed locally) — not something that lives in the repo, same spirit
 as hand-editing `DYNAMIC_THRESHOLDS` each season. Precedent: `prp`/`tps_prp`
-(`pass_rush_stats`)/`pbe`/`tps_pbe` (`pass_block_stats`) were added this way when those metrics
+(`nfl_pass_rush_stats`)/`pbe`/`tps_pbe` (`nfl_pass_block_stats`) were added this way when those metrics
 landed. After the `ALTER TABLE`, re-run `python -m database.db_ingestion` against that same
 `DATABASE_URL` to backfill the new column's values into every existing row (safe — ingestion
 deletes+reinserts per `(season, position)` slice regardless of what changed).

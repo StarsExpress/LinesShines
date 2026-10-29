@@ -1,17 +1,29 @@
-import os
 import pandas as pd
-from config import DATA_FOLDER_PATH, OL_NAMES, ROUNDING_DECIMALS
+from config import OL_NAMES, ROUNDING_DECIMALS, League
+from preprocessing.preprocess import require_columns, season_file_path
 from utils.renamers import rename_pass_block_columns, shorten_first_name
 
+CATEGORY = "ol_pass_block"
+REQUIRED_COLUMNS = [
+    "Player",
+    "Position",
+    "Sacks",
+    "Hits",
+    "Pressures",
+    "Non Spike PB Snaps",
+    "TPS Sacks",
+    "TPS Hits",
+    "TPS Pressures",
+    "TPS Non Spike PB Snaps",
+]
 
-def preprocess_offensive_line(season: int) -> None:
-    pass_block_csv_path = os.path.join(
-        DATA_FOLDER_PATH, "ol_pass_block", f"{season}.csv"
-    )
-    pass_block_df = pd.read_csv(pass_block_csv_path)
+
+def preprocess_offensive_line(league: League, season: int) -> None:
+    pass_block_df = pd.read_csv(season_file_path(league, CATEGORY, season, "csv"))
 
     pass_block_df.fillna(inplace=True, value=0)
     pass_block_df.columns = rename_pass_block_columns(pass_block_df.columns)
+    require_columns(pass_block_df, REQUIRED_COLUMNS, league, season)
     pass_block_df["Abbr Name"] = pass_block_df["Player"].apply(shorten_first_name)
 
     positional_sheets = dict()
@@ -73,7 +85,7 @@ def preprocess_offensive_line(season: int) -> None:
 
         positional_sheets.update({position: positional_df})
 
-    destination_path = os.path.join(DATA_FOLDER_PATH, "ol_pass_block", f"{season}.xlsx")
+    destination_path = season_file_path(league, CATEGORY, season, "xlsx")
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():
             sheet.to_excel(writer, sheet_name=position, index=False)

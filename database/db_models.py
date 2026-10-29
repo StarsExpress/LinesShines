@@ -3,6 +3,12 @@
 Portable across SQLite (local dev) and PostgreSQL (Railway prod) —
 the only dialect-specific concern is autoincrement, which SQLAlchemy
 handles transparently for `Integer` primary keys.
+
+Every NFL table, constraint and index carries an `nfl` prefix (`nfl_teams`,
+`uq_nfl_pr_...`, `idx_nfl_pb_...`) so the college tables can sit beside them
+in the same database as `ncaaf_...`. The stat tables are keyed by PFF's
+`player_id` (one row per player per season and position), which is also the
+id the college files use.
 """
 
 from __future__ import annotations
@@ -22,31 +28,35 @@ class Base(DeclarativeBase):
     pass
 
 
-class Team(Base):
-    __tablename__ = "teams"
+class NFLTeam(Base):
+    __tablename__ = "nfl_teams"
 
     code = Column(String(4), primary_key=True)
     full_name = Column(String, nullable=False)
     primary_color = Column(String(7))  # Hex like "#0085CA".
 
-    pass_rush_stats = relationship("PassRushStat", back_populates="team")
-    pass_block_stats = relationship("PassBlockStat", back_populates="team")
+    pass_rush_stats = relationship("NFLPassRushStat", back_populates="team")
+    pass_block_stats = relationship("NFLPassBlockStat", back_populates="team")
 
 
-class PassRushStat(Base):
-    __tablename__ = "pass_rush_stats"
+class NFLPassRushStat(Base):
+    __tablename__ = "nfl_pass_rush_stats"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     season = Column(Integer, nullable=False)
 
     position = Column(String(4), nullable=False)  # DI / ED.
-    team_code = Column(String(4), ForeignKey("teams.code"), nullable=False)
+    team_code = Column(String(4), ForeignKey("nfl_teams.code"), nullable=False)
+    player_id = Column(Integer, nullable=False)  # PFF player id.
     player = Column(String, nullable=False)
     abbr_name = Column(String, nullable=False)
 
     games = Column(Integer)
     pr_opp = Column(Integer)  # PR Opp.
     tps_pr_opp = Column(Integer)  # TPS PR Opp.
+
+    pass_cov_percent = Column(Float)  # Pass Cov Percent = 100 - Pass Rush Percent.
+    tps_pass_cov_percent = Column(Float)  # TPS Pass Cov Percent.
 
     win_rate = Column(Float)  # Win Rate.
     tps_win_rate = Column(Float)  # TPS Win Rate.
@@ -60,28 +70,29 @@ class PassRushStat(Base):
     prp = Column(Float)  # PRP.
     tps_prp = Column(Float)  # TPS PRP.
 
-    team = relationship("Team", back_populates="pass_rush_stats")
+    team = relationship("NFLTeam", back_populates="pass_rush_stats")
 
     __table_args__ = (
         UniqueConstraint(
             "season",
             "position",
-            "player",
-            "team_code",
-            name="uq_pr_season_position_player_team",
+            "player_id",
+            name="uq_nfl_pr_season_position_player_id",
         ),
-        Index("idx_pr_filter", "season", "position"),
+        Index("idx_nfl_pr_filter", "season", "position"),
+        Index("idx_nfl_pr_player_id", "player_id"),
     )
 
 
-class PassBlockStat(Base):
-    __tablename__ = "pass_block_stats"
+class NFLPassBlockStat(Base):
+    __tablename__ = "nfl_pass_block_stats"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     season = Column(Integer, nullable=False)
 
     position = Column(String(4), nullable=False)  # T / G / C.
-    team_code = Column(String(4), ForeignKey("teams.code"), nullable=False)
+    team_code = Column(String(4), ForeignKey("nfl_teams.code"), nullable=False)
+    player_id = Column(Integer, nullable=False)  # PFF player id.
     player = Column(String, nullable=False)
     abbr_name = Column(String, nullable=False)
 
@@ -98,17 +109,17 @@ class PassBlockStat(Base):
     pbe = Column(Float)  # PBE.
     tps_pbe = Column(Float)  # TPS PBE.
 
-    team = relationship("Team", back_populates="pass_block_stats")
+    team = relationship("NFLTeam", back_populates="pass_block_stats")
 
     __table_args__ = (
         UniqueConstraint(
             "season",
             "position",
-            "player",
-            "team_code",
-            name="uq_pb_season_position_player_team",
+            "player_id",
+            name="uq_nfl_pb_season_position_player_id",
         ),
-        Index("idx_pb_filter", "season", "position"),
+        Index("idx_nfl_pb_filter", "season", "position"),
+        Index("idx_nfl_pb_player_id", "player_id"),
     )
 
 
@@ -117,17 +128,20 @@ class PassBlockStat(Base):
 # preserved so no client-side renaming is needed).
 
 
-def pass_rush_row_to_dict(row: PassRushStat) -> dict:
+def pass_rush_row_to_dict(row: NFLPassRushStat) -> dict:
     return {
         "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
+        "player_id": row.player_id,
         "player": row.player,
         "abbr_name": row.abbr_name,
         "games": row.games,
         "PR Opp": row.pr_opp,
         "TPS PR Opp": row.tps_pr_opp,
+        "Pass Cov Percent": row.pass_cov_percent,
+        "TPS Pass Cov Percent": row.tps_pass_cov_percent,
         "Win Rate": row.win_rate,
         "TPS Win Rate": row.tps_win_rate,
         "Pressure Rate": row.pressure_rate,
@@ -139,12 +153,13 @@ def pass_rush_row_to_dict(row: PassRushStat) -> dict:
     }
 
 
-def pass_block_row_to_dict(row: PassBlockStat) -> dict:
+def pass_block_row_to_dict(row: NFLPassBlockStat) -> dict:
     return {
         "id": row.id,
         "season": row.season,
         "position": row.position,
         "team": row.team_code,
+        "player_id": row.player_id,
         "player": row.player,
         "abbr_name": row.abbr_name,
         "games": row.games,

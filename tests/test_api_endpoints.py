@@ -97,3 +97,65 @@ def test_pass_rush_unknown_season_returns_empty(client, seeded_db):
     resp = client.get("/api/pass_rush", params={"season": 1999, "position": "ED"})
     assert resp.status_code == 200
     assert resp.json()["records"] == []
+
+
+def test_pass_cov_percent_metrics_are_higher_is_better_neutral_and_listed_last(
+    client, seeded_db
+):
+    metrics = client.get("/api/metadata").json()["pass_rush"]["metrics"]
+    keys = list(metrics)
+
+    # Axis pickers and the Comparison and Linemate cards follow this order: the
+    # bonus metrics come after every required one.
+    assert keys[-3:] == ["TPS PRP", "Pass Cov Percent", "TPS Pass Cov Percent"]
+
+    for key in ("Pass Cov Percent", "TPS Pass Cov Percent"):
+        assert metrics[key]["higher_is_better"] is True
+        assert metrics[key]["neutral"] is True
+
+    # No other metric is neutral: they all keep their Color Code.
+    others = [k for k in keys if "Pass Cov Percent" not in k]
+    assert not any(metrics[k].get("neutral") for k in others)
+    assert not any(
+        m.get("neutral")
+        for m in client.get("/api/metadata").json()["pass_block"]["metrics"].values()
+    )
+
+
+def test_only_the_two_pass_cov_metrics_are_bonus(client, seeded_db):
+    meta = client.get("/api/metadata").json()
+    bonus = [k for k, m in meta["pass_rush"]["metrics"].items() if m.get("bonus")]
+
+    assert bonus == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert not any(m.get("bonus") for m in meta["pass_block"]["metrics"].values())
+
+
+def test_pass_cov_percent_popup_text_and_no_card_note(client, seeded_db):
+    meta = client.get("/api/metadata").json()
+    metrics = meta["pass_rush"]["metrics"]
+
+    assert (
+        metrics["Pass Cov Percent"]["pff_note"]
+        == "Frequency of dropping into coverage on pass plays"
+    )
+
+    for cat in ("pass_rush", "pass_block"):
+        assert not any(m.get("card_note") for m in meta[cat]["metrics"].values())
+
+
+def test_pass_rush_records_carry_player_id_and_pass_cov_percent(client, seeded_db):
+    record = client.get(
+        "/api/pass_rush", params={"season": 2025, "position": "ED"}
+    ).json()["records"][0]
+
+    assert record["player_id"] == 1001
+    assert record["Pass Cov Percent"] == 8.0
+    assert record["TPS Pass Cov Percent"] == 5.0
+
+
+def test_pass_block_records_carry_player_id(client, seeded_db):
+    record = client.get(
+        "/api/pass_block", params={"season": 2025, "position": "T"}
+    ).json()["records"][0]
+
+    assert record["player_id"] == 2001

@@ -113,6 +113,16 @@ export function currentCategoryMeta() {
   return metadata[els.category.value];
 }
 
+// True when switching between these two seasons changes the category's default
+// threshold — an ongoing season (DYNAMIC_THRESHOLDS) against a finalized one
+// (DEFAULT_THRESHOLDS), in either direction. Two finalized seasons share one
+// static default, so the user's value stays. Reads the default each season
+// carries in /api/metadata, so it follows whatever config.py resolved.
+export function seasonSwitchChangesThresholdDefault(fromSeason, toSeason) {
+  const defaults = currentCategoryMeta().default_thresholds;
+  return defaults[fromSeason] !== defaults[toSeason];
+}
+
 // True for whatever season is still in progress this calendar year, false
 // for every finalized/historical one — same Calendar Year comparison
 // config.py's resolve_default_threshold() routes the static-vs-dynamic

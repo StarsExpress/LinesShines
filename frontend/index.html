@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script>
-  /* --- Phone-only "desktop layout, shrunk to fit" experiment ---
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      /* --- Phone-only "desktop layout, shrunk to fit" experiment ---
      Rewrites the viewport meta tag above, synchronously, before first
      paint, so phones render the full desktop-proportioned layout (wide
      scatter chart included) at a fixed logical width and let the browser
@@ -51,115 +51,141 @@
      No-JS fallback: if this script doesn't run at all, the meta tag simply
      stays at its original width=device-width — today's ordinary mobile
      layout — a safe, unbroken default. */
-  (function () {
-    var PHONE_MAX_SHORT_EDGE = 600;
-    var DESKTOP_LAYOUT_WIDTH = 1024;
-    var shortEdge = Math.min(screen.width, screen.height);
-    if (shortEdge > PHONE_MAX_SHORT_EDGE) return; // tablet/desktop: leave width=device-width alone
-    var scale = screen.width / DESKTOP_LAYOUT_WIDTH;
-    var viewportMeta = document.querySelector('meta[name="viewport"]');
-    viewportMeta.setAttribute(
-      "content",
-      "width=" + DESKTOP_LAYOUT_WIDTH +
-        ", initial-scale=" + scale +
-        ", minimum-scale=" + scale +
-        ", maximum-scale=5"
-    );
-  })();
-</script>
-<title>LinesShines · 鋒光</title>
-<meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
+      (function () {
+        var PHONE_MAX_SHORT_EDGE = 600;
+        var DESKTOP_LAYOUT_WIDTH = 1024;
+        var shortEdge = Math.min(screen.width, screen.height);
+        if (shortEdge > PHONE_MAX_SHORT_EDGE) return; // tablet/desktop: leave width=device-width alone
+        var scale = screen.width / DESKTOP_LAYOUT_WIDTH;
+        var viewportMeta = document.querySelector('meta[name="viewport"]');
+        viewportMeta.setAttribute(
+          "content",
+          "width=" +
+            DESKTOP_LAYOUT_WIDTH +
+            ", initial-scale=" +
+            scale +
+            ", minimum-scale=" +
+            scale +
+            ", maximum-scale=5"
+        );
+      })();
+    </script>
+    <title>LinesShines · 鋒光</title>
+    <meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Oswald:wght@450;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Oswald:wght@450;600&display=swap"
+      rel="stylesheet"
+    />
 
-<link rel="stylesheet" href="style.css?v={{VERSION}}" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v={{VERSION}}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
-<link rel="icon" href="favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192x192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="images/favicon-512x512.png">
-<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d1f17">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LinesShines">
-</head>
-<body>
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="images/favicon-512x512.png" />
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0d1f17" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LinesShines" />
+  </head>
+  <body>
+    <div class="field-texture" aria-hidden="true"></div>
 
-<div class="field-texture" aria-hidden="true"></div>
+    <header class="hero">
+      <a
+        class="hero-github"
+        href="https://github.com/StarsExpress/LinesShines"
+        target="_blank"
+        rel="noopener"
+        aria-label="View LinesShines on GitHub"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+          />
+        </svg>
+      </a>
+      <div class="hero-install"><span class="info-popover-slot" id="hero-install-slot"></span></div>
+      <div class="hero-inner">
+        <img class="hero-logo" src="images/lines_shines_logo.png" alt="LinesShines logo" />
+        <div class="hero-text">
+          <h1 class="hero-title">LinesShines · 鋒光</h1>
+          <p class="eyebrow">🏈NFL OL & DL PFF Premium Stats Interactive Exploration</p>
+          <p class="hero-byline">
+            "No Line No Shine."<br /><br />
+            Infrastructure always starts everything, but quite often gets ignored<br />
+            thanks to its unadorned hard works and grit & grind styles.<br /><br />
+            For all these under-appreciated. Let's explore 🗺️
+          </p>
+        </div>
+      </div>
+    </header>
 
-<header class="hero">
-  <a class="hero-github" href="https://github.com/StarsExpress/LinesShines"
-     target="_blank" rel="noopener" aria-label="View LinesShines on GitHub">
-    <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-  </a>
-  <div class="hero-install"><span class="info-popover-slot" id="hero-install-slot"></span></div>
-  <div class="hero-inner">
-    <img class="hero-logo" src="images/lines_shines_logo.png" alt="LinesShines logo" />
-    <div class="hero-text">
-      <h1 class="hero-title">LinesShines · 鋒光</h1>
-      <p class="eyebrow">🏈NFL OL & DL PFF Premium Stats Interactive Exploration</p>
-      <p class="hero-byline">
-        "No Line No Shine."<br><br>
-        Infrastructure always starts everything, but quite often gets ignored<br>
-        thanks to its unadorned hard works and grit & grind styles.<br><br>
-        For all these under-appreciated. Let's explore 🗺️
-      </p>
-    </div>
-  </div>
-</header>
+    <p class="meta-band">
+      <span class="meta-segment">Source: PFF Premium Stats</span>
+      <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Downloaded PFF data stays private</span>
+      <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Median lines are calculated according to current filter</span>
+    </p>
 
-<p class="meta-band">
-  <span class="meta-segment">Source: PFF Premium Stats</span>
-  <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Downloaded PFF data stays private</span>
-  <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Median lines are calculated according to current filter</span>
-</p>
-
-<main class="layout">
-
-  <div class="controls-toggle">
-    <button id="toggle-filters" type="button" aria-expanded="false" aria-controls="filters-drawer">
-      ⚙ Filters
-    </button>
-  </div>
-
-  <div id="filters-drawer" class="filters-drawer">
-    <section class="control-bar" aria-label="Filters">
-      <div class="control control-season">
-        <label for="season-select">Season</label>
-        <select id="season-select"></select>
+    <main class="layout">
+      <div class="controls-toggle">
+        <button id="toggle-filters" type="button" aria-expanded="false" aria-controls="filters-drawer">
+          ⚙ Filters
+        </button>
       </div>
 
-      <div class="control control-teams">
-        <div class="axis-label-row">
-          <label id="teams-label" for="teams-toggle-btn">Teams</label>
-          <span class="info-popover-slot" id="teams-info-slot"></span>
-        </div>
-        <div class="teams-select">
-          <button type="button" id="teams-toggle-btn" class="teams-select-btn"
-                  aria-haspopup="true" aria-expanded="false"
-                  aria-labelledby="teams-label teams-select-summary">
-            <span id="teams-select-summary">All Teams</span>
-            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="teams-dropdown" id="teams-dropdown" hidden>
-            <div class="teams-dropdown-actions">
-              <button type="button" id="teams-select-all">All</button>
-              <button type="button" id="teams-select-none">Clear</button>
-            </div>
-            <div class="teams-checklist" id="teams-checklist"></div>
+      <div id="filters-drawer" class="filters-drawer">
+        <section class="control-bar" aria-label="Filters">
+          <div class="control control-season">
+            <label for="season-select">Season</label>
+            <select id="season-select"></select>
           </div>
-        </div>
-      </div>
 
-      <!-- Desktop/tablet only — hidden entirely on mobile (see .control-players
+          <div class="control control-teams">
+            <div class="axis-label-row">
+              <label id="teams-label" for="teams-toggle-btn">Teams</label>
+              <span class="info-popover-slot" id="teams-info-slot"></span>
+            </div>
+            <div class="teams-select">
+              <button
+                type="button"
+                id="teams-toggle-btn"
+                class="teams-select-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-labelledby="teams-label teams-select-summary"
+              >
+                <span id="teams-select-summary">All Teams</span>
+                <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path
+                    d="M4 6l4 4 4-4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <div class="teams-dropdown" id="teams-dropdown" hidden>
+                <div class="teams-dropdown-actions">
+                  <button type="button" id="teams-select-all">All</button>
+                  <button type="button" id="teams-select-none">Clear</button>
+                </div>
+                <div class="teams-checklist" id="teams-checklist"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desktop/tablet only — hidden entirely on mobile (see .control-players
            in the @media (max-width: 860px) block of style.css). Players is a
            second, dynamic highlight dimension alongside Teams: its searchable
            pool depends on the live threshold value (see app.js's
@@ -170,127 +196,154 @@
            mechanism as Teams above — otherwise a handful of chips would
            make this box balloon past its neighbors' width/height (see
            control-bar sizing gotcha in CLAUDE.md) every time a player is added. -->
-      <div class="control control-players" id="players-control">
-        <div class="players-label-row">
-          <label id="players-label" for="players-toggle-btn">Players</label>
-          <span class="info-popover-slot" id="players-info-slot"></span>
-          <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
-        </div>
-        <div class="players-select">
-          <button type="button" id="players-toggle-btn" class="teams-select-btn"
-                  aria-haspopup="true" aria-expanded="false"
-                  aria-labelledby="players-label players-select-summary">
-            <span id="players-select-summary">No Players</span>
-            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="players-panel" id="players-panel" hidden>
-            <div class="players-field" id="players-field">
-              <div class="players-chips" id="players-chips"></div>
-              <input type="text" id="players-input" class="players-input"
-                     placeholder="Type to add player..." autocomplete="off"
-                     aria-labelledby="players-label" />
+          <div class="control control-players" id="players-control">
+            <div class="players-label-row">
+              <label id="players-label" for="players-toggle-btn">Players</label>
+              <span class="info-popover-slot" id="players-info-slot"></span>
+              <button type="button" id="players-reset-btn" class="players-reset-btn">Clear</button>
             </div>
-            <div class="players-dropdown" id="players-dropdown" hidden></div>
+            <div class="players-select">
+              <button
+                type="button"
+                id="players-toggle-btn"
+                class="teams-select-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-labelledby="players-label players-select-summary"
+              >
+                <span id="players-select-summary">No Players</span>
+                <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path
+                    d="M4 6l4 4 4-4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <div class="players-panel" id="players-panel" hidden>
+                <div class="players-field" id="players-field">
+                  <div class="players-chips" id="players-chips"></div>
+                  <input
+                    type="text"
+                    id="players-input"
+                    class="players-input"
+                    placeholder="Type to add player..."
+                    autocomplete="off"
+                    aria-labelledby="players-label"
+                  />
+                </div>
+                <div class="players-dropdown" id="players-dropdown" hidden></div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="control control-category">
-        <label for="category-select">Category</label>
-        <select id="category-select">
-          <option value="pass_rush">DL Pass Rush</option>
-          <option value="pass_block">OL Pass Block</option>
-        </select>
-      </div>
+          <div class="control control-category">
+            <label for="category-select">Category</label>
+            <select id="category-select">
+              <option value="pass_rush">DL Pass Rush</option>
+              <option value="pass_block">OL Pass Block</option>
+            </select>
+          </div>
 
-      <div class="control control-position">
-        <label for="position-select">Position</label>
-        <select id="position-select"></select>
-      </div>
+          <div class="control control-position">
+            <label for="position-select">Position</label>
+            <select id="position-select"></select>
+          </div>
 
-      <div class="control control-axis">
-        <div class="axis-label-row">
-          <label for="x-metric-select">X axis</label>
-          <span class="info-popover-slot" id="x-axis-info-slot"></span>
-        </div>
-        <select id="x-metric-select"></select>
-      </div>
+          <div class="control control-axis">
+            <div class="axis-label-row">
+              <label for="x-metric-select">X axis</label>
+              <span class="info-popover-slot" id="x-axis-info-slot"></span>
+            </div>
+            <select id="x-metric-select"></select>
+          </div>
 
-      <div class="control control-axis">
-        <div class="axis-label-row">
-          <label for="y-metric-select">Y axis</label>
-          <span class="info-popover-slot" id="y-axis-info-slot"></span>
-        </div>
-        <select id="y-metric-select"></select>
-      </div>
+          <div class="control control-axis">
+            <div class="axis-label-row">
+              <label for="y-metric-select">Y axis</label>
+              <span class="info-popover-slot" id="y-axis-info-slot"></span>
+            </div>
+            <select id="y-metric-select"></select>
+          </div>
 
-      <!-- Row-break elements force deterministic line wraps in the control
+          <!-- Row-break elements force deterministic line wraps in the control
            bar (see .row-break in style.css) instead of leaving row grouping
            to depend on exact viewport width. Season through Y axis (plus
            Players, desktop/tablet only) share one row above this break;
            Threshold, Player Names/Team Logos, Apply, and Save Plot share the
            row below it. -->
-      <div class="row-break" aria-hidden="true"></div>
+          <div class="row-break" aria-hidden="true"></div>
 
-      <div class="control control-slider">
-        <label for="threshold-slider">
-          Min <span id="threshold-field-label">opportunities</span>
-        </label>
-        <div class="threshold-row">
-          <input type="range" id="threshold-slider" min="0" max="100" value="0" />
-          <input type="number" id="threshold-number" min="0" step="1"
-                 aria-label="min opportunities exact value" />
-        </div>
-      </div>
+          <div class="control control-slider">
+            <label for="threshold-slider"> Min <span id="threshold-field-label">opportunities</span> </label>
+            <div class="threshold-row">
+              <input type="range" id="threshold-slider" min="0" max="100" value="0" />
+              <input type="number" id="threshold-number" min="0" step="1" aria-label="min opportunities exact value" />
+            </div>
+          </div>
 
-      <!-- Stacked (not side-by-side) so this whole group is only as wide as
+          <!-- Stacked (not side-by-side) so this whole group is only as wide as
            one checkbox row, freeing enough horizontal room for Save Plot to
            sit on the same row as Apply instead of up on the axis row. -->
-      <div class="control control-toggles">
-        <label class="checkbox-label">
-          <input type="checkbox" id="labels-toggle" checked />
-          Player Names
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="logos-toggle" checked />
-          Team Logos
-        </label>
-        <!-- Default OFF, unlike the two above — an opt-in addition to every
+          <div class="control control-toggles">
+            <label class="checkbox-label">
+              <input type="checkbox" id="labels-toggle" checked />
+              Player Names
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="logos-toggle" checked />
+              Team Logos
+            </label>
+            <!-- Default OFF, unlike the two above — an opt-in addition to every
              PNG export (Save Plot + every card's own Save button), not a
              view of the on-screen chart itself. See metric-notes.js /
              chart-export.js's compositeFooterCanvas appendix support. -->
-        <label class="checkbox-label">
-          <input type="checkbox" id="metric-notes-toggle" />
-          Include metric notes
-        </label>
-      </div>
+            <label class="checkbox-label">
+              <input type="checkbox" id="metric-notes-toggle" />
+              Include metric notes
+            </label>
+          </div>
 
-      <!-- Mobile-only: sits between the toggles and Apply/Save Plot in the
+          <!-- Mobile-only: sits between the toggles and Apply/Save Plot in the
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its
            position here in the DOM is irrelevant to the mobile visual order
            — that's driven by `order` in the @media (max-width: 860px) block
            — but it's placed here for source locality next to the buttons it separates. -->
-      <div class="drawer-divider" aria-hidden="true"></div>
+          <div class="drawer-divider" aria-hidden="true"></div>
 
-      <div class="control control-apply">
-        <button id="apply-filters" type="button" class="apply-btn" aria-label="Apply filters">Apply</button>
+          <div class="control control-apply">
+            <button id="apply-filters" type="button" class="apply-btn" aria-label="Apply filters">Apply</button>
+          </div>
+
+          <div class="control control-png">
+            <button
+              id="save-png-btn"
+              type="button"
+              class="png-btn"
+              aria-label="Save plot as PNG"
+              title="Save plot as PNG"
+              disabled
+            >
+              <svg class="icon-download" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M2.75 12.5a.75.75 0 0 1 .75.75v.25c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-.25a.75.75 0 0 1 1.5 0v.25A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 13.25v-.25a.75.75 0 0 1 .75-.75Z"
+                />
+              </svg>
+              Save Plot
+            </button>
+          </div>
+        </section>
       </div>
 
-      <div class="control control-png">
-        <button id="save-png-btn" type="button" class="png-btn" aria-label="Save plot as PNG" title="Save plot as PNG" disabled>
-          <svg class="icon-download" viewBox="0 0 16 16" aria-hidden="true">
-            <path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"/>
-            <path fill="currentColor" d="M2.75 12.5a.75.75 0 0 1 .75.75v.25c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-.25a.75.75 0 0 1 1.5 0v.25A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 13.25v-.25a.75.75 0 0 1 .75-.75Z"/>
-          </svg>
-          Save Plot
-        </button>
-      </div>
-    </section>
-  </div>
-
-  <!-- Pinned Players — persistent
+      <!-- Pinned Players — persistent
        management region for the Workspace (Single Cards + Merged Cards) and
        the shared 8-player quota, replacing the old merge-toolbar. Desktop/
        tablet only, and unlike that old toolbar it's always visible there
@@ -298,173 +351,193 @@
        renderPlayerCardsSpace() in app.js. Deliberately kept OUTSIDE .board:
        cascadeScoutCardPosition()/beginScoutResize() etc. in app.js position
        floating cards against .board assuming .chart-panel sits at its top —
-       inserting this as a .board grid child would break that math. Collapsed
-       by default; #pcs-inspect-btn both expands AND collapses #pcs-panel (§2:
+       inserting this as a .board grid child would break that math. Open on a
+       first visit, then whatever the visitor last chose (restorePlayerCardsSpacePanel()); #pcs-inspect-btn both expands AND collapses #pcs-panel (§2:
        NOT a native select/dropdown — a panel that expands/collapses in
        place) — there's no separate close control inside the panel itself. -->
-  <section class="player-cards-space" id="player-cards-space" hidden>
-    <div class="pcs-bar">
-      <span class="pcs-quota" id="pcs-quota-label">📍PINNED: 0 / 8 Distinct Players.</span>
-      <button type="button" id="pcs-inspect-btn" class="pcs-inspect-btn"
-              aria-haspopup="true" aria-expanded="false" aria-controls="pcs-panel">
-        Manage
-        <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-    </div>
+      <section class="player-cards-space" id="player-cards-space" hidden>
+        <div class="pcs-bar">
+          <span class="pcs-quota" id="pcs-quota-label">📍PINNED: 0 / 8 Distinct Players.</span>
+          <button
+            type="button"
+            id="pcs-inspect-btn"
+            class="pcs-inspect-btn"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="pcs-panel"
+          >
+            <span class="pcs-inspect-label">Manage</span>
+            <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path
+                d="M4 6l4 4 4-4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
 
-    <div class="pcs-panel" id="pcs-panel" hidden>
-      <div class="pcs-columns">
-        <div class="pcs-column">
-          <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Player Profiles</h3>
-            <!-- Single Cards' only entry point — a plot click no longer adds here, it only opens
+        <div class="pcs-panel" id="pcs-panel" hidden>
+          <div class="pcs-columns">
+            <div class="pcs-column">
+              <div class="pcs-column-header">
+                <h3 class="pcs-column-title">Player Profiles</h3>
+                <!-- Single Cards' only entry point — a plot click no longer adds here, it only opens
                  the floating card (see viewFloatingCard() in app.js). Same
                  fuzzy-match input/dropdown style as the Players filter, reused
                  wholesale via .merge-edit-input/.merge-edit-dropdown. Sits in
                  the header row alongside the title, mirroring the Merged
                  Cards column's title+Create layout. -->
-            <div class="merge-edit-add pcs-add-wrap">
-              <input type="text" id="pcs-add-input" class="merge-edit-input"
-                     placeholder="Search…" autocomplete="off" />
-              <div class="merge-edit-dropdown" id="pcs-add-dropdown" hidden></div>
-            </div>
-          </div>
-          <!-- The input's own placeholder is too short at its Create-button-
+                <div class="merge-edit-add pcs-add-wrap">
+                  <input
+                    type="text"
+                    id="pcs-add-input"
+                    class="merge-edit-input"
+                    placeholder="Search…"
+                    autocomplete="off"
+                  />
+                  <div class="merge-edit-dropdown" id="pcs-add-dropdown" hidden></div>
+                </div>
+              </div>
+              <!-- The input's own placeholder is too short at its Create-button-
                matched width to carry the instruction anymore — this static
                line stands in for it, in the same row position as the Merged
                Cards column's own hint ("Click Create...", #pcs-merged-empty)
                below its header. -->
-          <p class="pcs-empty" id="pcs-singles-empty">Type a player's name to add a card.</p>
-          <div class="pcs-list" id="pcs-singles-list"></div>
-        </div>
+              <p class="pcs-empty" id="pcs-singles-empty">Type a player's name to add a card.</p>
+              <div class="pcs-list" id="pcs-singles-list"></div>
+            </div>
 
-        <div class="pcs-columns-divider" aria-hidden="true"></div>
+            <div class="pcs-columns-divider" aria-hidden="true"></div>
 
-        <div class="pcs-column">
-          <div class="pcs-column-header">
-            <h3 class="pcs-column-title">Player Comparisons</h3>
-            <button type="button" class="merge-btn" id="pcs-create-btn">Create</button>
+            <div class="pcs-column">
+              <div class="pcs-column-header">
+                <h3 class="pcs-column-title">Player Comparisons</h3>
+                <button type="button" class="merge-btn" id="pcs-create-btn">Create</button>
+              </div>
+              <div class="pcs-list" id="pcs-merged-list"></div>
+              <p class="pcs-empty" id="pcs-merged-empty" hidden>Click Create to build a merged card here.</p>
+            </div>
           </div>
-          <div class="pcs-list" id="pcs-merged-list"></div>
-          <p class="pcs-empty" id="pcs-merged-empty" hidden>Click Create to build a merged card here.</p>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <section class="board">
-    <div class="chart-panel">
-      <div id="chart"></div>
-      <div id="logo-preload" class="empty-state logo-preload-state" hidden>
-        <span class="spinner" aria-hidden="true"></span>
-        <span>🏎Get-off in a second…</span>
-      </div>
-      <p id="empty-state" class="empty-state" hidden>
-        No players clear this threshold yet — try lowering the minimum.
-      </p>
-    </div>
+      <section class="board">
+        <div class="chart-panel">
+          <div id="chart"></div>
+          <div id="logo-preload" class="empty-state logo-preload-state" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <span>🏎Get-off in a second…</span>
+          </div>
+          <p id="empty-state" class="empty-state" hidden>
+            No players clear this threshold yet — try lowering the minimum.
+          </p>
+        </div>
 
-    <!-- Live scouting cards are cloned from #scout-card-template (one per
+        <!-- Live scouting cards are cloned from #scout-card-template (one per
          pinned player), #merge-card-template, or #linemate-card-template
          (see openScoutCard()/openMergeCard()/openLinemateCard() in app.js)
          and appended here as siblings — each keeps its own position/z-index
          so several can be open and dragged independently without stepping
          on each other. -->
-    <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
+        <div class="scout-cards" id="scout-cards" aria-live="polite"></div>
 
-    <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
+        <!-- Desktop shows nothing when no cards are pinned; mobile shows this in
          the stacked layout instead, toggled via [hidden] in app.js. -->
-    <p class="scout-empty-hint" id="scout-empty-hint" hidden>Click any player to see full stats.</p>
+        <p class="scout-empty-hint" id="scout-empty-hint" hidden>Click any player to see full stats.</p>
 
-    <template id="scout-card-template">
-      <aside class="scout-card">
-        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
-          <i class="fa-solid fa-download"></i>
-        </button>
-        <button type="button" class="scout-fold" aria-label="Fold card">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
+        <template id="scout-card-template">
+          <aside class="scout-card">
+            <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+              <i class="fa-solid fa-download"></i>
+            </button>
+            <button type="button" class="scout-fold" aria-label="Fold card">
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button type="button" class="scout-close" aria-label="Close scouting card">&times;</button>
 
-        <div class="scout-card-panel">
-          <div class="scout-card-body">
-            <div class="scout-card-top scout-drag-handle" title="Drag to move">
-              <div class="scout-logo-wrap">
-                <img class="scout-logo" alt="" />
-                <div class="scout-badge" hidden></div>
-              </div>
-              <div class="scout-id">
-                <div class="scout-name"></div>
-                <div class="scout-meta"></div>
-              </div>
-            </div>
-            <!-- Lives in the header row (survives folding, see .is-folded in
+            <div class="scout-card-panel">
+              <div class="scout-card-body">
+                <div class="scout-card-top scout-drag-handle" title="Drag to move">
+                  <div class="scout-logo-wrap">
+                    <img class="scout-logo" alt="" />
+                    <div class="scout-badge" hidden></div>
+                  </div>
+                  <div class="scout-id">
+                    <div class="scout-name"></div>
+                    <div class="scout-meta"></div>
+                  </div>
+                </div>
+                <!-- Lives in the header row (survives folding, see .is-folded in
                  style.css), not the collapsible body below — a folded card
                  should still be able to pull up its linemates without
                  unfolding first. Merging happens through the Merged Cards
                  column's Create popup now, not a checkbox here. -->
-            <div class="scout-card-actions">
-              <button type="button" class="card-linemate-toggle" aria-label="Show linemates">
-                <i class="fa-solid fa-people-group"></i> Linemates
-              </button>
+                <div class="scout-card-actions">
+                  <button type="button" class="card-linemate-toggle" aria-label="Show linemates">
+                    <i class="fa-solid fa-people-group"></i> Linemates
+                  </button>
+                </div>
+                <ul class="scout-card-note-list">
+                  <li class="scout-card-note scout-card-pool"></li>
+                  <li class="scout-card-note scout-card-threshold"></li>
+                </ul>
+                <div class="scout-stats"></div>
+              </div>
             </div>
-            <ul class="scout-card-note-list">
-              <li class="scout-card-note scout-card-pool"></li>
-              <li class="scout-card-note scout-card-threshold"></li>
-            </ul>
-            <dl class="scout-stats"></dl>
-          </div>
-        </div>
-      </aside>
-    </template>
+          </aside>
+        </template>
 
-    <!-- One row per merged player, one column per metric, percentile-only
+        <!-- One row per merged player, one column per metric, percentile-only
          cells — filled in by openMergeCard() in app.js. -->
-    <template id="merge-card-template">
-      <aside class="scout-card scout-card--merge">
-        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
-          <i class="fa-solid fa-download"></i>
-        </button>
-        <button type="button" class="scout-fold" aria-label="Fold card">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button type="button" class="scout-close" aria-label="Dissolve merge card">&times;</button>
+        <template id="merge-card-template">
+          <aside class="scout-card scout-card--merge">
+            <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+              <i class="fa-solid fa-download"></i>
+            </button>
+            <button type="button" class="scout-fold" aria-label="Fold card">
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button type="button" class="scout-close" aria-label="Dissolve merge card">&times;</button>
 
-        <div class="scout-card-panel">
-          <div class="scout-card-body">
-            <div class="scout-card-top scout-drag-handle" title="Drag to move">
-              <div class="scout-id">
-                <div class="scout-name merge-card-title"></div>
-                <div class="scout-meta merge-card-subtitle"></div>
+            <div class="scout-card-panel">
+              <div class="scout-card-body">
+                <div class="scout-card-top scout-drag-handle" title="Drag to move">
+                  <div class="scout-id">
+                    <div class="scout-name merge-card-title"></div>
+                    <div class="scout-meta merge-card-subtitle"></div>
+                  </div>
+                </div>
+                <div class="merge-card-notes">
+                  <div class="merge-mode-switch" role="group" aria-label="Table layout">
+                    <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">
+                      Read
+                    </button>
+                    <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
+                    <span class="merge-mode-info"></span>
+                  </div>
+                  <ul class="merge-card-note-list">
+                    <li class="merge-card-note merge-card-pool"></li>
+                    <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--read">
+                      Please scroll down for more metrics.
+                    </li>
+                    <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--sort">
+                      Please scroll right for more metrics.
+                    </li>
+                  </ul>
+                </div>
+                <div class="merge-table-wrap">
+                  <table class="merge-table"></table>
+                </div>
               </div>
             </div>
-            <div class="merge-card-notes">
-              <div class="merge-mode-switch" role="group" aria-label="Table layout">
-                <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">Read</button>
-                <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
-                <span class="merge-mode-info"></span>
-              </div>
-              <ul class="merge-card-note-list">
-                <li class="merge-card-note merge-card-pool"></li>
-                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--read">
-                  Please scroll down for more metrics.
-                </li>
-                <li class="merge-card-note merge-card-scroll-hint merge-card-scroll-hint--sort">
-                  Please scroll right for more metrics.
-                </li>
-              </ul>
-            </div>
-            <div class="merge-table-wrap">
-              <table class="merge-table"></table>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </template>
+          </aside>
+        </template>
 
-    <!-- Roster table (percentiles only, own-position pool, DataFrame-style
+        <!-- Roster table (percentiles only, own-position pool, DataFrame-style
          columns matching Merge Card's — see makeTeamCell()/renderMergeCardBody()
          in merge-card.js) + the 3M/RSWA summary table —
          filled in by openLinemateCard() in app.js. Header row mirrors the
@@ -475,153 +548,181 @@
          here — the second header row (.scout-card-actions) that holds a
          Linemates toggle on a Player Card holds the "All numbers..."
          disclaimer here instead. -->
-    <template id="linemate-card-template">
-      <aside class="scout-card scout-card--linemate">
-        <button type="button" class="card-save-btn" aria-label="Save card as PNG">
-          <i class="fa-solid fa-download"></i>
-        </button>
-        <button type="button" class="scout-fold" aria-label="Fold card">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-        <button type="button" class="scout-close" aria-label="Close linemate card">&times;</button>
+        <template id="linemate-card-template">
+          <aside class="scout-card scout-card--linemate">
+            <button type="button" class="card-save-btn" aria-label="Save card as PNG">
+              <i class="fa-solid fa-download"></i>
+            </button>
+            <button type="button" class="scout-fold" aria-label="Fold card">
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button type="button" class="scout-close" aria-label="Close linemate card">&times;</button>
 
-        <div class="scout-card-panel">
-          <div class="scout-card-body">
-            <div class="scout-card-top scout-drag-handle" title="Drag to move">
-              <div class="scout-logo-wrap">
-                <img class="scout-logo" alt="" />
-                <div class="scout-badge" hidden></div>
-              </div>
-              <div class="scout-id">
-                <div class="scout-name linemate-card-title"></div>
-                <div class="scout-meta linemate-card-meta"></div>
-              </div>
-            </div>
-            <div class="scout-card-actions linemate-card-notes">
-              <label class="checkbox-label linemate-anchor-toggle">
-                <input type="checkbox" class="linemate-anchor-checkbox" />
-                <span class="linemate-anchor-toggle-label"></span>
-              </label>
-              <ul class="linemate-card-note-list">
-                <li class="linemate-card-note linemate-card-roster-note"></li>
-                <!-- Same scroll cue as Merge Card's .merge-card-scroll-hint — the
+            <div class="scout-card-panel">
+              <div class="scout-card-body">
+                <div class="scout-card-top scout-drag-handle" title="Drag to move">
+                  <div class="scout-logo-wrap">
+                    <img class="scout-logo" alt="" />
+                    <div class="scout-badge" hidden></div>
+                  </div>
+                  <div class="scout-id">
+                    <div class="scout-name linemate-card-title"></div>
+                    <div class="scout-meta linemate-card-meta"></div>
+                  </div>
+                </div>
+                <div class="scout-card-actions linemate-card-notes">
+                  <label class="checkbox-label linemate-anchor-toggle">
+                    <input type="checkbox" class="linemate-anchor-checkbox" />
+                    <span class="linemate-anchor-toggle-label"></span>
+                  </label>
+                  <ul class="linemate-card-note-list">
+                    <li class="linemate-card-note linemate-card-roster-note"></li>
+                    <li class="linemate-card-note linemate-card-size-reminder" hidden></li>
+                    <!-- Same scroll cue as Merge Card's .merge-card-scroll-hint — the
                      roster table's frozen Player/Position columns (see
                      .linemate-table-frozen in style.css) make the horizontal
                      scroll less obvious than a bare native scrollbar,
                      especially on a touch viewport now that this card opens
                      on mobile too. -->
-                <li class="linemate-card-note linemate-card-scroll-hint">Please scroll right for more metrics.</li>
-                <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
-              </ul>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--read">
+                      Please scroll down for more metrics.
+                    </li>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--read-wide">
+                      Please scroll right for more players.
+                    </li>
+                    <li class="linemate-card-note linemate-card-scroll-hint linemate-card-scroll-hint--sort">
+                      Please scroll right for more metrics.
+                    </li>
+                    <li class="linemate-card-note">All numbers are a player's percentiles among his position.</li>
+                  </ul>
+                </div>
+                <h4 class="scout-section-title linemate-table-title">
+                  <span>Individual</span>
+                  <span class="merge-mode-switch" role="group" aria-label="Table layout">
+                    <button type="button" class="merge-mode-btn is-active" data-mode="read" aria-pressed="true">
+                      Read
+                    </button>
+                    <button type="button" class="merge-mode-btn" data-mode="sort" aria-pressed="false">Sort</button>
+                    <span class="merge-mode-info"></span>
+                  </span>
+                </h4>
+                <div class="linemate-table-wrap">
+                  <table class="linemate-table"></table>
+                </div>
+                <div class="linemate-summary-wrap">
+                  <h4 class="scout-section-title">Line Summary</h4>
+                  <table class="linemate-summary-table"></table>
+                </div>
+              </div>
             </div>
-            <div class="linemate-table-wrap">
-              <table class="linemate-table"></table>
-            </div>
-            <button type="button" class="linemate-see-more" hidden>See more</button>
-            <div class="linemate-summary-wrap">
-              <h4 class="linemate-summary-title">Line Summary</h4>
-              <table class="linemate-summary-table"></table>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </template>
-  </section>
-</main>
+          </aside>
+        </template>
+      </section>
+    </main>
 
-<!-- Quota/cap refusal reminder (Workspace full, Merge Card 5-member cap, Merge
+    <!-- Quota/cap refusal reminder (Workspace full, Merge Card 5-member cap, Merge
      8-player limit) — a popup instead of easy-to-miss inline text in the
      Pinned Players' compact bar, so a refusal can't go unnoticed
      regardless of which control triggered it. Single shared instance,
      repopulated per call — see showWorkspaceNotice() in app.js. -->
-<div class="workspace-notice-overlay" id="workspace-notice-overlay" hidden>
-  <div class="workspace-notice-box" role="alertdialog" aria-modal="true" aria-labelledby="workspace-notice-body">
-    <p class="workspace-notice-body" id="workspace-notice-body"></p>
-    <div class="workspace-notice-actions">
-      <button type="button" class="workspace-notice-ok" id="workspace-notice-ok">Got it</button>
+    <div class="workspace-notice-overlay" id="workspace-notice-overlay" hidden>
+      <div class="workspace-notice-box" role="alertdialog" aria-modal="true" aria-labelledby="workspace-notice-body">
+        <p class="workspace-notice-body" id="workspace-notice-body"></p>
+        <div class="workspace-notice-actions">
+          <button type="button" class="workspace-notice-ok" id="workspace-notice-ok">Got it</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- Warns before dissolving the Pinned Players Workspace (Single Cards +
+    <!-- Warns before dissolving the Pinned Players Workspace (Single Cards +
      Merged Cards) on a pool-changing Apply
      — only ever shown when the Workspace is non-empty, see
      showMergeInvalidationConfirm() in app.js. -->
-<div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
-  <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
-    <p class="merge-confirm-title" id="merge-confirm-title">New Filters Cause Removals</p>
-    <!-- Scrollable content area, filled by showMergeInvalidationConfirm() (workspace.js)
+    <div class="merge-confirm-overlay" id="merge-confirm-overlay" hidden>
+      <div class="merge-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="merge-confirm-title">
+        <p class="merge-confirm-title" id="merge-confirm-title">New Filters Cause Removals</p>
+        <!-- Scrollable content area, filled by showMergeInvalidationConfirm() (workspace.js)
          from impactConfirmMessage(), textContent only. Title, note and buttons stay fixed. -->
-    <div class="merge-confirm-scroll" id="merge-confirm-scroll">
-      <div
-        class="merge-confirm-body"
-        id="merge-confirm-body"
-        tabindex="0"
-        role="region"
-        aria-label="Pinned Players affected by the new filters"
-      ></div>
+        <div class="merge-confirm-scroll" id="merge-confirm-scroll">
+          <div
+            class="merge-confirm-body"
+            id="merge-confirm-body"
+            tabindex="0"
+            role="region"
+            aria-label="Pinned Players affected by the new filters"
+          ></div>
+        </div>
+        <p class="merge-confirm-note" id="merge-confirm-note">This can’t be undone.</p>
+        <div class="merge-confirm-actions">
+          <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
+          <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Remove &amp; Apply</button>
+        </div>
+      </div>
     </div>
-    <p class="merge-confirm-note" id="merge-confirm-note">This can’t be undone.</p>
-    <div class="merge-confirm-actions">
-      <button type="button" class="merge-confirm-cancel" id="merge-confirm-cancel">Cancel</button>
-      <button type="button" class="merge-confirm-clear" id="merge-confirm-clear">Remove &amp; Apply</button>
-    </div>
-  </div>
-</div>
 
-<!-- Create Merged Card popup — the
+    <!-- Create Merged Card popup — the
      ONLY way to build a NEW merged card, replacing the old per-row Merge
      button + header Merge button flow. Same modal pattern and fuzzy-match
      input/dropdown style as #merge-edit-overlay below, but membership is
      staged locally (createSelection in app.js) until Submit — Cancel
      discards it untouched, no card created. -->
-<div class="merge-edit-overlay" id="merge-create-overlay" hidden>
-  <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-create-title">
-    <p class="merge-edit-title" id="merge-create-title">Create Player Comparison</p>
+    <div class="merge-edit-overlay" id="merge-create-overlay" hidden>
+      <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-create-title">
+        <p class="merge-edit-title" id="merge-create-title">Create Player Comparison</p>
 
-    <div class="merge-edit-members" id="merge-create-members"></div>
+        <div class="merge-edit-members" id="merge-create-members"></div>
 
-    <div class="merge-edit-add">
-      <input type="text" id="merge-create-input" class="merge-edit-input"
-             placeholder="Type to add a player..." autocomplete="off" />
-      <div class="merge-edit-dropdown" id="merge-create-dropdown" hidden></div>
+        <div class="merge-edit-add">
+          <input
+            type="text"
+            id="merge-create-input"
+            class="merge-edit-input"
+            placeholder="Type to add a player..."
+            autocomplete="off"
+          />
+          <div class="merge-edit-dropdown" id="merge-create-dropdown" hidden></div>
+        </div>
+
+        <p class="merge-edit-message" id="merge-create-message"></p>
+
+        <div class="merge-confirm-actions">
+          <button type="button" class="merge-confirm-cancel" id="merge-create-cancel">Cancel</button>
+          <button type="button" class="merge-edit-done" id="merge-create-submit">Create</button>
+        </div>
+      </div>
     </div>
 
-    <p class="merge-edit-message" id="merge-create-message"></p>
-
-    <div class="merge-confirm-actions">
-      <button type="button" class="merge-confirm-cancel" id="merge-create-cancel">Cancel</button>
-      <button type="button" class="merge-edit-done" id="merge-create-submit">Create</button>
-    </div>
-  </div>
-</div>
-
-<!-- Merge Card membership editor — the
+    <!-- Merge Card membership editor — the
      ONLY way to change an existing Merge Card's membership. Single static
      instance, repopulated per open via openMergeEditPopup() in app.js;
      closes only via its own Done button, same convention as
      #merge-confirm-overlay above (no outside-click dismissal). -->
-<div class="merge-edit-overlay" id="merge-edit-overlay" hidden>
-  <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-edit-title">
-    <p class="merge-edit-title" id="merge-edit-title">Edit Merge Card</p>
+    <div class="merge-edit-overlay" id="merge-edit-overlay" hidden>
+      <div class="merge-edit-box" role="dialog" aria-modal="true" aria-labelledby="merge-edit-title">
+        <p class="merge-edit-title" id="merge-edit-title">Edit Merge Card</p>
 
-    <div class="merge-edit-members" id="merge-edit-members"></div>
+        <div class="merge-edit-members" id="merge-edit-members"></div>
 
-    <div class="merge-edit-add">
-      <input type="text" id="merge-edit-input" class="merge-edit-input"
-             placeholder="Type to add a player..." autocomplete="off" />
-      <div class="merge-edit-dropdown" id="merge-edit-dropdown" hidden></div>
+        <div class="merge-edit-add">
+          <input
+            type="text"
+            id="merge-edit-input"
+            class="merge-edit-input"
+            placeholder="Type to add a player..."
+            autocomplete="off"
+          />
+          <div class="merge-edit-dropdown" id="merge-edit-dropdown" hidden></div>
+        </div>
+
+        <p class="merge-edit-message" id="merge-edit-message"></p>
+
+        <div class="merge-edit-actions">
+          <button type="button" class="merge-edit-done" id="merge-edit-done">Done</button>
+        </div>
+      </div>
     </div>
 
-    <p class="merge-edit-message" id="merge-edit-message"></p>
-
-    <div class="merge-edit-actions">
-      <button type="button" class="merge-edit-done" id="merge-edit-done">Done</button>
-    </div>
-  </div>
-</div>
-
-<!-- Below Threshold Matches popup — surfaces a fuzzy-search name match whose
+    <!-- Below Threshold Matches popup — surfaces a fuzzy-search name match whose
      season snap count/opportunities fall under the current threshold, rather
      than leaving that indistinguishable from "no such player". Shared by
      EVERY search box with this concern, not just the Players filter: the
@@ -645,27 +746,32 @@
      search box it takes effect once Apply commits the new threshold, since
      those boxes search the Applied pool (see fullPcsSearchPool()'s header
      comment in search.js). -->
-<div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
-  <div class="merge-edit-box below-threshold-box" role="dialog" aria-modal="true" aria-labelledby="below-threshold-title">
-    <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>
-    <div class="below-threshold-list" id="below-threshold-list"></div>
-    <div class="merge-edit-actions">
-      <button type="button" class="merge-edit-done" id="below-threshold-close">Close</button>
+    <div class="merge-edit-overlay" id="below-threshold-overlay" hidden>
+      <div
+        class="merge-edit-box below-threshold-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="below-threshold-title"
+      >
+        <p class="merge-edit-title" id="below-threshold-title">Below Threshold Matches</p>
+        <div class="below-threshold-list" id="below-threshold-list"></div>
+        <div class="merge-edit-actions">
+          <button type="button" class="merge-edit-done" id="below-threshold-close">Close</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<script src="vendor/plotly.min.js?v={{VERSION}}"></script>
-<script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
-<script type="module" src="main.js?v={{VERSION}}"></script>
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("SW registration failed:", err);
-      });
-    });
-  }
-</script>
-</body>
+    <script src="vendor/plotly.min.js?v={{VERSION}}"></script>
+    <script src="vendor/html2canvas.min.js?v={{VERSION}}"></script>
+    <script type="module" src="main.js?v={{VERSION}}"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch((err) => {
+            console.warn("SW registration failed:", err);
+          });
+        });
+      }
+    </script>
+  </body>
 </html>

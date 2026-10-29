@@ -133,8 +133,9 @@ export function cascadeScoutCardPosition(cardEl) {
 // hides the metric body via CSS (.is-folded); a card the user has edge-
 // resized taller would otherwise leave a tall dead gap under the header once
 // that body disappears, so its inline panel height is stashed here and
-// restored on unfold rather than lost. `onUnfold` lets a Linemate Card reset
-// its "See more" state back to collapsed every time it re-expands (§2.5).
+// restored on unfold rather than lost. `onUnfold`, when given, lets a card
+// refresh something that has no layout while folded (the Comparison Card's
+// sticky-column offsets) every time it re-expands.
 export function applyCardFoldVisual(cardEl, state, onUnfold) {
   cardEl.classList.toggle("is-folded", state.folded);
   const foldBtn = cardEl.querySelector(".scout-fold");

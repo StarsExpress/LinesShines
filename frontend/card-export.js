@@ -32,10 +32,8 @@ const CARD_EXPORT_BG = "#16301f";
 // extra right-edge background is harmless, clipping the content isn't.
 const CARD_HORIZONTAL_PADDING = 40;
 
-// Every card's own close/fold/resize chrome, this Save button itself, and
-// Linemate Card's "See more" toggle (meaningless once buildExportClone below
-// force-expands the roster to its full length — see linemate-card.js's
-// prepareClone) shouldn't appear in the exported image. html2canvas's
+// Every card's own close/fold/resize chrome and this Save button itself
+// shouldn't appear in the exported image. html2canvas's
 // ignoreElements is the standard way to exclude specific nodes from a
 // capture without a hide-then-restore choreography.
 function shouldIgnoreForExport(el) {
@@ -47,7 +45,8 @@ function shouldIgnoreForExport(el) {
       el.classList.contains("card-save-btn") ||
       el.classList.contains("merge-mode-switch") ||
       el.classList.contains("merge-card-scroll-hint") ||
-      el.classList.contains("linemate-see-more"))
+      el.classList.contains("linemate-card-scroll-hint") ||
+      el.classList.contains("linemate-card-size-reminder"))
   );
 }
 
@@ -75,16 +74,19 @@ function fitCloneToContent(clone) {
   // sidesteps that entirely — with nothing scrolling underneath them in the
   // export, sticky was only ever pinning them to their own already-correct
   // flow position anyway.
-  clone.querySelectorAll(".merge-table-frozen, .linemate-table-frozen, .merge-read-frozen").forEach((cell) => {
-    cell.style.position = "static";
-    cell.style.left = "";
-  });
+  clone
+    .querySelectorAll(".merge-table-frozen, .linemate-table-frozen, .merge-read-frozen, .linemate-read-label")
+    .forEach((cell) => {
+      cell.style.position = "static";
+      cell.style.left = "";
+    });
 
   // Lays every column flat in one row instead of clipping to whatever was
   // scrolled into view, then widens the card itself to fit.
   let requiredWidth = 0;
   clone.querySelectorAll(".merge-table-wrap, .linemate-table-wrap, .linemate-summary-wrap").forEach((scrollEl) => {
     scrollEl.style.overflow = "visible";
+    scrollEl.style.maxHeight = "none";
     requiredWidth = Math.max(requiredWidth, scrollEl.scrollWidth);
   });
   if (requiredWidth > 0) {
@@ -119,10 +121,15 @@ function buildExportClone(cardEl) {
   // layout — a detached node always reports 0.
   document.body.appendChild(clone);
 
-  clone.classList.remove("is-folded", "is-dragging", "is-resizing");
+  clone.classList.remove("is-folded", "is-dragging", "is-resizing", "is-wide");
 
   const panelEl = clone.querySelector(".scout-card-panel");
-  if (panelEl) panelEl.style.cssText = "height: auto; max-height: none; overflow: visible;";
+  // The panel's own 2px rounded border is dropped here: compositeFooterCanvas draws one
+  // square frame on the final image's outer edge instead, around the card, notes and credit.
+  if (panelEl) {
+    panelEl.style.cssText =
+      "height: auto; max-height: none; overflow: visible; border: none; border-radius: 0; box-shadow: none;";
+  }
 
   fitCloneToContent(clone);
 
@@ -148,7 +155,13 @@ export async function exportCardPng(cardEl, filename, prepareClone, appendixNote
       scale: CARD_EXPORT_SCALE,
       ignoreElements: shouldIgnoreForExport,
     });
-    await downloadCanvasAsPng(compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, { appendixNotes }), filename);
+    const finalCanvas = compositeFooterCanvas(sourceCanvas, CARD_EXPORT_SCALE, {
+      appendixNotes,
+      frame: true,
+      creditBand: true,
+      notesDivider: true,
+    });
+    await downloadCanvasAsPng(finalCanvas, filename);
   } finally {
     clone.remove();
   }

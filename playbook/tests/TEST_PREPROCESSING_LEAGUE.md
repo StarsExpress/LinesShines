@@ -1,0 +1,9 @@
+# test_preprocessing_league.py
+
+> **Add tests here when:** changing the league handling of the preprocessing scripts: the `League` enum, the league's data paths, the required-column check or the `preprocess.py` command line.
+
+- **Kind:** pure Python.
+- **Needs:** nothing. The leagues' data folders are replaced by temporary ones with tiny synthetic CSVs, so no real PFF export is read.
+- **Covers:** the two leagues are `nfl` and `ncaaf`; an unknown league is refused; a season file sits under its league's folder; for both categories and both leagues the workbook is written beside the CSV of the same league and nowhere else; a CSV missing a column raises one error naming the league, the season and the column, and writes no workbook; the command line needs `--league` and `--seasons`, refuses an unknown league and reads one or several seasons; an error in one CSV is printed to stderr and the remaining CSVs still run (the failures are returned), and a clean run reports none.
+- **Not here:** the rate calculations themselves (checked by running the real CSVs again and comparing the workbooks cell by cell, not by a test) and the data folder layout → `TEST_PATHS.md`.
+- **Known gaps:** the full list of required columns is not asserted, only that a missing one is caught.

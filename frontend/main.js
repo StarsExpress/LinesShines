@@ -12,7 +12,7 @@ import {
   setPlayerPool,
   setAppliedFilters,
   preloadLogos,
-  isOngoingSeason,
+  seasonSwitchChangesThresholdDefault,
   currentCategoryMeta,
   metadata,
 } from "./data.js";
@@ -59,14 +59,16 @@ import {
 import {
   renderPlayerCardsSpace,
   togglePlayerCardsSpacePanel,
+  restorePlayerCardsSpacePanel,
   runPcsAddSearch,
   hidePcsAddDropdown,
 } from "./workspace.js";
 
 // Tracks whatever Season value was last settled (either by the user picking
 // one, or a category switch's own season-select rebuild) so the season
-// "change" handler below can tell an ongoing→historical transition apart
-// from every other one — a plain els.season.value read inside that handler
+// "change" handler below can tell a switch that changes the threshold default
+// (ongoing↔historical) apart from every other one — a plain
+// els.season.value read inside that handler
 // only ever sees the *new* value, never what it was a moment ago. Synced
 // in three places: right after the initial load, at the end of a category
 // switch (which can silently rebuild/reset the season <select>), and at the
@@ -219,14 +221,18 @@ function attachEvents() {
   });
 
   els.season.addEventListener("change", () => {
-    // Ongoing → historical: the ongoing season's threshold sits on a scale
-    // shaped by however much of the season has actually been played, not a
-    // comparable number for a finalized season — carrying it over would
-    // either read as an oddly low cutoff or get silently clamped to an
-    // arbitrary pool max, never the historical default anyone actually
-    // configured. Historical → historical shares one static default across
-    // every finalized season (DEFAULT_THRESHOLDS), so there's nothing
-    // meaningful to snap to — leave the user's value alone.
+    // Ongoing ↔ historical, in either direction: the ongoing season's
+    // threshold sits on a scale shaped by however much of the season has
+    // actually been played, not a comparable number for a finalized season —
+    // carrying it over would either read as an oddly low cutoff or get
+    // silently clamped to an arbitrary pool max, never the default anyone
+    // actually configured. Going back to the ongoing season is the same
+    // problem mirrored: the historical 230/300 only got clamped back to the
+    // dynamic default for as long as the ongoing season's pool max sat below
+    // it, which stopped being true once enough weeks were played. Historical →
+    // historical shares one static default across every finalized season
+    // (DEFAULT_THRESHOLDS), so there's nothing meaningful to snap to — leave
+    // the user's value alone.
     //
     // Deliberately does NOT call resetThresholdToCategoryDefault() here the
     // way the Category handler above does — only sets the flag and lets
@@ -244,7 +250,7 @@ function attachEvents() {
     // worse sin than a brief stale value), but a Season switch has no such
     // units mismatch, so there's nothing lost by just waiting the beat for
     // real data instead of flashing a wrong guess first.
-    if (isOngoingSeason(previousSeasonValue) && !isOngoingSeason(els.season.value)) {
+    if (seasonSwitchChangesThresholdDefault(previousSeasonValue, els.season.value)) {
       setResetThresholdOnNextRange(true);
     }
     previousSeasonValue = els.season.value;
@@ -508,8 +514,11 @@ function attachEvents() {
     renderPlayerCardsSpace();
   });
 
-  // Pinned Players collapse/expand (§2) — Manage does both, no separate
-  // close control inside the panel anymore.
+  // Pinned Players collapse/expand (§2) — one button does both (Manage when
+  // folded, Hide when open), no separate close control inside the panel. The
+  // remembered state is applied now, before renderPlayerCardsSpace() first
+  // shows the section.
+  restorePlayerCardsSpacePanel();
   els.pcsInspectBtn.addEventListener("click", () => togglePlayerCardsSpacePanel());
 
   // Single Cards add-search (v1.2.0 §4) — same fuzzy-input conventions as

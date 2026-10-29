@@ -10,7 +10,7 @@
 // static league structure, not PFF-derived data), so it lives here purely
 // to lay the Teams checklist out like NFL.com: AFC in the left column, NFC
 // in the right, each divided into East/North/South/West groups. Codes match
-// the LinesShines/PFF spellings in teams_reference.py (BLT, CLV, HST, LA,
+// the LinesShines/PFF spellings in teams/nfl.py (BLT, CLV, HST, LA,
 // LV, ...), not the NFL's own abbreviations.
 export const CONFERENCES = {
   AFC: {
@@ -46,13 +46,14 @@ export const LABEL_ALPHA = 1;
 export const MERGE_CARD_MAX_MEMBERS = 5;
 export const MERGE_QUOTA = 8;
 
-// Position-group pulled into a Linemate Card's roster and the per-category
-// cap on how many can be shown — both keyed by category, not position,
-// since a Linemate Card spans every position within its anchor's category
-//.
+// Position-group pulled into a Linemate Card's roster, keyed by category,
+// not position, since a Linemate Card spans every position within its
+// anchor's category. The roster itself has no size limit — the threshold is
+// the only gate — so LINEMATE_SIZE_REMINDER_AT is only where the card starts
+// telling the user that a higher threshold keeps it compact (more linemates
+// than that, per category: the point where the old roster cap used to cut).
 export const LINEMATE_POSITIONS = { pass_block: ["T", "G", "C"], pass_rush: ["ED", "DI"] };
-export const LINEMATE_CAP = { pass_block: 5, pass_rush: 7 };
-export const LINEMATE_VISIBLE_DEFAULT = 5;
+export const LINEMATE_SIZE_REMINDER_AT = { pass_block: 5, pass_rush: 7 };
 
 // Mirrors config.py's DISPLAY_DECIMALS — keep in sync. UI-display rounding
 // only: plots (render.js's xVals/yVals, drawn straight from record[key])

@@ -1,17 +1,30 @@
-import os
 import pandas as pd
-from config import DATA_FOLDER_PATH, FRONT_7_NAMES, ROUNDING_DECIMALS
+from config import FRONT_7_NAMES, ROUNDING_DECIMALS, League
+from preprocessing.preprocess import require_columns, season_file_path
 from utils.renamers import rename_pass_rush_columns, shorten_first_name
 
+CATEGORY = "front_7_pass_rush"
+REQUIRED_COLUMNS = [
+    "Player",
+    "Position",
+    "Games",
+    "PR Opp",
+    "Sacks",
+    "Hits",
+    "Pressures",
+    "TPS PR Opp",
+    "TPS Sacks",
+    "TPS Hits",
+    "TPS Pressures",
+]
 
-def preprocess_front_7(season: int) -> None:
-    pass_rush_csv_path = os.path.join(
-        DATA_FOLDER_PATH, "front_7_pass_rush", f"{season}.csv"
-    )
-    pass_rush_df = pd.read_csv(pass_rush_csv_path)
+
+def preprocess_front_7(league: League, season: int) -> None:
+    pass_rush_df = pd.read_csv(season_file_path(league, CATEGORY, season, "csv"))
 
     pass_rush_df.fillna(inplace=True, value=0)
     pass_rush_df.columns = rename_pass_rush_columns(pass_rush_df.columns)
+    require_columns(pass_rush_df, REQUIRED_COLUMNS, league, season)
     pass_rush_df["Abbr Name"] = pass_rush_df["Player"].apply(shorten_first_name)
 
     positional_sheets = dict()
@@ -68,9 +81,7 @@ def preprocess_front_7(season: int) -> None:
 
         positional_sheets.update({position: positional_df})
 
-    destination_path = os.path.join(
-        DATA_FOLDER_PATH, "front_7_pass_rush", f"{season}.xlsx"
-    )
+    destination_path = season_file_path(league, CATEGORY, season, "xlsx")
     with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
         for position, sheet in positional_sheets.items():
             sheet.to_excel(writer, sheet_name=position, index=False)

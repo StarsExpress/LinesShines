@@ -27,7 +27,6 @@ Only the files marked **public** are tracked in git. Everything else stays on th
 | `playbook/next_steps/` | the folder is public (only a `.gitkeep` placeholder); every file inside is local only |
 | `playbook/discussions/` | the folder is public (only a `.gitkeep` placeholder); every file inside is local only |
 | `playbook/MEMORANDUM.md` | local only |
-| `playbook/GUIDE.md` | local only |
 | `.claude/` | local only |
 
 ## Read this first, by task
@@ -83,6 +82,6 @@ These files began as a verbatim split of the old `CLAUDE.md` "Architecture" sect
 - Changed behavior described in an `architecture/` file: update that file in the same change.
 - Keep `CLAUDE.md` short. If a paragraph is only needed for one kind of task, it belongs here.
 - Write files for Claude Code in English (`COMMANDS.md`, `DECISIONS.md`, `INVARIANTS.md`, `architecture/`), and write both `next_steps/` and
-  `discussions/` items in English too, so a file can move between them unchanged. Only `GUIDE.md` is Chinese, for the owner.
+  `discussions/` items in English too, so a file can move between them unchanged.
 - `next_steps/` and `discussions/` hold one file per item, with no numbering and no implied order; priority changes at any time.
   A topic moves from `discussions/` to `next_steps/` by moving its file; do not rename it.
