@@ -1,6 +1,6 @@
 """Shared reference data for the 32 NFL teams.
 
-Kept in one place so `ingest_to_db.py` doesn't drift,
+Kept in one place so `database/db_ingestion.py` doesn't drift,
 and so `main.py`'s /api/metadata payload can serve
 these values to frontend (rather than frontend hard-coding them,
 which was the case in earlier static-JSON version).
