@@ -6,8 +6,7 @@ Only the six scoped conferences and Notre Dame are listed in `CONFERENCE_STINTS`
 the database keeps a row if and only if its school was in one of them that season.
 
 Sources: ESPN "College football realignment: conference changes for 2026" and
-Wikipedia "2010-2014 / 2021-2026 NCAA conference realignment". Design record:
-`playbook/discussions/NCAAF-TEAM-LOGOS-AND-REALIGNMENT.md`.
+Wikipedia "2010-2014 / 2021-2026 NCAA conference realignment".
 """
 
 from __future__ import annotations

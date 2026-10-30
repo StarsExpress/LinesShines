@@ -36,6 +36,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
+| The NCAAF Teams checklist: per-season schools and what stays checked across seasons | `test_ncaaf_teams_checklist.py` ([doc](TEST_NCAAF_TEAMS_CHECKLIST.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
 | Anything else | a new `tests/test_*.py` plus its own `TEST_*.md` here, in the same change | |

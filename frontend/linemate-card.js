@@ -20,6 +20,7 @@ import {
   logoSrc,
   teamColor,
   teamName,
+  teamLabel,
   metadata,
 } from "./data.js";
 import { LINEMATE_POSITIONS, LINEMATE_SIZE_REMINDER_AT } from "./config.js";
@@ -674,13 +675,13 @@ function setLinemateCardIdentity(cardEl, anchorRecord) {
   const badge = cardEl.querySelector(".scout-badge");
   const color = teamColor(anchorRecord.team);
   logoImg.src = logoSrc(anchorRecord.team);
-  logoImg.alt = `${anchorRecord.team} logo`;
+  logoImg.alt = `${teamLabel(anchorRecord.team)} logo`;
   logoImg.hidden = false;
   badge.hidden = true;
   logoImg.onerror = () => {
     logoImg.hidden = true;
     badge.hidden = false;
-    badge.textContent = anchorRecord.team;
+    badge.textContent = teamLabel(anchorRecord.team);
     badge.style.background = color;
   };
   cardEl.querySelector(".linemate-card-meta").textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;

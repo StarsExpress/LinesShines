@@ -81,8 +81,9 @@ body {
   z-index: 1;
 }
 
+/* The top 64px hold the page switch (left) and the Install and GitHub buttons (right). */
 .hero {
-  padding: 28px 24px 20px;
+  padding: 64px 24px 20px;
 }
 
 .hero-inner {
@@ -180,6 +181,131 @@ body {
 @media (display-mode: standalone) {
   .hero-install {
     display: none;
+  }
+}
+
+/* Page switch (NFL Season / NCAAF Season / ...): plain links, one URL each, the
+   current page highlighted. Inline on wide screens; below 860px the links hide
+   behind a hamburger button that opens a list with the full names (ESPN-style).
+   Top-left, mirroring the GitHub and Install buttons on the right. */
+.league-nav {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 3;
+}
+.league-nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  background: #000;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.league-nav-toggle:hover,
+.league-nav-toggle:focus-visible,
+.league-nav-toggle[aria-expanded="true"] {
+  opacity: 1;
+  border-color: var(--flag-gold);
+}
+/* The three bars of the hamburger. */
+.league-nav-bars,
+.league-nav-bars::before,
+.league-nav-bars::after {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.league-nav-bars {
+  position: relative;
+}
+.league-nav-bars::before,
+.league-nav-bars::after {
+  content: "";
+  position: absolute;
+  left: 0;
+}
+.league-nav-bars::before {
+  top: -5px;
+}
+.league-nav-bars::after {
+  top: 5px;
+}
+.league-nav-list {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.league-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  background: #000;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  opacity: 0.8;
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease,
+    border-color 0.15s ease;
+}
+.league-nav-link:hover,
+.league-nav-link:focus-visible {
+  opacity: 1;
+  border-color: var(--flag-gold);
+}
+.league-nav-link.is-current {
+  opacity: 1;
+  color: #0f2119;
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+}
+/* The installed desktop app puts its window buttons in the top-left corner. */
+@media (display-mode: standalone) and (hover: hover) and (pointer: fine) {
+  .league-nav {
+    left: 110px;
+  }
+}
+@media (max-width: 860px) {
+  .league-nav-toggle {
+    display: inline-flex;
+  }
+  .league-nav-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 170px;
+    padding: 8px;
+    background: var(--turf-800);
+    border: 1px solid var(--turf-600);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .league-nav.is-open .league-nav-list {
+    display: flex;
   }
 }
 
@@ -597,6 +723,36 @@ body {
   display: flex;
   flex-direction: column;
 }
+/* NCAAF: seven conferences do not fit two columns, so they stack as sections
+   (each with its schools in two columns) in a wider dropdown. A conference header
+   is a button there: it selects or clears the whole conference. */
+.teams-dropdown--by-season {
+  width: 360px;
+}
+.teams-dropdown--by-season .teams-checklist {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.teams-dropdown--by-season .teams-division {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 8px;
+}
+.teams-dropdown--by-season .teams-column-header {
+  width: 100%;
+  padding: 0 0 4px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--turf-600);
+  text-align: left;
+  cursor: pointer;
+}
+.teams-dropdown--by-season .teams-column-header:hover,
+.teams-dropdown--by-season .teams-column-header:focus-visible {
+  color: var(--flag-gold-bright);
+}
+
 .teams-column-header {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -3500,7 +3656,14 @@ thead .linemate-table-frozen {
     min-height: 600px;
   }
   .hero {
-    padding: 16px 16px 12px;
+    padding: 58px 16px 12px; /* The top row holds the page switch and the buttons on the right. */
+  }
+  .league-nav {
+    top: 14px;
+    left: 16px;
+  }
+  .league-nav-toggle {
+    height: 34px;
   }
   .hero-inner {
     gap: 12px;

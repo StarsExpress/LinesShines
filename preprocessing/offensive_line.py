@@ -1,6 +1,7 @@
 import pandas as pd
 from config import OL_NAMES, League
 from preprocessing.preprocess import (
+    apply_league_scope,
     percent_of,
     require_columns,
     season_file_path,
@@ -29,6 +30,7 @@ def preprocess_offensive_line(league: League, season: int) -> None:
     pass_block_df.fillna(inplace=True, value=0)
     pass_block_df.columns = rename_pass_block_columns(pass_block_df.columns)
     require_columns(pass_block_df, REQUIRED_COLUMNS, league, season)
+    pass_block_df = apply_league_scope(pass_block_df, league, season)
     pass_block_df["Abbr Name"] = pass_block_df["Player"].apply(shorten_first_name)
 
     positional_sheets = dict()

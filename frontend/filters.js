@@ -31,6 +31,8 @@ import {
   logoSrc,
   teamSwatch,
   teamName,
+  teamLabel,
+  LEAGUE,
   allTeamCodes,
   findRecordByPlayer,
 } from "./data.js";
@@ -132,14 +134,14 @@ function resetTeamsIfAllSelected() {
   updateTeamsSummary();
 }
 
-export function teamOptionRow(code) {
+export function teamOptionRow(code, checked = true) {
   const label = document.createElement("label");
   label.className = "team-option";
 
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.value = code;
-  cb.checked = true;
+  cb.checked = checked;
 
   const logo = document.createElement("img");
   logo.className = "team-option-logo";
@@ -149,37 +151,113 @@ export function teamOptionRow(code) {
   logo.onerror = () => logo.replaceWith(teamSwatch(code));
 
   const text = document.createElement("span");
-  text.textContent = code;
+  text.textContent = teamLabel(code);
 
   label.append(cb, logo, text);
   return label;
 }
 
-export function populateTeamsChecklist() {
+// The checklist's groups for a season: [{ title, sections: [{ title, codes }] }].
+// The NFL's conferences and divisions are fixed (config.js); a college
+// conference changes with the season (realignment), so those groups come from
+// the metadata's per-season membership, one section per conference, with the
+// schools by name. A conference with no school that season has no group.
+function teamGroups(season) {
+  if (LEAGUE.teamGroups === "static") {
+    return Object.entries(CONFERENCES).map(([conference, divisions]) => ({
+      title: conference,
+      sections: Object.entries(divisions).map(([division, codes]) => ({ title: division, codes })),
+    }));
+  }
+
+  const conferenceOfTeam = (metadata.team_conferences && metadata.team_conferences[season]) || {};
+  return metadata.conference_order
+    .map((conference) => ({
+      title: conference,
+      sections: [
+        {
+          title: null,
+          codes: Object.keys(conferenceOfTeam)
+            .filter((code) => conferenceOfTeam[code] === conference)
+            .sort((a, b) => teamName(a).localeCompare(teamName(b))),
+        },
+      ],
+    }))
+    .filter((group) => group.sections[0].codes.length > 0);
+}
+
+// What the user chose is kept across rebuilds, because a college season lists
+// only its own schools. A school seen before keeps its last state; a school
+// shown for the first time starts checked only if every visible school was
+// checked (the "All Teams" state follows the user into a season with more
+// schools), and unchecked otherwise, so a new season never turns on teams the
+// user has not touched.
+const uncheckedTeams = new Set();
+const knownTeams = new Set();
+
+export function populateTeamsChecklist(season) {
+  const boxes = Array.from(els.teamsChecklist.querySelectorAll("input[type=checkbox]"));
+  const allWereChecked = boxes.every((cb) => cb.checked);
+
+  const noneWereChecked = boxes.length > 0 && boxes.every((cb) => !cb.checked);
+
+  // "None" applies to every school, including those this season does not
+  // list, so a school remembered from another season follows it.
+  if (noneWereChecked) knownTeams.forEach((key) => uncheckedTeams.add(key));
+
+  boxes.forEach((cb) => {
+    knownTeams.add(cb.value);
+    if (cb.checked) uncheckedTeams.delete(cb.value);
+    else uncheckedTeams.add(cb.value);
+  });
   els.teamsChecklist.innerHTML = "";
 
-  Object.entries(CONFERENCES).forEach(([conference, divisions]) => {
+  const bySeason = LEAGUE.teamGroups === "by_season";
+  els.teamsDropdown.classList.toggle("teams-dropdown--by-season", bySeason);
+
+  teamGroups(season).forEach(({ title, sections }) => {
     const column = document.createElement("div");
     column.className = "teams-column";
 
-    const columnHeader = document.createElement("div");
+    // A college conference header is a button that selects or clears its whole
+    // conference; the NFL's headers stay plain text.
+    const columnHeader = document.createElement(bySeason ? "button" : "div");
     columnHeader.className = "teams-column-header";
-    columnHeader.textContent = conference;
+    columnHeader.textContent = title;
     column.appendChild(columnHeader);
 
-    Object.entries(divisions).forEach(([division, codes]) => {
+    const groupBoxes = [];
+    sections.forEach((section) => {
       const group = document.createElement("div");
       group.className = "teams-division";
 
-      const divisionHeader = document.createElement("div");
-      divisionHeader.className = "teams-division-header";
-      divisionHeader.textContent = division;
-      group.appendChild(divisionHeader);
+      if (section.title) {
+        const divisionHeader = document.createElement("div");
+        divisionHeader.className = "teams-division-header";
+        divisionHeader.textContent = section.title;
+        group.appendChild(divisionHeader);
+      }
 
-      // Codes are already listed ascending within each division above.
-      codes.forEach((code) => group.appendChild(teamOptionRow(code)));
+      // Codes are already listed in order within each section above.
+      section.codes.forEach((code) => {
+        const key = String(code);
+        const checked = knownTeams.has(key) ? !uncheckedTeams.has(key) : allWereChecked;
+        const row = teamOptionRow(code, checked);
+        groupBoxes.push(row.querySelector("input"));
+        group.appendChild(row);
+      });
       column.appendChild(group);
     });
+
+    if (bySeason) {
+      columnHeader.type = "button";
+      columnHeader.addEventListener("click", () => {
+        const allChecked = groupBoxes.every((cb) => cb.checked);
+        groupBoxes.forEach((cb) => (cb.checked = !allChecked));
+        updateTeamsSummary();
+        updatePendingState();
+      });
+    }
 
     els.teamsChecklist.appendChild(column);
   });
@@ -318,7 +396,7 @@ export function renderPlayersDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);
@@ -407,7 +485,7 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
     logo.loading = "lazy";
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
     team.append(logo, code);
 
     info.append(name, team);

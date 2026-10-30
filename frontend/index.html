@@ -70,8 +70,12 @@
         );
       })();
     </script>
-    <title>LinesShines · 鋒光</title>
-    <meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
+    <title>{{PAGE_TITLE}}</title>
+    <meta name="description" content="{{PAGE_DESCRIPTION}}" />
+    <!-- The page's league (main.py fills the placeholder); data.js falls back to the NFL if it is missing. -->
+    <script>
+      window.LEAGUE = {{LEAGUE_JSON}};
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -99,6 +103,7 @@
     <div class="field-texture" aria-hidden="true"></div>
 
     <header class="hero">
+      {{LEAGUE_NAV}}
       <a
         class="hero-github"
         href="https://github.com/StarsExpress/LinesShines"
@@ -118,7 +123,7 @@
         <img class="hero-logo" src="images/lines_shines_logo.png" alt="LinesShines logo" />
         <div class="hero-text">
           <h1 class="hero-title">LinesShines · 鋒光</h1>
-          <p class="eyebrow">🏈NFL OL & DL PFF Premium Stats Interactive Exploration</p>
+          <p class="eyebrow">{{EYEBROW}}</p>
           <p class="hero-byline">
             "No Line No Shine."<br /><br />
             Infrastructure always starts everything, but quite often gets ignored<br />
@@ -133,6 +138,7 @@
       <span class="meta-segment">Source: PFF Premium Stats</span>
       <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Downloaded PFF data stays private</span>
       <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Median lines are calculated according to current filter</span>
+      {{SCOPE_SEGMENT}}
     </p>
 
     <main class="layout">

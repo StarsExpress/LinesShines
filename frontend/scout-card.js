@@ -9,6 +9,7 @@ import {
   rankAndPercentile,
   teamColor,
   teamName,
+  teamLabel,
   logoSrc,
   thresholdFieldLabel,
   metadata,
@@ -178,13 +179,13 @@ function setScoutCardIdentity(cardEl, record) {
   const badge = cardEl.querySelector(".scout-badge");
   const color = teamColor(record.team);
   logoImg.src = logoSrc(record.team);
-  logoImg.alt = `${record.team} logo`;
+  logoImg.alt = `${teamLabel(record.team)} logo`;
   logoImg.hidden = false;
   badge.hidden = true;
   logoImg.onerror = () => {
     logoImg.hidden = true;
     badge.hidden = false;
-    badge.textContent = record.team;
+    badge.textContent = teamLabel(record.team);
     badge.style.background = color;
   };
   cardEl.querySelector(".scout-meta").textContent =

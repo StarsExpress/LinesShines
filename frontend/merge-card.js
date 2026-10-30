@@ -50,6 +50,7 @@ import {
   findRecordByPlayer,
   thresholdFieldLabel,
   metadata,
+  teamLabel,
 } from "./data.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
@@ -252,7 +253,7 @@ export function renderCreateDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);
@@ -373,7 +374,7 @@ export function makeTeamCell(record) {
   logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
   const code = document.createElement("span");
-  code.textContent = record.team;
+  code.textContent = teamLabel(record.team);
 
   wrap.append(logo, code);
   td.appendChild(wrap);
@@ -401,7 +402,7 @@ export function makeLinemateCell(record) {
 // (never the raw stat), same reasoning as Linemate Card's own sort value fn.
 function mergeSortValue({ record, pool }, label, cat) {
   if (label === "Player") return (record.abbr_name || record.player).toLowerCase();
-  if (label === "Team") return record.team;
+  if (label === "Team") return String(teamLabel(record.team)).toLowerCase();
   if (label === "Games") return record.games ?? null;
   if (label === cat.threshold_field) return record[cat.threshold_field] ?? null;
   const meta = cat.metrics[label];
@@ -975,7 +976,7 @@ export function renderMergeEditDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);

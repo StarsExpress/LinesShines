@@ -1,15 +1,25 @@
-"""The NFL tables: nfl prefix on every table, constraint and index name, and the player_id key."""
+"""The stat tables: the league prefix on every name, the player_id key, and the column spec."""
 
 from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
+)
 
 STAT_TABLES = {
-    "nfl_pass_rush_stats": ("pr", NFLPassRushStat),
-    "nfl_pass_block_stats": ("pb", NFLPassBlockStat),
+    "nfl_pass_rush_stats": ("nfl", "pr", NFLPassRushStat),
+    "nfl_pass_block_stats": ("nfl", "pb", NFLPassBlockStat),
+    "ncaaf_pass_rush_stats": ("ncaaf", "pr", NCAAFPassRushStat),
+    "ncaaf_pass_block_stats": ("ncaaf", "pb", NCAAFPassBlockStat),
 }
 
 
@@ -19,21 +29,21 @@ def _engine():
     return engine
 
 
-def test_every_table_name_starts_with_nfl():
-    assert set(Base.metadata.tables) == {"nfl_teams", *STAT_TABLES}
+def test_the_tables_are_the_two_leagues():
+    assert set(Base.metadata.tables) == {"nfl_teams", "ncaaf_teams", *STAT_TABLES}
 
 
-def test_every_constraint_and_index_name_carries_the_nfl_prefix():
-    for name, (short, _model) in STAT_TABLES.items():
+def test_every_constraint_and_index_name_carries_its_league_prefix():
+    for name, (league, short, _model) in STAT_TABLES.items():
         table = Base.metadata.tables[name]
         names = {c.name for c in table.constraints if c.name} | {
             i.name for i in table.indexes
         }
 
         assert names == {
-            f"uq_nfl_{short}_season_position_player_id",
-            f"idx_nfl_{short}_filter",
-            f"idx_nfl_{short}_player_id",
+            f"uq_{league}_{short}_season_position_player_id",
+            f"idx_{league}_{short}_filter",
+            f"idx_{league}_{short}_player_id",
         }
 
 
@@ -135,10 +145,12 @@ def test_model_columns_match_the_column_spec():
         "abbr_name",
     }
 
-    for model, data_columns in (
-        (NFLPassRushStat, PASS_RUSH_DATA_COLUMNS),
-        (NFLPassBlockStat, PASS_BLOCK_DATA_COLUMNS),
+    for model, data_columns, extra in (
+        (NFLPassRushStat, PASS_RUSH_DATA_COLUMNS, set()),
+        (NFLPassBlockStat, PASS_BLOCK_DATA_COLUMNS, set()),
+        (NCAAFPassRushStat, PASS_RUSH_DATA_COLUMNS, {"conference"}),
+        (NCAAFPassBlockStat, PASS_BLOCK_DATA_COLUMNS, {"conference"}),
     ):
         table_columns = {column.name for column in model.__table__.columns}
-        expected = identity | {column.attr for column in data_columns}
+        expected = identity | {column.attr for column in data_columns} | extra
         assert table_columns == expected, model.__name__

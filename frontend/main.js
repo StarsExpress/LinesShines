@@ -15,6 +15,7 @@ import {
   seasonSwitchChangesThresholdDefault,
   currentCategoryMeta,
   metadata,
+  LEAGUE,
 } from "./data.js";
 import {
   selectedPlayers,
@@ -76,8 +77,9 @@ import {
 let previousSeasonValue = null;
 
 async function loadMetadata() {
-  const res = await fetch("/api/metadata");
-  if (!res.ok) throw new Error(`GET /api/metadata → ${res.status}`);
+  const metadataUrl = `${LEAGUE.apiPrefix}/metadata`;
+  const res = await fetch(metadataUrl);
+  if (!res.ok) throw new Error(`GET ${metadataUrl} → ${res.status}`);
   // setMetadata()/setPlayerPool()/setAppliedFilters() replace the original's
   // direct assignments below — data.js owns that state now, see its header
   // comment for why. Same assignments, same order, same timing.
@@ -85,7 +87,7 @@ async function loadMetadata() {
 
   populateCategoryDependentControls();
   previousSeasonValue = els.season.value;
-  populateTeamsChecklist();
+  populateTeamsChecklist(els.season.value);
   attachEvents();
   await loadCurrentSlice();
   setPlayerPool(currentRecords, currentSliceCategory);
@@ -216,6 +218,7 @@ function attachEvents() {
     // compares against what's actually on screen now, not a stale value
     // from before this category switch.
     previousSeasonValue = els.season.value;
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -254,6 +257,8 @@ function attachEvents() {
       setResetThresholdOnNextRange(true);
     }
     previousSeasonValue = els.season.value;
+    // The NCAAF checklist groups schools by that season's conferences.
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -298,6 +303,28 @@ function attachEvents() {
     if (!e.isTrusted) return;
     if (els.teamsDropdown.hidden) return;
     if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
+  });
+
+  // League navigation: on narrow screens the three pages sit behind a hamburger
+  // button (CSS shows it below 860px). It closes on Escape and on a click outside,
+  // with the same e.isTrusted guard as the dropdowns here, so the PNG export's
+  // synthetic click cannot shut it.
+  const setLeagueNavOpen = (open) => {
+    els.leagueNav.classList.toggle("is-open", open);
+    els.leagueNavToggle.setAttribute("aria-expanded", String(open));
+  };
+
+  els.leagueNavToggle.addEventListener("click", () => {
+    setLeagueNavOpen(!els.leagueNav.classList.contains("is-open"));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (!els.leagueNav.contains(e.target)) setLeagueNavOpen(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setLeagueNavOpen(false);
   });
 
   // Players: collapsed behind a button + panel, same mechanism as Teams —
@@ -619,6 +646,6 @@ function attachEvents() {
 loadMetadata().catch((err) => {
   console.error(err);
   els.chart.innerHTML =
-    `<p style="color:#f1ecdd;padding:24px;">Could not load /api/metadata — ` +
+    `<p style="color:#f1ecdd;padding:24px;">Could not load ${LEAGUE.apiPrefix}/metadata — ` +
     `is the FastAPI server running? (${err.message})</p>`;
 });

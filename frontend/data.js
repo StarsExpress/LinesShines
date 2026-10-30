@@ -11,9 +11,22 @@
  */
 import { els } from "./dom.js";
 
-export const LOGO_PATH = (team) => `logos/nfl/${team}.png`;
+// The page's league (NFL or NCAAF), filled into index.html by main.py: the API
+// prefix, the logo folder, how the Teams checklist is grouped and how a team is
+// named in text. The NFL values are the fallback if the page was served raw.
+const NFL_LEAGUE = {
+  key: "nfl",
+  name: "NFL",
+  apiPrefix: "/api/nfl",
+  logoDir: "nfl",
+  teamGroups: "static",
+  teamLabel: "code",
+};
+export const LEAGUE = window.LEAGUE || NFL_LEAGUE;
 
-export let metadata = null; // /api/metadata payload
+export const LOGO_PATH = (team) => `logos/${LEAGUE.logoDir}/${team}.png`;
+
+export let metadata = null; // /api/{league}/metadata payload
 export const sliceCache = new Map(); // key = `${category}:${season}:${position}` → records[]
 export let currentRecords = []; // records for the current slice (all threshold values)
 export let currentFiltered = []; // records >= threshold (what the chart shows)
@@ -47,7 +60,7 @@ export let playerPoolCategory = null;
 export let appliedFilters = null;
 
 // Decoded Image objects, keyed by team code, filled once at page load so
-// filter changes never wait on the browser to re-resolve/decode /logos/nfl/*.png
+// filter changes never wait on the browser to re-resolve/decode /logos/{league}/*.png
 // again — layout.images and the scout card both just point at these.
 export const logoCache = {};
 
@@ -163,7 +176,7 @@ export function appliedCategoryMeta() {
 export async function fetchSlice(category, season) {
   const key = `${category}:${season}`;
   if (!sliceCache.has(key)) {
-    const url = `/api/${category}?season=${season}`;
+    const url = `${LEAGUE.apiPrefix}/${category}?season=${season}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     const data = await res.json();
@@ -223,6 +236,13 @@ export function teamColor(code) {
 export function teamName(code) {
   const t = metadata.teams && metadata.teams[code];
   return (t && t.full_name) || code;
+}
+
+// How a team reads in text (rows, badges, table cells): the NFL shows its short
+// code (BUF), while a college team's key is only a franchise id, so it shows the
+// school's name. Keys and logo file names always stay the raw key.
+export function teamLabel(team) {
+  return LEAGUE.teamLabel === "name" ? teamName(team) : team;
 }
 
 // Fallback swatch for the teams-dropdown checklist when a team's logo file

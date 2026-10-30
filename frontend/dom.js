@@ -12,6 +12,8 @@ export const els = {
   xMetric: document.getElementById("x-metric-select"),
   yMetric: document.getElementById("y-metric-select"),
   heroInstallSlot: document.getElementById("hero-install-slot"),
+  leagueNav: document.querySelector(".league-nav"),
+  leagueNavToggle: document.getElementById("league-nav-toggle"),
   xAxisInfoSlot: document.getElementById("x-axis-info-slot"),
   yAxisInfoSlot: document.getElementById("y-axis-info-slot"),
   threshold: document.getElementById("threshold-slider"),

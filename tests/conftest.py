@@ -19,7 +19,15 @@ os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
 import pytest
 import uvicorn
 from fastapi.testclient import TestClient
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
+)
 from main import app, engine, SessionLocal
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -144,6 +152,77 @@ def seeded_db():
             )
         )
 
+        sess.commit()
+
+    yield
+
+
+@pytest.fixture()
+def seeded_ncaaf_db():
+    """Wipe and load a small college dataset: two schools, one in a conference that
+    changes between the two seasons (franchise 128 is BYU, Big 12 only from 2023)."""
+    with SessionLocal() as sess:
+        sess.query(NCAAFPassRushStat).delete()
+        sess.query(NCAAFPassBlockStat).delete()
+        sess.query(NCAAFTeam).delete()
+        sess.commit()
+
+        sess.add(NCAAFTeam(franchise_id=102, full_name="Akron"))
+        sess.add(NCAAFTeam(franchise_id=103, full_name="Alabama"))
+
+        metric_values = dict(
+            games=12,
+            pr_opp=200,
+            tps_pr_opp=80,
+            pass_cov_percent=8.0,
+            tps_pass_cov_percent=5.0,
+            win_rate=15.0,
+            tps_win_rate=18.0,
+            pressure_rate=20.0,
+            tps_pressure_rate=25.0,
+            havoc_rate=8.0,
+            tps_havoc_rate=10.0,
+            prp=6.0,
+            tps_prp=7.5,
+        )
+        for season, team_code, conference, player_id, player in (
+            (2024, 102, "MAC", 5001, "A. Akron"),
+            (2025, 102, "MAC", 5001, "A. Akron"),
+            (2025, 103, "SEC", 5002, "B. Bama"),
+        ):
+            sess.add(
+                NCAAFPassRushStat(
+                    season=season,
+                    position="ED",
+                    team_code=team_code,
+                    conference=conference,
+                    player_id=player_id,
+                    player=player,
+                    abbr_name=player,
+                    **metric_values,
+                )
+            )
+
+        sess.add(
+            NCAAFPassBlockStat(
+                season=2025,
+                position="T",
+                team_code=103,
+                conference="SEC",
+                player_id=5003,
+                player="C. Tackle",
+                abbr_name="C. Tackle",
+                games=12,
+                non_spike_pb_snaps=400,
+                tps_non_spike_pb_snaps=150,
+                allowed_pressure_pct=5.0,
+                tps_allowed_pressure_pct=6.0,
+                allowed_havoc_pct=2.0,
+                tps_allowed_havoc_pct=3.0,
+                pbe=95.0,
+                tps_pbe=92.0,
+            )
+        )
         sess.commit()
 
     yield

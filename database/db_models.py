@@ -146,6 +146,58 @@ class NFLPassBlockStat(StatIdentityMixin, PassBlockMetricsMixin, Base):
     )
 
 
+class NCAAFTeam(Base):
+    __tablename__ = "ncaaf_teams"
+
+    franchise_id = Column(Integer, primary_key=True)  # PFF's stable school id.
+    full_name = Column(String, nullable=False)
+    primary_color = Column(String(7))  # Hex like "#0085CA"; may be unset for now.
+
+    pass_rush_stats = relationship("NCAAFPassRushStat", back_populates="team")
+    pass_block_stats = relationship("NCAAFPassBlockStat", back_populates="team")
+
+
+class NCAAFPassRushStat(StatIdentityMixin, PassRushMetricsMixin, Base):
+    __tablename__ = "ncaaf_pass_rush_stats"
+
+    # The college team key is the franchise_id, not a short code.
+    team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
+    conference = Column(String, nullable=False)  # Attached at conversion; in scope.
+
+    team = relationship("NCAAFTeam", back_populates="pass_rush_stats")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "position",
+            "player_id",
+            name="uq_ncaaf_pr_season_position_player_id",
+        ),
+        Index("idx_ncaaf_pr_filter", "season", "position"),
+        Index("idx_ncaaf_pr_player_id", "player_id"),
+    )
+
+
+class NCAAFPassBlockStat(StatIdentityMixin, PassBlockMetricsMixin, Base):
+    __tablename__ = "ncaaf_pass_block_stats"
+
+    team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
+    conference = Column(String, nullable=False)
+
+    team = relationship("NCAAFTeam", back_populates="pass_block_stats")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "position",
+            "player_id",
+            name="uq_ncaaf_pb_season_position_player_id",
+        ),
+        Index("idx_ncaaf_pb_filter", "season", "position"),
+        Index("idx_ncaaf_pb_player_id", "player_id"),
+    )
+
+
 # Serialization helpers used by main.py to keep API payload shape
 # identical to what frontend already expects (space-and-mixed-case keys
 # preserved so no client-side renaming is needed). Both read the one
@@ -158,3 +210,14 @@ def pass_rush_row_to_dict(row: NFLPassRushStat) -> dict:
 
 def pass_block_row_to_dict(row: NFLPassBlockStat) -> dict:
     return row_to_payload(row, PASS_BLOCK_DATA_COLUMNS)
+
+
+def ncaaf_pass_rush_row_to_dict(row: NCAAFPassRushStat) -> dict:
+    return {**row_to_payload(row, PASS_RUSH_DATA_COLUMNS), "conference": row.conference}
+
+
+def ncaaf_pass_block_row_to_dict(row: NCAAFPassBlockStat) -> dict:
+    return {
+        **row_to_payload(row, PASS_BLOCK_DATA_COLUMNS),
+        "conference": row.conference,
+    }

@@ -6,18 +6,18 @@
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
 **Season-threshold routing** (`config.py::resolve_default_threshold`, consumed by `main.py`'s
-`/api/metadata` and, on the frontend, `filters.js`'s `updateThresholdRange()` /
+`/api/{league}/metadata` and, on the frontend, `filters.js`'s `updateThresholdRange()` /
 `resetThresholdToCategoryDefault()` / `updatePendingThresholdMax()`): a season is either "finalized" (`season_year < current
-calendar year` → the static `DEFAULT_THRESHOLDS`, 230 PR Opp / 300 Non Spike PB Snaps) or "in
+calendar year` → the static `DEFAULT_THRESHOLDS`, 230 PR Opp / 300 Non Spike PB Snaps; the college has its own pair, `NCAAF_DEFAULT_THRESHOLDS` 230 / 360 and `NCAAF_DYNAMIC_THRESHOLDS`, chosen by the `league` argument of `resolve_default_threshold()`) or "in
 progress" (`season_year == current calendar year` → `DYNAMIC_THRESHOLDS[season]`, hand-edited
-weekly during the local `python -m database.db_ingestion` run — eyeballed against how far the
+weekly during the local `python -m database.db_ingestion --league nfl` run — eyeballed against how far the
 season has actually progressed, deliberately **not** a fraction-of-season-elapsed formula, since
 season pacing is bumpy (byes, blowouts, injuries)). This is a Calendar Year comparison, not a
 season-schedule-aware one — the regular season is ~90% complete before New Year's Day, so it's an
 accepted near-100%-accurate approximation. If the current season has no `DYNAMIC_THRESHOLDS` entry
 yet (e.g. the first ingest of a new season, before that week's manual edit), it silently falls back
 to the static default rather than raising — `db_ingestion.py`'s `main()` prints a reminder in that
-case rather than failing the run. `/api/metadata` exposes this as `default_thresholds` (a dict
+case rather than failing the run. `/api/{league}/metadata` exposes this as `default_thresholds` (a dict
 keyed by season, not a single scalar) per category, one call to `resolve_default_threshold()` per
 season in that category's season list. **This is a display-filter concept only** — neither
 `preprocessing/front_7.py` nor `preprocessing/offensive_line.py` reads a threshold or drops rows by

@@ -22,6 +22,7 @@ import {
   targetLogoPx,
   thresholdFieldLabel,
   metadata,
+  LEAGUE,
 } from "./data.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
 import { viewFloatingCard } from "./scout-card.js";
@@ -253,7 +254,8 @@ export function render() {
   // off a dimmed team still stands out. Empty selectedTeams (Teams → None)
   // with no players picked has both .has() calls return false for every
   // record, which dims everyone uniformly — no special-casing needed.
-  const isDimmed = currentFiltered.map((r) => !(selectedTeams.has(r.team) || selectedPlayerKeys.has(r.player)));
+  // String(): the NCAAF team key is a number, the checklist values are strings.
+  const isDimmed = currentFiltered.map((r) => !(selectedTeams.has(String(r.team)) || selectedPlayerKeys.has(r.player)));
 
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
@@ -419,7 +421,7 @@ export function render() {
   // Teams dims players rather than removing them (see DIM_OPACITY above),
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
-  const titleText = `${appliedFilters.season} NFL ${positionLabel} ${xKey} & ${yKey}`;
+  const titleText = `${appliedFilters.season} ${LEAGUE.name} ${positionLabel} ${xKey} & ${yKey}`;
   const subtitleText = highlightSubtitle(cat, currentFiltered, minThreshold);
 
   const layout = {

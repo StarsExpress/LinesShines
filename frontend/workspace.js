@@ -18,7 +18,7 @@
  * merge-card.js's header.
  */
 import { els } from "./dom.js";
-import { logoSrc, teamSwatch, findRecordByPlayer, appliedCategoryMeta, appliedFilters } from "./data.js";
+import { logoSrc, teamSwatch, teamLabel, findRecordByPlayer, appliedCategoryMeta, appliedFilters } from "./data.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
@@ -146,7 +146,7 @@ export function renderPcsAddDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);
@@ -254,7 +254,7 @@ export function renderSinglesList() {
 
     const meta = document.createElement("span");
     meta.className = "pcs-row-meta";
-    meta.textContent = `${record.team} · ${record.position}`;
+    meta.textContent = `${teamLabel(record.team)} · ${record.position}`;
     row.appendChild(meta);
 
     const spacer = document.createElement("span");
