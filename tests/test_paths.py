@@ -37,6 +37,7 @@ def test_no_legacy_flat_data_files():
 
 
 def test_team_logo_directory():
-    logos_dir = REPO_ROOT / "frontend" / "images" / "team_logos"
+    logos_dir = REPO_ROOT / "frontend" / "images" / "team_logos" / "nfl"
     assert logos_dir.is_dir()
     assert list(logos_dir.glob("*.png")), "no logo PNGs found"
+    assert not list(logos_dir.parent.glob("*.png")), "logos belong in nfl/ or ncaaf/"

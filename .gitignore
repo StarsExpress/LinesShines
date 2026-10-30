@@ -21,6 +21,9 @@ data/*.db-wal
 
 node_modules/
 
+# Kept on the owner's machine only.
+tools/download_ncaaf_logos.py
+
 .claude/
 
 # `playbook/` is private by defaul.

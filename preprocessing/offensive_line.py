@@ -1,6 +1,11 @@
 import pandas as pd
-from config import OL_NAMES, ROUNDING_DECIMALS, League
-from preprocessing.preprocess import require_columns, season_file_path
+from config import OL_NAMES, League
+from preprocessing.preprocess import (
+    percent_of,
+    require_columns,
+    season_file_path,
+    write_position_sheets,
+)
 from utils.renamers import rename_pass_block_columns, shorten_first_name
 
 CATEGORY = "ol_pass_block"
@@ -31,46 +36,23 @@ def preprocess_offensive_line(league: League, season: int) -> None:
         positional_df = pass_block_df[pass_block_df["Position"] == position]
 
         positional_df["Havoc"] = positional_df["Sacks"] + positional_df["Hits"]
-        positional_df["Havoc %"] = (
-            positional_df["Havoc"] / positional_df["Non Spike PB Snaps"]
+        positional_df["Havoc %"] = percent_of(
+            positional_df["Havoc"], positional_df["Non Spike PB Snaps"]
         )
 
-        positional_df["Havoc %"].fillna(inplace=True, value=0)
-        positional_df["Havoc %"] *= 100
-        positional_df["Havoc %"] = positional_df["Havoc %"].round(ROUNDING_DECIMALS)
-
-        positional_df["Pressure %"] = (
-            positional_df["Pressures"] / positional_df["Non Spike PB Snaps"]
-        )
-
-        positional_df["Pressure %"].fillna(inplace=True, value=0)
-        positional_df["Pressure %"] *= 100
-        positional_df["Pressure %"] = positional_df["Pressure %"].round(
-            ROUNDING_DECIMALS
+        positional_df["Pressure %"] = percent_of(
+            positional_df["Pressures"], positional_df["Non Spike PB Snaps"]
         )
 
         positional_df["TPS Havoc"] = (
             positional_df["TPS Sacks"] + positional_df["TPS Hits"]
         )
-
-        positional_df["TPS Havoc %"] = (
-            positional_df["TPS Havoc"] / positional_df["TPS Non Spike PB Snaps"]
+        positional_df["TPS Havoc %"] = percent_of(
+            positional_df["TPS Havoc"], positional_df["TPS Non Spike PB Snaps"]
         )
 
-        positional_df["TPS Havoc %"].fillna(inplace=True, value=0)
-        positional_df["TPS Havoc %"] *= 100
-        positional_df["TPS Havoc %"] = positional_df["TPS Havoc %"].round(
-            ROUNDING_DECIMALS
-        )
-
-        positional_df["TPS Pressure %"] = (
-            positional_df["TPS Pressures"] / positional_df["TPS Non Spike PB Snaps"]
-        )
-
-        positional_df["TPS Pressure %"].fillna(inplace=True, value=0)
-        positional_df["TPS Pressure %"] *= 100
-        positional_df["TPS Pressure %"] = positional_df["TPS Pressure %"].round(
-            ROUNDING_DECIMALS
+        positional_df["TPS Pressure %"] = percent_of(
+            positional_df["TPS Pressures"], positional_df["TPS Non Spike PB Snaps"]
         )
 
         positional_df.rename(
@@ -85,7 +67,4 @@ def preprocess_offensive_line(league: League, season: int) -> None:
 
         positional_sheets.update({position: positional_df})
 
-    destination_path = season_file_path(league, CATEGORY, season, "xlsx")
-    with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
-        for position, sheet in positional_sheets.items():
-            sheet.to_excel(writer, sheet_name=position, index=False)
+    write_position_sheets(league, CATEGORY, season, positional_sheets)

@@ -10,7 +10,7 @@
 // static league structure, not PFF-derived data), so it lives here purely
 // to lay the Teams checklist out like NFL.com: AFC in the left column, NFC
 // in the right, each divided into East/North/South/West groups. Codes match
-// the LinesShines/PFF spellings in teams_reference.py (BLT, CLV, HST, LA,
+// the LinesShines/PFF spellings in teams/nfl.py (BLT, CLV, HST, LA,
 // LV, ...), not the NFL's own abbreviations.
 export const CONFERENCES = {
   AFC: {

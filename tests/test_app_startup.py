@@ -23,7 +23,7 @@ def test_logos_mounted_at_expected_path():
 
 
 def test_logos_served_from_team_logos_dir(client):
-    resp = client.get("/logos/ARZ.png")
+    resp = client.get("/logos/nfl/ARZ.png")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "image/png"
 
@@ -85,7 +85,7 @@ def test_frontend_files_must_be_revalidated(client):
 
 
 def test_logos_mount_is_left_alone(client):
-    resp = client.get("/logos/ARZ.png")
+    resp = client.get("/logos/nfl/ARZ.png")
     assert resp.headers.get("cache-control") != "no-cache"
 
 
