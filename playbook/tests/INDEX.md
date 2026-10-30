@@ -22,6 +22,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Neutral metrics: Pass Cov Percent order, grey chip on Player/Comparison/Linemate cards, chip contrast | `test_neutral_metric.py` ([doc](TEST_NEUTRAL_METRIC.md)) | browser |
 | The league handling of the preprocessing scripts: `League`, per-league paths, the required-column check, the command line | `test_preprocessing_league.py` ([doc](TEST_PREPROCESSING_LEAGUE.md)) | pure Python |
 | The NCAAF conference table: a school's stints per conference, `conference_of()`, the out-of-scope list | `test_teams_ncaaf.py` ([doc](TEST_TEAMS_NCAAF.md)) | pure Python |
+| Updating a traded player's team mid-season (`midseason_trades.py`) | `test_midseason_trades.py` ([doc](TEST_MIDSEASON_TRADES.md)) | pure Python |
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
 | The Comparison (Merge) Card's table: Read and Sort layouts, and how it follows the sort order | `test_merge_table.py` ([doc](TEST_MERGE_TABLE.md)) | browser |
 | How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
