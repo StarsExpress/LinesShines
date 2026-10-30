@@ -11,7 +11,7 @@ import argparse
 import os
 import sys
 import pandas as pd
-from config import LEAGUE_DATA_PATHS, League
+from config import LEAGUE_DATA_PATHS, ROUNDING_DECIMALS, League
 
 
 def season_file_path(league: League, category: str, season: int, extension: str) -> str:
@@ -29,6 +29,24 @@ def require_columns(
             f"{league.value} {season}: the CSV lacks the columns {missing}; "
             "export it again with all columns."
         )
+
+
+def percent_of(numerator, denominator):
+    """A rate as a rounded percentage: numerator / denominator, zero-filled, x100."""
+    rate = numerator / denominator
+    rate = rate.fillna(0)
+    rate *= 100
+
+    return rate.round(ROUNDING_DECIMALS)
+
+
+def write_position_sheets(league, category, season, positional_sheets) -> None:
+    """Write one sheet per position to the season's xlsx, in insertion order."""
+    destination_path = season_file_path(league, category, season, "xlsx")
+
+    with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
+        for position, sheet in positional_sheets.items():
+            sheet.to_excel(writer, sheet_name=position, index=False)
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:

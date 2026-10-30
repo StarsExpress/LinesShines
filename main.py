@@ -13,14 +13,14 @@ Anything else falls through to StaticFiles serving `frontend/`.
 
 from __future__ import annotations
 import os
+from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select
 from config import (
     ALLOWED_HAVOC_RATE_NOTE,
     HAVOC_RATE_NOTE,
@@ -38,6 +38,7 @@ from database.db_models import (
     pass_block_row_to_dict,
     pass_rush_row_to_dict,
 )
+from database.session import SessionLocal, engine
 
 # Railway sets this per-deploy; falls back to "dev" for local runs. Used to
 # cache-bust static assets referenced from index.html so iOS Safari (and
@@ -46,30 +47,7 @@ from database.db_models import (
 COMMIT_SHA = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "dev")[:7]
 
 
-# ---- Database wiring. -------------------------------------------------------
-
-
-def _resolve_database_url() -> str:
-    url = os.environ.get("DATABASE_URL", "sqlite:///./data/lines_shines.db")
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://") :]
-
-    # Force SQLAlchemy to use psycopg3, which is installed as `psycopg[binary]`.
-    if url.startswith("postgresql://"):
-        url = "postgresql+psycopg://" + url[len("postgresql://") :]
-    return url
-
-
-DATABASE_URL = _resolve_database_url()
-
-_engine_kwargs = {"pool_pre_ping": True}
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite locally: relax the same-thread guard so uvicorn's threadpool
-    # can serve requests off the main import thread.
-    _engine_kwargs["connect_args"] = {"check_same_thread": False}
-
-engine = create_engine(DATABASE_URL, **_engine_kwargs)
-SessionLocal = sessionmaker(engine, expire_on_commit=False)
+# ---- Database wiring lives in database/session.py. --------------------------
 
 
 # ---- Static metric/position descriptions (schema-level, not row-level). -----
@@ -209,6 +187,172 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# ---- League API: one router factory, used by the NFL now and NCAAF later. ---
+
+
+@dataclass(frozen=True)
+class _CategoryApi:
+    """One stat category's API wiring for a league."""
+
+    key: str  # Payload key, "category" field, and resolve_default_threshold key.
+    model: type
+    positions: dict
+    metrics: dict
+    threshold_field: str
+    order_attr: str  # Model attribute to sort records by, descending.
+    row_to_dict: object
+
+
+@dataclass(frozen=True)
+class _LeagueApi:
+    """A league's team table and its two stat categories."""
+
+    team_model: type
+    categories: tuple
+
+
+def build_api_router(league: _LeagueApi) -> APIRouter:
+    """Build /metadata, /pass_rush and /pass_block for one league.
+
+    Mounted under a league prefix by the caller, so the NFL keeps today's
+    /api/... paths while NCAAF can be added later with its own prefix.
+    """
+    router = APIRouter()
+    categories = {category.key: category for category in league.categories}
+
+    @router.get("/metadata")
+    def metadata() -> dict:
+        with SessionLocal() as sess:
+            category_payload = {}
+
+            for category in league.categories:
+                seasons = sorted(
+                    {
+                        season
+                        for (season,) in sess.execute(
+                            select(category.model.season).distinct()
+                        )
+                    },
+                    reverse=True,
+                )
+
+                category_payload[category.key] = {
+                    "positions": category.positions,
+                    "metrics": category.metrics,
+                    "threshold_field": category.threshold_field,
+                    "seasons": seasons,
+                    "default_thresholds": {
+                        season: resolve_default_threshold(category.key, season)
+                        for season in seasons
+                    },
+                }
+
+            teams = sess.execute(select(league.team_model)).scalars().all()
+
+        return {
+            # Same Calendar Year comparison resolve_default_threshold() uses to
+            # route a season to the static vs. dynamic threshold (see config.py) —
+            # exposed here so the frontend can classify a season as "ongoing" vs
+            # "historical" the same way, without duplicating a date.today().year
+            # call client-side (which would drift out of sync with whatever this
+            # process actually resolved thresholds against, e.g. across a stale
+            # page left open over a year boundary).
+            "current_year": date.today().year,
+            # Shared across every "TPS "-prefixed metric, not a per-metric
+            # formula — exposed once here rather than duplicated into each
+            # metric's own note. The frontend appends this to a TPS metric's own
+            # formula/note whenever the selected axis metric name starts with
+            # "TPS " (see main.js's axisFormulaContent()).
+            "tps_note": TPS_NOTE,
+            **category_payload,
+            "teams": {
+                team.code: {
+                    "full_name": team.full_name,
+                    "primary_color": team.primary_color,
+                }
+                for team in teams
+            },
+        }
+
+    def category_records(category: _CategoryApi, season: int, position) -> dict:
+        if position is not None and position not in category.positions:
+            raise HTTPException(
+                400,
+                f"invalid position: {position!r} — choose from {list(category.positions)}",
+            )
+
+        filters = [category.model.season == season]
+
+        # Omitted position means "every supported position", not literally every
+        # row for the season — the table can carry positions the category does
+        # not expose (e.g. LB), left over from a broader raw ingest.
+
+        filters.append(
+            category.model.position == position
+            if position is not None
+            else category.model.position.in_(category.positions)
+        )
+
+        with SessionLocal() as sess:
+            rows = (
+                sess.execute(
+                    select(category.model)
+                    .where(*filters)
+                    .order_by(getattr(category.model, category.order_attr).desc())
+                )
+                .scalars()
+                .all()
+            )
+
+        return {
+            "category": category.key,
+            "season": season,
+            "position": position,
+            "records": [category.row_to_dict(row) for row in rows],
+        }
+
+    @router.get("/pass_rush")
+    def pass_rush(
+        season: int = Query(..., ge=1980, le=2100),
+        position: str | None = Query(None, min_length=1, max_length=4),
+    ) -> dict:
+        return category_records(categories["pass_rush"], season, position)
+
+    @router.get("/pass_block")
+    def pass_block(
+        season: int = Query(..., ge=1980, le=2100),
+        position: str | None = Query(None, min_length=1, max_length=4),
+    ) -> dict:
+        return category_records(categories["pass_block"], season, position)
+
+    return router
+
+
+NFL_API = _LeagueApi(
+    team_model=NFLTeam,
+    categories=(
+        _CategoryApi(
+            key="pass_rush",
+            model=NFLPassRushStat,
+            positions=PASS_RUSH_POSITIONS,
+            metrics=PASS_RUSH_METRICS,
+            threshold_field="PR Opp",
+            order_attr="pr_opp",
+            row_to_dict=pass_rush_row_to_dict,
+        ),
+        _CategoryApi(
+            key="pass_block",
+            model=NFLPassBlockStat,
+            positions=PASS_BLOCK_POSITIONS,
+            metrics=PASS_BLOCK_METRICS,
+            threshold_field="Non Spike PB Snaps",
+            order_attr="non_spike_pb_snaps",
+            row_to_dict=pass_block_row_to_dict,
+        ),
+    ),
+)
+
+
 app = FastAPI(
     title="Game of Trenches API",
     description="PFF-derived front-7 & O-line metrics for the LinesShines dashboard.",
@@ -221,149 +365,9 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/api/metadata")
-def metadata() -> dict:
-    with SessionLocal() as sess:
-        pass_rush_seasons = sorted(
-            {
-                season
-                for (season,) in sess.execute(select(NFLPassRushStat.season).distinct())
-            },
-            reverse=True,
-        )
-
-        pass_block_seasons = sorted(
-            {
-                season
-                for (season,) in sess.execute(
-                    select(NFLPassBlockStat.season).distinct()
-                )
-            },
-            reverse=True,
-        )
-
-        teams = sess.execute(select(NFLTeam)).scalars().all()
-
-    return {
-        # Same Calendar Year comparison resolve_default_threshold() uses to
-        # route a season to the static vs. dynamic threshold (see config.py) —
-        # exposed here so the frontend can classify a season as "ongoing" vs
-        # "historical" the same way, without duplicating a
-        # date.today().year call client-side (which would drift out of sync
-        # with whatever this process actually resolved thresholds against,
-        # e.g. across a stale page left open over a year boundary).
-        "current_year": date.today().year,
-        # Shared across every "TPS "-prefixed metric, not a per-metric
-        # formula — exposed once here rather than duplicated into each
-        # metric's own note. The frontend appends this to a TPS metric's own
-        # formula/note whenever the selected axis metric name starts with
-        # "TPS " (see main.js's axisFormulaContent()).
-        "tps_note": TPS_NOTE,
-        "pass_rush": {
-            "positions": PASS_RUSH_POSITIONS,
-            "metrics": PASS_RUSH_METRICS,
-            "threshold_field": "PR Opp",
-            "seasons": pass_rush_seasons,
-            "default_thresholds": {
-                season: resolve_default_threshold("pass_rush", season)
-                for season in pass_rush_seasons
-            },
-        },
-        "pass_block": {
-            "positions": PASS_BLOCK_POSITIONS,
-            "metrics": PASS_BLOCK_METRICS,
-            "threshold_field": "Non Spike PB Snaps",
-            "seasons": pass_block_seasons,
-            "default_thresholds": {
-                season: resolve_default_threshold("pass_block", season)
-                for season in pass_block_seasons
-            },
-        },
-        "teams": {
-            team.code: {
-                "full_name": team.full_name,
-                "primary_color": team.primary_color,
-            }
-            for team in teams
-        },
-    }
-
-
-@app.get("/api/pass_rush")
-def pass_rush(
-    season: int = Query(..., ge=1980, le=2100),
-    position: str | None = Query(None, min_length=1, max_length=4),
-) -> dict:
-    if position is not None and position not in PASS_RUSH_POSITIONS:
-        raise HTTPException(
-            400,
-            f"invalid position: {position!r} — choose from {list(PASS_RUSH_POSITIONS)}",
-        )
-
-    filters = [NFLPassRushStat.season == season]
-    # Omitted position means "every supported position", not literally every
-    # row for the season — the table can carry positions PASS_RUSH_POSITIONS
-    # doesn't expose (e.g. LB), left over from a broader raw ingest.
-    filters.append(
-        NFLPassRushStat.position == position
-        if position is not None
-        else NFLPassRushStat.position.in_(PASS_RUSH_POSITIONS)
-    )
-
-    with SessionLocal() as sess:
-        rows = (
-            sess.execute(
-                select(NFLPassRushStat)
-                .where(*filters)
-                .order_by(NFLPassRushStat.pr_opp.desc())
-            )
-            .scalars()
-            .all()
-        )
-
-    return {
-        "category": "pass_rush",
-        "season": season,
-        "position": position,
-        "records": [pass_rush_row_to_dict(r) for r in rows],
-    }
-
-
-@app.get("/api/pass_block")
-def pass_block(
-    season: int = Query(..., ge=1980, le=2100),
-    position: str | None = Query(None, min_length=1, max_length=4),
-) -> dict:
-    if position is not None and position not in PASS_BLOCK_POSITIONS:
-        raise HTTPException(
-            400,
-            f"invalid position: {position!r} — choose from {list(PASS_BLOCK_POSITIONS)}",
-        )
-
-    filters = [NFLPassBlockStat.season == season]
-    filters.append(
-        NFLPassBlockStat.position == position
-        if position is not None
-        else NFLPassBlockStat.position.in_(PASS_BLOCK_POSITIONS)
-    )
-
-    with SessionLocal() as sess:
-        rows = (
-            sess.execute(
-                select(NFLPassBlockStat)
-                .where(*filters)
-                .order_by(NFLPassBlockStat.non_spike_pb_snaps.desc())
-            )
-            .scalars()
-            .all()
-        )
-
-    return {
-        "category": "pass_block",
-        "season": season,
-        "position": position,
-        "records": [pass_block_row_to_dict(r) for r in rows],
-    }
+# NFL stays at /api/metadata, /api/pass_rush, /api/pass_block (PR #19). PR #20
+# moves it under /api/nfl and adds /api/ncaaf with the same factory.
+app.include_router(build_api_router(NFL_API), prefix="/api")
 
 
 # ---- Static frontend (mounted LAST so /api/* routes above win). -------------

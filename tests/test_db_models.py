@@ -69,6 +69,7 @@ def test_a_second_row_for_the_same_season_position_and_player_id_is_rejected(
     same_player_other_team,
 ):
     sessionmaker_ = sessionmaker(_engine())
+
     with sessionmaker_() as sess:
         sess.add_all(
             [
@@ -114,3 +115,30 @@ def test_the_same_player_id_may_appear_in_another_season_or_position():
 
         sess.commit()
         assert sess.query(NFLPassRushStat).count() == 3
+
+
+def test_model_columns_match_the_column_spec():
+    """The mixins' columns are exactly the identity columns plus the spec's attributes.
+
+    This keeps the single source in `database/columns.py`: a metric added there
+    (and so to the ingestion and the API) must be given a model column too.
+    """
+    from database.columns import PASS_BLOCK_DATA_COLUMNS, PASS_RUSH_DATA_COLUMNS
+
+    identity = {
+        "id",
+        "season",
+        "position",
+        "team_code",
+        "player_id",
+        "player",
+        "abbr_name",
+    }
+
+    for model, data_columns in (
+        (NFLPassRushStat, PASS_RUSH_DATA_COLUMNS),
+        (NFLPassBlockStat, PASS_BLOCK_DATA_COLUMNS),
+    ):
+        table_columns = {column.name for column in model.__table__.columns}
+        expected = identity | {column.attr for column in data_columns}
+        assert table_columns == expected, model.__name__

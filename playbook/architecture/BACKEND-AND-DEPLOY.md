@@ -13,11 +13,14 @@
 2. `preprocessing/preprocess.py --league nfl --seasons {season ...}` (both required) calls
    `preprocessing/front_7.py` and `preprocessing/offensive_line.py`, which each read the season CSV,
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
-   metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants), split by position
-   into separate sheets, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
+   metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants) through the shared
+   `percent_of()` helper in `preprocess.py`, split by position
+   into separate sheets written by the shared `write_position_sheets()` helper, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
 
 3. `database/db_ingestion.py` reads those xlsx workbooks and upserts rows into `nfl_pass_rush_stats` /
-   `nfl_pass_block_stats`. Every row carries PFF's `player_id` (NOT NULL; a null Player Id or a missing required column raises `ValueError`), and the unique key is `(season, position, player_id)`. It's idempotent by deleting all rows for a given `(season, position)` slice
+   `nfl_pass_block_stats`. One `ingest_category()` body loads both categories, driven by a `_Category`
+   descriptor; the required-column check and the row building read the one column declaration in
+   `database/columns.py` (`ingest_pass_rush` / `ingest_pass_block` remain as thin wrappers). Every row carries PFF's `player_id` (NOT NULL; a null Player Id or a missing required column raises `ValueError`), and the unique key is `(season, position, player_id)`. It's idempotent by deleting all rows for a given `(season, position)` slice
    and bulk-reinserting — simpler and dialect-portable vs. per-row upsert. Must be run from the
    repo root; it locates the repo root by walking up for a `.gitignore` marker, and resolves the
    data directory via `--data-dir` / `LINESHINES_DATA_DIR` / `LINESHINES_REPO_ROOT` env vars, in
@@ -31,15 +34,23 @@
    with `--seasons` omitted will scan the default location's `DEFAULT_SEASONS`, not the directory
    actually pointed at.
 
-4. `database/db_models.py` defines the SQLAlchemy schema (`NFLTeam`, `NFLPassRushStat`, `NFLPassBlockStat`; the `nfl_` prefix leaves room for NCAAF tables)
-   plus `pass_rush_row_to_dict` / `pass_block_row_to_dict` serializers that intentionally reproduce
-   PFF's original space-and-mixed-case column names (e.g. `"PR Opp"`, `"TPS Havoc Rate"`) in the API
-   JSON payload — this keeps the frontend's key names stable across the CSV→xlsx→DB migration.
+4. `database/db_models.py` defines the SQLAlchemy schema (`NFLTeam`, `NFLPassRushStat`, `NFLPassBlockStat`; the `nfl_` prefix leaves room for NCAAF tables). The stat tables take their
+   columns from mixins — `StatIdentityMixin` (id, season, position, player_id, player, abbr_name, games),
+   `PassRushMetricsMixin` and `PassBlockMetricsMixin` — so the college tables can reuse them later; only the
+   team foreign key and the table-level names stay per class. The metric attributes match the single column
+   declaration in `database/columns.py` (a test asserts this), which also drives the
+   `pass_rush_row_to_dict` / `pass_block_row_to_dict` serializers via `row_to_payload()`. The serializers
+   intentionally reproduce PFF's original space-and-mixed-case column names (e.g. `"PR Opp"`, `"TPS Havoc Rate"`)
+   in the API JSON payload — this keeps the frontend's key names stable across the CSV→xlsx→DB migration.
 
-5. `main.py` is the FastAPI app: `/api/metadata` (seasons, positions, metric definitions, teams),
-   `/api/pass_rush`, `/api/pass_block` (season-filtered, DB-backed; `position` is an *optional*
-   query param — omitted, it returns every position in the category in one response, filtered,
-   it keeps the old single-position behavior), `/health`. It also mounts `frontend/` as static
+5. `main.py` is the FastAPI app. The three data endpoints are built by `build_api_router(league)`, a
+   factory that takes a league's team model and its two `_CategoryApi` category configs and returns an
+   `APIRouter` with `/metadata`, `/pass_rush` and `/pass_block`; the NFL router is mounted with
+   `include_router(..., prefix="/api")`, so the paths stay `/api/metadata`, `/api/pass_rush`,
+   `/api/pass_block` (season-filtered, DB-backed; `position` is an *optional* query param — omitted,
+   it returns every position in the category in one response, filtered, it keeps the old single-position
+   behavior). PR #20 will move the NFL to `/api/nfl` and add NCAAF at `/api/ncaaf` from the same factory.
+   `/health` stays a plain route. It also mounts `frontend/` as static
    files (mounted *last* so `/api/*` routes take precedence) and `frontend/images/team_logos/`
    under `/logos/` (NFL logos at `/logos/nfl/{team code}.png`, NCAAF logos at `/logos/ncaaf/{franchise_id}.png`). `index.html` is served through a small handler that replaces `{{VERSION}}`
    with the Railway commit SHA for cache-busting on deploy.
@@ -50,7 +61,8 @@ upsert) and `/api/metadata` (colors, full names) — the frontend never hardcode
 
 **Deploy**: Railway, per `Procfile` (`uvicorn main:app`). `RAILWAY_GIT_COMMIT_SHA` env var drives
 frontend cache-busting; `DATABASE_URL` (Postgres, `postgres://` scheme) is rewritten in
-`main._resolve_database_url` to `postgresql+psycopg://` for the psycopg3 driver.
+`database/session.py` (`_resolve_database_url`, which also holds the engine and `SessionLocal`) to
+`postgresql+psycopg://` for the psycopg3 driver.
 
 **Adding a nullable column to `db_models.py` requires a manual `ALTER TABLE` against the live
 Railway Postgres** — `Base.metadata.create_all(engine)` (see "Tests" below) only creates tables

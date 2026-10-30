@@ -7,7 +7,12 @@ import config
 from config import League
 from preprocessing.front_7 import preprocess_front_7
 from preprocessing.offensive_line import preprocess_offensive_line
-from preprocessing.preprocess import main, parse_arguments, season_file_path
+from preprocessing.preprocess import (
+    main,
+    parse_arguments,
+    percent_of,
+    season_file_path,
+)
 
 FRONT_7_RAW = {
     "player": ["Alex Edge"],
@@ -175,3 +180,24 @@ def test_without_an_error_nothing_is_reported_as_failed(monkeypatch, capsys):
 
     assert main(["--league", "nfl", "--seasons", "2026"]) == []
     assert capsys.readouterr().err == ""
+
+
+def test_percent_of_is_a_rounded_percentage():
+    numerator = pd.Series([2.0, 3.0, 0.0])
+    denominator = pd.Series([8.0, 12.0, 50.0])
+
+    result = percent_of(numerator, denominator)
+
+    assert list(result) == [25.0, 25.0, 0.0]
+
+
+def test_percent_of_fills_a_zero_denominator_with_zero():
+    result = percent_of(pd.Series([0.0]), pd.Series([0.0]))
+
+    assert list(result) == [0.0]
+
+
+def test_percent_of_rounds_to_the_configured_decimals():
+    result = percent_of(pd.Series([1.0]), pd.Series([3.0]))
+
+    assert list(result) == [round(100.0 / 3.0, config.ROUNDING_DECIMALS)]
