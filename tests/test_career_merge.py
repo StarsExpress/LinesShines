@@ -223,6 +223,26 @@ def test_a_zero_denominator_gives_none_instead_of_an_error(sess):
     assert record["PR Opp"] == 0
 
 
+def test_a_season_with_no_opportunities_and_an_infinite_rate_does_not_poison_the_career(
+    sess,
+):
+    sess.add(
+        _rush_row(
+            2023,
+            1,
+            tps_pr_opp=0,
+            tps_pressure_rate=float("inf"),
+        )
+    )
+    sess.add(_rush_row(2024, 1, tps_pr_opp=40, tps_pressure_rate=25.0))
+    sess.add(NCAAFPassRushCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = _merge_rush(sess)
+
+    assert record["TPS Pressure Rate"] == pytest.approx(25.0)
+
+
 def test_records_come_ordered_by_opportunities_then_player_id(sess):
     sess.add(_rush_row(2024, 3, pr_opp=100))
     sess.add(_rush_row(2024, 1, pr_opp=300))

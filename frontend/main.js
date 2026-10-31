@@ -154,7 +154,12 @@ function axisFormulaContent(selectEl) {
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
-      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
+      {
+        text: IS_CAREER
+          ? "Teams, Players and Status combine as a union — highlights a player if his:"
+          : "Teams and Players combine as a union — highlights a player if his:",
+        bullets: ["Team is chosen.", "OR", "Name is selected.", ...(IS_CAREER ? ["OR", "Status is lit."] : [])],
+      },
       { ariaLabel: "Players filter info", label: "ⓘ" }
     )
   );
@@ -200,7 +205,12 @@ function attachEvents() {
   if (IS_CAREER) {
     els.statusInfoSlot.appendChild(
       createInfoPopover(
-        "Status joins Teams and Players in the same union: a player is highlighted if his status is lit, or his team is chosen, or his name is selected. Potential Draftees: still playing in the latest college season (lit at first). Joined NFL: played college ball and is now in the NFL; it stays in the comparison pool as the yardstick while dimmed. None of this changes the pool or any percentile. The two groups have their own minimum, because a young player has fewer snaps.",
+        {
+          bullets: [
+            "Potential Draftees: still playing in the latest college season.",
+            "Joined NFL: played NCAAF and appeared in NFL — potential draftees' benchmark.",
+          ],
+        },
         { ariaLabel: "Status filter info", label: "ⓘ" }
       )
     );

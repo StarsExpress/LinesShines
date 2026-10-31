@@ -19,7 +19,7 @@ The columns come from `database/columns.py`, so a metric added there is merged t
 
 from __future__ import annotations
 from dataclasses import dataclass
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 from config import ROUNDING_DECIMALS
 from database.columns import (
@@ -103,7 +103,11 @@ def _aggregate_expressions(spec: CareerSpec) -> dict:
             )
 
             weight = getattr(model, weight_name)
-            expressions[column.api_key] = func.sum(attr * weight) / func.nullif(
+
+            # A season with no opportunities can hold an infinite rate (a pressure on a zero
+            # denominator). Infinity times zero is NaN on Postgres, so such seasons are skipped.
+            weighted_rate = case((weight > 0, attr * weight), else_=0)
+            expressions[column.api_key] = func.sum(weighted_rate) / func.nullif(
                 func.sum(weight), 0
             )
 

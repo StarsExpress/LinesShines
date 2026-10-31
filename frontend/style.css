@@ -986,6 +986,16 @@ body {
 .info-popover-bullets li + li {
   margin-top: 8px;
 }
+.info-popover-bullets .info-popover-bullets-or {
+  list-style: none;
+  margin-top: 2px;
+  margin-left: -14px;
+  line-height: 1.2;
+  color: var(--chalk-dim);
+}
+.info-popover-bullets .info-popover-bullets-or + li {
+  margin-top: 2px;
+}
 /* The shared TPS_NOTE appended below a TPS-variant metric's own
    formula/description (parts.extraText in info-popover.js) — visually
    secondary (dimmer, separated by a rule) so it reads as a general aside
