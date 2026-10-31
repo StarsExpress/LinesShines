@@ -29,8 +29,29 @@ def _engine():
     return engine
 
 
+# The college Career page's member tables: one per category, a player_id and a status.
+CAREER_MEMBER_TABLES = {
+    "ncaaf_pass_rush_career_members",
+    "ncaaf_pass_block_career_members",
+}
+
+
 def test_the_tables_are_the_two_leagues():
-    assert set(Base.metadata.tables) == {"nfl_teams", "ncaaf_teams", *STAT_TABLES}
+    assert set(Base.metadata.tables) == {
+        "nfl_teams",
+        "ncaaf_teams",
+        *STAT_TABLES,
+        *CAREER_MEMBER_TABLES,
+    }
+
+
+def test_each_career_member_table_is_keyed_by_player_id_alone():
+    for name in CAREER_MEMBER_TABLES:
+        table = Base.metadata.tables[name]
+
+        assert [column.name for column in table.primary_key.columns] == ["player_id"]
+        assert {column.name for column in table.columns} == {"player_id", "status"}
+        assert not table.columns["status"].nullable
 
 
 def test_every_constraint_and_index_name_carries_its_league_prefix():
@@ -133,7 +154,11 @@ def test_model_columns_match_the_column_spec():
     This keeps the single source in `database/columns.py`: a metric added there
     (and so to the ingestion and the API) must be given a model column too.
     """
-    from database.columns import PASS_BLOCK_DATA_COLUMNS, PASS_RUSH_DATA_COLUMNS
+    from database.columns import (
+        NCAAF_PASS_RUSH_SNAP_COLUMNS,
+        PASS_BLOCK_DATA_COLUMNS,
+        PASS_RUSH_DATA_COLUMNS,
+    )
 
     identity = {
         "id",
@@ -148,7 +173,11 @@ def test_model_columns_match_the_column_spec():
     for model, data_columns, extra in (
         (NFLPassRushStat, PASS_RUSH_DATA_COLUMNS, set()),
         (NFLPassBlockStat, PASS_BLOCK_DATA_COLUMNS, set()),
-        (NCAAFPassRushStat, PASS_RUSH_DATA_COLUMNS, {"conference"}),
+        (
+            NCAAFPassRushStat,
+            PASS_RUSH_DATA_COLUMNS,
+            {"conference"} | {column.attr for column in NCAAF_PASS_RUSH_SNAP_COLUMNS},
+        ),
         (NCAAFPassBlockStat, PASS_BLOCK_DATA_COLUMNS, {"conference"}),
     ):
         table_columns = {column.name for column in model.__table__.columns}

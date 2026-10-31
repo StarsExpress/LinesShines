@@ -20,6 +20,13 @@ class League(str, Enum):
     NCAAF = "ncaaf"
 
 
+class CareerStatus(str, Enum):
+    """Who is on the college Career page. The value is what the table stores and the page shows."""
+
+    JOINED_NFL = "Joined NFL"
+    POTENTIAL_DRAFTEES = "Potential Draftees"
+
+
 LEAGUE_DATA_PATHS: dict[League, str] = {
     League.NFL: NFL_DATA_PATH,
     League.NCAAF: NCAAF_DATA_PATH,

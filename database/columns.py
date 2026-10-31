@@ -77,6 +77,23 @@ PASS_BLOCK_DATA_COLUMNS = (
 )
 
 
+# The four snap counts behind Pass Cov Percent, kept only for the college Career merge
+# (Career Pass Cov Percent = 100 - the sum of the rush snaps over the sum of the pass plays,
+# which the stored percentage alone cannot rebuild). They are never part of the /api payload,
+# so they are not in PASS_RUSH_DATA_COLUMNS; the ingestion reads them as extra columns.
+NCAAF_PASS_RUSH_SNAP_COLUMNS = (
+    DataColumn("PR Snaps", "pass_rush_snaps", "PR Snaps", "int"),
+    DataColumn("Snap Counts Pass Play", "pass_play_snaps", "Pass Play Snaps", "int"),
+    DataColumn("TPS PR Snaps", "tps_pass_rush_snaps", "TPS PR Snaps", "int"),
+    DataColumn(
+        "TPS Snap Counts Pass Play",
+        "tps_pass_play_snaps",
+        "TPS Pass Play Snaps",
+        "int",
+    ),
+)
+
+
 def required_excel_headers(data_columns: tuple[DataColumn, ...]) -> tuple[str, ...]:
     """The headers a sheet must have: the identity columns plus every data column."""
     return IDENTITY_EXCEL_HEADERS + tuple(

@@ -7,6 +7,9 @@ produce, and bulk-inserts them into that league's tables: `nfl_pass_rush_stats` 
 `nfl_pass_block_stats` or `ncaaf_pass_rush_stats` / `ncaaf_pass_block_stats`.
 The league is always named (`--league`), so the wrong one is never loaded by accident.
 
+The college run (`--league ncaaf`) also rebuilds the Career page's member tables
+(`database/career.py`) after loading, so run the NFL ingestion first when both run.
+
 Strict: a sheet that lacks any column the tables need, or a row without a
 `Player Id`, stops the run with an error instead of loading NULLs.
 
@@ -37,7 +40,9 @@ import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 from config import LEAGUE_DYNAMIC_THRESHOLDS, League
+from database.career import rebuild_all_career_members
 from database.columns import (
+    NCAAF_PASS_RUSH_SNAP_COLUMNS,
     PASS_BLOCK_DATA_COLUMNS,
     PASS_RUSH_DATA_COLUMNS,
     required_excel_headers,
@@ -201,6 +206,9 @@ class _Category:
     team_header: str = "Team"  # The column that holds the team key.
     team_code_type: Callable = str  # The NFL key is a code, the college key an id.
     extra_columns: tuple[tuple[str, str], ...] = ()  # (model attribute, Excel header).
+    hidden_columns: (
+        tuple
+    ) = ()  # Read like data columns, but not part of the API payload.
 
 
 _PASS_RUSH = _Category(
@@ -238,6 +246,7 @@ _NCAAF_PASS_RUSH = _Category(
     team_header="Franchise Id",
     team_code_type=int,
     extra_columns=(("conference", "Conference"),),
+    hidden_columns=NCAAF_PASS_RUSH_SNAP_COLUMNS,
 )
 
 _NCAAF_PASS_BLOCK = _Category(
@@ -273,7 +282,9 @@ def ingest_category(
     The body is shared by the categories of both leagues; the column reads come
     from the declaration in `database/columns.py`.
     """
-    required = required_excel_headers(category.data_columns) + (
+    required = required_excel_headers(
+        category.data_columns + category.hidden_columns
+    ) + (
         category.team_header,
         *(header for _, header in category.extra_columns),
     )
@@ -313,7 +324,7 @@ def ingest_category(
                     "player": row["Player"],
                     "abbr_name": row["Abbr Name"],
                 }
-                for column in category.data_columns:
+                for column in category.data_columns + category.hidden_columns:
                     values[column.attr] = _read_value(
                         column.kind, row.get(column.excel_header)
                     )
@@ -390,6 +401,10 @@ def main() -> None:
         pass_rush_category, pass_block_category = LEAGUE_CATEGORIES[league]
         pass_rush_rows = ingest_category(sess, data_dir, seasons, pass_rush_category)
         pass_block_rows = ingest_category(sess, data_dir, seasons, pass_block_category)
+
+        # The Career members read both leagues' tables, so only the college run rebuilds them.
+        if league is League.NCAAF:
+            rebuild_all_career_members(sess)
 
     print(
         f"\nBulk-inserted {pass_rush_rows} {league.value} pass-rush rows and "

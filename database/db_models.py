@@ -164,6 +164,12 @@ class NCAAFPassRushStat(StatIdentityMixin, PassRushMetricsMixin, Base):
     team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
     conference = Column(String, nullable=False)  # Attached at conversion; in scope.
 
+    # Behind Pass Cov Percent, for the Career merge only; never in the API payload.
+    pass_rush_snaps = Column(Integer)  # PR Snaps.
+    pass_play_snaps = Column(Integer)  # Snap Counts Pass Play.
+    tps_pass_rush_snaps = Column(Integer)  # TPS PR Snaps.
+    tps_pass_play_snaps = Column(Integer)  # TPS Snap Counts Pass Play.
+
     team = relationship("NCAAFTeam", back_populates="pass_rush_stats")
 
     __table_args__ = (
@@ -196,6 +202,24 @@ class NCAAFPassBlockStat(StatIdentityMixin, PassBlockMetricsMixin, Base):
         Index("idx_ncaaf_pb_filter", "season", "position"),
         Index("idx_ncaaf_pb_player_id", "player_id"),
     )
+
+
+class NCAAFPassRushCareerMember(Base):
+    """Who is on the college Career page for the front 7 (see `database/career.py`)."""
+
+    __tablename__ = "ncaaf_pass_rush_career_members"
+
+    player_id = Column(Integer, primary_key=True, autoincrement=False)
+    status = Column(String, nullable=False)  # A `CareerStatus` value.
+
+
+class NCAAFPassBlockCareerMember(Base):
+    """Who is on the college Career page for the OL (see `database/career.py`)."""
+
+    __tablename__ = "ncaaf_pass_block_career_members"
+
+    player_id = Column(Integer, primary_key=True, autoincrement=False)
+    status = Column(String, nullable=False)  # A `CareerStatus` value.
 
 
 # Serialization helpers used by main.py to keep API payload shape

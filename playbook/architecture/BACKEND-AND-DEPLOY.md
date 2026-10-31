@@ -30,6 +30,13 @@
    `front_7_pass_rush`/`ol_pass_block`, since the two categories have no joint table and it's fine
    for one to get a season's file before the other. It runs after the arguments are parsed, so
    `--data-dir` is honoured; an explicit `--seasons` still overrides it.
+   **Career members (college only).** The college run ends by rebuilding `ncaaf_pass_rush_career_members` and
+   `ncaaf_pass_block_career_members` (`database/career.py`: `player_id` and a `CareerStatus`), whole, never
+   incrementally. `Joined NFL` = the `player_id` also in the NFL table of the same category; `Potential
+   Draftees` = a row in `MAX(season)` of the college table (read from the table, never from `--seasons`) and
+   not Joined NFL. The NFL run never rebuilds them, so run the NFL ingestion first when both run. The college
+   pass-rush table also keeps four snap counts (`pass_rush_snaps`, `pass_play_snaps` and the TPS pair) that
+   only the Career merge reads; they are not in `PASS_RUSH_DATA_COLUMNS` and never in the API payload.
 
 4. `database/db_models.py` defines the SQLAlchemy schema (`NFLTeam`, `NFLPassRushStat`, `NFLPassBlockStat`; the `nfl_` prefix leaves room for NCAAF tables). The stat tables take their
    columns from mixins — `StatIdentityMixin` (id, season, position, player_id, player, abbr_name, games),
