@@ -159,8 +159,10 @@ def seeded_db():
 
 @pytest.fixture()
 def seeded_ncaaf_db():
-    """Wipe and load a small college dataset: two schools, one in a conference that
-    changes between the two seasons (franchise 128 is BYU, Big 12 only from 2023)."""
+    """Wipe and load a small college dataset: Akron (2024-2025) and Alabama (2025
+    only) are the main pair; Ball State plays in 2024 only, so it is absent from
+    2025, the latest season the page loads on -- a school the Teams checklist
+    first sees on a switch to an earlier season."""
     with SessionLocal() as sess:
         sess.query(NCAAFPassRushStat).delete()
         sess.query(NCAAFPassBlockStat).delete()
@@ -169,6 +171,9 @@ def seeded_ncaaf_db():
 
         sess.add(NCAAFTeam(franchise_id=102, full_name="Akron"))
         sess.add(NCAAFTeam(franchise_id=103, full_name="Alabama"))
+        # Ball State plays in 2024 only, so it is absent from the latest season
+        # (2025) the page loads on -- a school first seen only on a season switch.
+        sess.add(NCAAFTeam(franchise_id=109, full_name="Ball State"))
 
         metric_values = dict(
             games=12,
@@ -187,6 +192,7 @@ def seeded_ncaaf_db():
         )
         for season, team_code, conference, player_id, player in (
             (2024, 102, "MAC", 5001, "A. Akron"),
+            (2024, 109, "MAC", 5004, "D. Cardinal"),
             (2025, 102, "MAC", 5001, "A. Akron"),
             (2025, 103, "SEC", 5002, "B. Bama"),
         ):

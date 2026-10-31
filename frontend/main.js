@@ -24,6 +24,8 @@ import {
   populateCategoryDependentControls,
   resetThresholdToCategoryDefault,
   populateTeamsChecklist,
+  markAllTeamsSelected,
+  markNoTeamsSelected,
   updateTeamsSummary,
   openTeamsDropdown,
   closeTeamsDropdown,
@@ -280,12 +282,14 @@ function attachEvents() {
 
   els.teamsSelectAll.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = true));
+    markAllTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });
 
   els.teamsSelectNone.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+    markNoTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });

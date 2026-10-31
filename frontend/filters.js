@@ -131,6 +131,7 @@ export function selectedTeamCodes() {
 function resetTeamsIfAllSelected() {
   if (selectedTeamCodes().length !== allTeamCodes().length) return;
   els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+  markNoTeamsSelected();
   updateTeamsSummary();
 }
 
@@ -187,25 +188,38 @@ function teamGroups(season) {
 }
 
 // What the user chose is kept across rebuilds, because a college season lists
-// only its own schools. A school seen before keeps its last state; a school
-// shown for the first time starts checked only if every visible school was
-// checked (the "All Teams" state follows the user into a season with more
-// schools), and unchecked otherwise, so a new season never turns on teams the
-// user has not touched.
+// only its own schools. knownTeams/uncheckedTeams hold each seen school's last
+// state; selectNewByDefault is whether a school shown for the first time starts
+// checked -- the "All Teams" vs "none" mode. It is flipped ONLY by an explicit
+// all/none action (the Teams "Select all"/"None" buttons and the player-pick
+// auto-clear, through markAllTeamsSelected()/markNoTeamsSelected()), never
+// inferred from how many boxes happen to be ticked. Inferring it from the DOM
+// used to turn on schools the user never touched: a season whose every visible
+// school happened to be ticked read as "All Teams", so moving to a bigger season
+// ticked its new schools too.
 const uncheckedTeams = new Set();
 const knownTeams = new Set();
+let selectNewByDefault = true;
+
+// The Teams "None" button and the player-pick auto-clear: nothing is selected
+// now, including schools this season does not list and ones not yet seen.
+export function markNoTeamsSelected() {
+  selectNewByDefault = false;
+  knownTeams.forEach((key) => uncheckedTeams.add(key));
+}
+
+// The Teams "Select all" button: every school is selected, including ones not
+// yet seen.
+export function markAllTeamsSelected() {
+  selectNewByDefault = true;
+  uncheckedTeams.clear();
+}
 
 export function populateTeamsChecklist(season) {
-  const boxes = Array.from(els.teamsChecklist.querySelectorAll("input[type=checkbox]"));
-  const allWereChecked = boxes.every((cb) => cb.checked);
-
-  const noneWereChecked = boxes.length > 0 && boxes.every((cb) => !cb.checked);
-
-  // "None" applies to every school, including those this season does not
-  // list, so a school remembered from another season follows it.
-  if (noneWereChecked) knownTeams.forEach((key) => uncheckedTeams.add(key));
-
-  boxes.forEach((cb) => {
+  // Capture the individual ticks the user made on the outgoing season's boxes
+  // (those fire no event the sets listen to). An explicit all/none action has
+  // already updated the sets through the markers above.
+  els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => {
     knownTeams.add(cb.value);
     if (cb.checked) uncheckedTeams.delete(cb.value);
     else uncheckedTeams.add(cb.value);
@@ -241,7 +255,7 @@ export function populateTeamsChecklist(season) {
       // Codes are already listed in order within each section above.
       section.codes.forEach((code) => {
         const key = String(code);
-        const checked = knownTeams.has(key) ? !uncheckedTeams.has(key) : allWereChecked;
+        const checked = knownTeams.has(key) ? !uncheckedTeams.has(key) : selectNewByDefault;
         const row = teamOptionRow(code, checked);
         groupBoxes.push(row.querySelector("input"));
         group.appendChild(row);

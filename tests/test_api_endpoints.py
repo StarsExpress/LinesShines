@@ -186,7 +186,7 @@ def test_ncaaf_metadata_lists_seasons_schools_and_each_seasons_conferences(
     assert body["teams"]["103"]["primary_color"] is None
     assert body["conference_order"][:2] == ["SEC", "B1G"]
     assert body["team_conferences"]["2025"] == {"102": "MAC", "103": "SEC"}
-    assert body["team_conferences"]["2024"] == {"102": "MAC"}
+    assert body["team_conferences"]["2024"] == {"102": "MAC", "109": "MAC"}
 
 
 def test_ncaaf_default_thresholds_are_the_college_ones(client, seeded_ncaaf_db):

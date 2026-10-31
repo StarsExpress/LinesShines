@@ -7,6 +7,9 @@ import pytest
 # Akron (102) plays in 2024 and 2025; Alabama (103) only appears in 2025.
 AKRON = "102"
 ALABAMA = "103"
+# Ball State plays in 2024 only, so it is absent from the 2025 season the page
+# loads on -- a school the checklist first sees on a switch to 2024.
+BALL_STATE = "109"
 
 
 @pytest.fixture()
@@ -63,7 +66,7 @@ def test_each_season_lists_only_its_own_schools(page):
 
     _switch_season(page, "2024")
 
-    assert _listed_teams(page) == [AKRON]
+    assert sorted(_listed_teams(page)) == [AKRON, BALL_STATE]
 
 
 def test_a_school_first_seen_in_a_later_season_does_not_turn_on_after_clear(page):
@@ -78,7 +81,7 @@ def test_a_school_first_seen_in_a_later_season_does_not_turn_on_after_clear(page
 
 def test_all_teams_stays_all_teams_in_a_season_with_more_schools(page):
     _switch_season(page, "2024")
-    assert _checked_teams(page) == [AKRON]
+    assert sorted(_checked_teams(page)) == [AKRON, BALL_STATE]
 
     _switch_season(page, "2025")
 
@@ -111,3 +114,34 @@ def test_choosing_a_player_with_all_teams_selected_then_changing_season_turns_no
     _switch_season(page, "2025")
 
     assert _checked_teams(page) == []
+
+
+def test_a_first_seen_school_stays_off_after_an_explicit_team_pick(page):
+    # The reported bug. Clear, then re-tick every school 2025 happens to list by
+    # hand (not "Select all"). Switching to 2024 shows Ball State for the first
+    # time; it must stay off, because ticking all of one season's visible schools
+    # is not the "All Teams" mode. Inferring the mode from the ticks turned it on.
+    _clear_all_teams(page)
+
+    page.click("#teams-toggle-btn")
+    page.check(f"#teams-checklist input[value='{AKRON}']")
+    page.check(f"#teams-checklist input[value='{ALABAMA}']")
+    page.click("#teams-toggle-btn")
+
+    _switch_season(page, "2024")
+
+    assert _checked_teams(page) == [AKRON]
+
+
+def test_select_all_carries_a_first_seen_school_on(page):
+    # The explicit "Select all" button, by contrast, does mean every school,
+    # including one a different season first introduces.
+    _clear_all_teams(page)
+
+    page.click("#teams-toggle-btn")
+    page.click("#teams-select-all")
+    page.click("#teams-toggle-btn")
+
+    _switch_season(page, "2024")
+
+    assert sorted(_checked_teams(page)) == [AKRON, BALL_STATE]
