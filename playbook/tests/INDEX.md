@@ -16,7 +16,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | A shared fixture, or how tests get a database or a running server | `conftest.py` ([CONFTEST.md](CONFTEST.md)) | fixtures |
 | A JSON API endpoint under `/api/` (parameters, response shape, error codes) | `test_api_endpoints.py` ([doc](TEST_API_ENDPOINTS.md)) | API |
 | How the app is assembled: mounts, `/health`, how `sw.js` and `index.html` are served | `test_app_startup.py` ([doc](TEST_APP_STARTUP.md)) | API |
-| Season-threshold routing in `config.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
+| Season-threshold routing in `config/thresholds.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
 | Who is on the college Career page (Joined NFL, Potential Draftees) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
 | The `nfl_*` table names, unique key, NOT NULL `player_id`, and which table has the pass-rush percent columns | `test_db_models.py` ([doc](TEST_DB_MODELS.md)) | pure Python |

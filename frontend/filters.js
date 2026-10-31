@@ -998,7 +998,7 @@ export function updateThresholdRange() {
 // it could pin the slider at the far-right edge for however long the fetch
 // took, then visibly snap back once corrected). Always snaps to the new
 // category's configured default for whatever season is currently selected
-// (see config.py's resolve_default_threshold — a season may carry a static
+// (see config/thresholds.py's resolve_default_threshold — a season may carry a static
 // or dynamic default) and never tries to preserve whatever the user had
 // set beforehand. The accurate slider max (which needs the new category's
 // fetched data) still gets corrected as soon as it's available via

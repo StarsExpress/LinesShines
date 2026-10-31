@@ -1,6 +1,6 @@
 # test_config.py
 
-> **Add tests here when:** changing season-threshold routing in `config.py` (`resolve_default_threshold`, `DEFAULT_THRESHOLDS`, `DYNAMIC_THRESHOLDS` and the `NCAAF_` pair).
+> **Add tests here when:** changing season-threshold routing in `config/thresholds.py` (`resolve_default_threshold`, `DEFAULT_THRESHOLDS`, `DYNAMIC_THRESHOLDS` and the `NCAAF_` pair).
 
 - **Kind:** pure Python.
 - **Needs:** nothing. Tests pass `today=` explicitly, so they do not depend on the real date.

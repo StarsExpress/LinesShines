@@ -35,7 +35,7 @@ FONT_SIZE = 18
 
 # One entry per metric *family* — the TPS variant of a metric shares its
 # base metric's formula (same math, restricted to true-pass-set rows), same
-# convention as config.py's HAVOC_RATE_NOTE/ALLOWED_HAVOC_RATE_NOTE already
+# convention as config/metrics.py's HAVOC_RATE_NOTE/ALLOWED_HAVOC_RATE_NOTE already
 # being reused verbatim for both a metric and its "TPS " counterpart.
 FORMULAS: dict[str, str] = {
     "havoc_rate": r"$\mathrm{Havoc\ Rate} = \dfrac{\mathrm{Sacks} + \mathrm{QB\ Hits}}{\mathrm{Pass\ Rush\ Opportunities}}$",

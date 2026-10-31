@@ -160,11 +160,11 @@ class NCAAFTeam(Base):
 class NCAAFPassRushStat(StatIdentityMixin, PassRushMetricsMixin, Base):
     __tablename__ = "ncaaf_pass_rush_stats"
 
-    # The college team key is the franchise_id, not a short code.
+    # College team key is franchise_id, not a short code.
     team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
     conference = Column(String, nullable=False)  # Attached at conversion; in scope.
 
-    # Behind Pass Cov Percent, for the Career merge only; never in the API payload.
+    # Behind Pass Cov Percent, for Career merge only; never in API payload.
     pass_rush_snaps = Column(Integer)  # PR Snaps.
     pass_play_snaps = Column(Integer)  # Snap Counts Pass Play.
     tps_pass_rush_snaps = Column(Integer)  # TPS PR Snaps.

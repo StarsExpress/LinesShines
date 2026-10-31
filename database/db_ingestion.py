@@ -412,7 +412,7 @@ def main() -> None:
     )
 
     # In-progress season's threshold is hand-eyeballed weekly, not
-    # auto-computed (see config.py's DYNAMIC_THRESHOLDS and NCAAF_DYNAMIC_THRESHOLDS).
+    # auto-computed (see config/thresholds.py's DYNAMIC_THRESHOLDS and NCAAF_DYNAMIC_THRESHOLDS).
     # Nudge rather than silently falling back if this week's ingestion covers
     # the current season and nobody's touched it yet.
     current_year = date.today().year
@@ -422,7 +422,7 @@ def main() -> None:
     ):
         print(
             f"Reminder: {current_year} has no {league.value} entry in the dynamic thresholds "
-            "of config.py yet — falling back to the static default thresholds until you set one."
+            "of config/thresholds.py yet — falling back to the static default thresholds until you set one."
         )
 
 

@@ -1,4 +1,4 @@
-"""Unit tests for the season-threshold routing rule (config.py)."""
+"""Unit tests for the season-threshold routing rule (config/thresholds.py)."""
 
 from __future__ import annotations
 from datetime import date

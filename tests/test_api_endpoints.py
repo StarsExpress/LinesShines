@@ -21,7 +21,7 @@ def test_metadata_shape(client, seeded_db):
     assert body["current_year"] == date.today().year
 
     # 2025 is a finalized season: safely in the past relative to any plausible "today".
-    # Should carry the static default, not a dynamic one. See config.py's resolve_default_threshold.
+    # Should carry the static default, not a dynamic one. See config/thresholds.py's resolve_default_threshold.
     assert (
         body["pass_rush"]["default_thresholds"]["2025"]
         == DEFAULT_THRESHOLDS["pass_rush"]

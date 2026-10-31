@@ -15,7 +15,7 @@
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
    metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants) through the shared
    `percent_of()` helper in `preprocess.py`, split by position
-   into separate sheets written by the shared `write_position_sheets()` helper, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
+   into separate sheets written by the shared `write_position_sheets()` helper, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config/leagues.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
 
 3. `database/db_ingestion.py --league {nfl,ncaaf}` (the league is required) reads those xlsx workbooks and upserts rows into that league's tables: `nfl_pass_rush_stats` /
    `nfl_pass_block_stats`, or `ncaaf_pass_rush_stats` / `ncaaf_pass_block_stats`. One `ingest_category()` body loads every category, driven by a `_Category`
@@ -56,7 +56,7 @@
    metadata adds `conference_order` and `team_conferences` (`{season: {franchise_id: conference}}`, read from
    the loaded rows), and its `teams` are keyed by franchise id with no colour (the frontend falls back to a
    neutral grey). College thresholds are their own (`NCAAF_DEFAULT_THRESHOLDS` 230 / 360 and
-   `NCAAF_DYNAMIC_THRESHOLDS` in `config.py`). Measured on the real data (2025/2026): the biggest college
+   `NCAAF_DYNAMIC_THRESHOLDS` in `config/thresholds.py`). Measured on the real data (2025/2026): the biggest college
    response (pass rush) is about 500 KB raw against about 150 KB for the NFL (the app does not compress
    responses). `/health` stays a plain route.
    The pages: `PAGES` lists each page (`/` NFL Season, `/ncaaf-season` NCAAF Season), its league, subtitle
@@ -65,6 +65,13 @@
    files (mounted *last* so `/api/*` routes take precedence) and `frontend/images/team_logos/`
    under `/logos/` (NFL logos at `/logos/nfl/{team code}.png`, NCAAF logos at `/logos/ncaaf/{franchise_id}.png`). `index.html` is served through `render_page()`, which replaces `{{VERSION}}`
    with the Railway commit SHA for cache-busting on deploy, plus the per-page placeholders above.
+
+**Configuration** lives in the `config/` package (2026-10-31, split out of the former single `config.py` with no behaviour
+change): `leagues.py` (the `League` and `CareerStatus` enums, the data paths), `metrics.py` (position names, rounding, the
+metric notes) and `thresholds.py` (the default and dynamic thresholds and `resolve_default_threshold()`). `config/__init__.py`
+re-exports every name, so code keeps writing `from config import League`. A test that patches a value must patch the
+submodule that defines it (`config.leagues`), because the package-level name is only a re-export. The dynamic thresholds the
+owner sets by hand each week are in `config/thresholds.py`.
 
 **Team codes** follow PFF's spellings (e.g. `ARZ`, `BLT`, `CLV`, `HST`, not the more common
 `ARI`/`BAL`/`CLE`/`HOU`), defined once in `teams/nfl.py` and used by both ingestion (team

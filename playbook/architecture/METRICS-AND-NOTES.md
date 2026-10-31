@@ -5,7 +5,7 @@
 > appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
-**Metric semantics** (defined once, referenced from both `main.py` and `config.py` — keep in sync
+**Metric semantics** (defined once, referenced from both `main.py` and `config/metrics.py` — keep in sync
 if adding a metric): Havoc Rate = (Sacks + QB Hits) / Pass Rush Opportunities; Allowed Havoc Rate is
 the pass-block equivalent over Non Spike PB Snaps. PRP (Pass Rush Productivity, pass-rush category)
 and PBE (Pass Block Efficiency, pass-block category) are PFF's own composite 0-100 scores, passed
@@ -51,7 +51,7 @@ notes wouldn't silently turn that annotation on for them too; both fields still 
 path (e.g. `/images/metric_formulas/prp.svg`) when a rendered formula exists; metrics with neither
 (Win Rate, Pressure Rate, Allowed Pressure %, ...) fall back to their short `pff_note` so the trigger
 is never a dead end. Every "TPS "-prefixed metric's
-popup additionally appends `metadata.tps_note` (config.py's `TPS_NOTE`, exposed once at
+popup additionally appends `metadata.tps_note` (`config/metrics.py`'s `TPS_NOTE`, exposed once at
 `/api/metadata`'s top level, never duplicated per metric) as a second, visually distinct paragraph —
 `key.startsWith("TPS ")` is the only check, so this never needs updating per new metric.
 `info-popover.js`'s `createInfoPopover()`/`openInfoPopover()` were extended to support this: `content`

@@ -63,7 +63,7 @@ CASES = [
 def league_folders(tmp_path, monkeypatch):
     """Point both leagues at empty temporary folders."""
     paths = {League.NFL: str(tmp_path / "nfl"), League.NCAAF: str(tmp_path / "ncaaf")}
-    monkeypatch.setattr(config, "LEAGUE_DATA_PATHS", paths)
+    monkeypatch.setattr(config.leagues, "LEAGUE_DATA_PATHS", paths)
     monkeypatch.setattr("preprocessing.preprocess.LEAGUE_DATA_PATHS", paths)
 
     for folder in paths.values():

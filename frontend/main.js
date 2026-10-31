@@ -117,7 +117,7 @@ async function loadMetadata() {
 //
 // A "TPS "-prefixed metric additionally gets the shared TPS_NOTE appended
 // as a second paragraph (`extraText`) — that text lives once, server-side
-// (config.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
+// (config/metrics.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
 // every TPS metric's own note, so the "is this a TPS metric" check is done
 // here, off the metric's own name, rather than baked into per-metric data.
 function axisFormulaContent(selectEl) {

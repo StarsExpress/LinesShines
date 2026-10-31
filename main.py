@@ -294,7 +294,7 @@ def build_api_router(league: _LeagueApi) -> APIRouter:
 
         return {
             # Same Calendar Year comparison resolve_default_threshold() uses to
-            # route a season to the static vs. dynamic threshold (see config.py) —
+            # route a season to the static vs. dynamic threshold (see config/thresholds.py) —
             # exposed here so the frontend can classify a season as "ongoing" vs
             # "historical" the same way, without duplicating a date.today().year
             # call client-side (which would drift out of sync with whatever this
