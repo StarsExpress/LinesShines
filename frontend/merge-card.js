@@ -50,7 +50,12 @@ import {
   findRecordByPlayer,
   thresholdFieldLabel,
   metadata,
+  teamLabel,
+  appliedThreshold,
+  thresholdClauses,
+  IS_CAREER,
 } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
@@ -67,7 +72,7 @@ import {
   updateScoutEmptyHint,
   withTrailingPeriod,
 } from "./cards-base.js";
-import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
+import { toggleLinemateCard, closeLinemateCard, attachAppTooltip, rosterNoun } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
@@ -224,8 +229,8 @@ export function renderCreateDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${createBelowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(createBelowThresholdMatches, appliedCategoryMeta(), (value) => {
-        applyThresholdImmediately(value);
+      openBelowThresholdPopup(createBelowThresholdMatches, appliedCategoryMeta(), (value, record) => {
+        applyThresholdImmediately(value, record);
         runCreateSearch();
       })
     );
@@ -252,7 +257,7 @@ export function renderCreateDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);
@@ -278,7 +283,7 @@ export function runCreateSearch() {
   // player instead).
   const cat = appliedCategoryMeta();
   const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
-  createBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+  createBelowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, appliedThreshold()));
 
   // No exclusion set — an already-picked player is caught (and explained) in
   // addCreateMember() instead, same "blocked, with a prompt" convention the
@@ -373,7 +378,7 @@ export function makeTeamCell(record) {
   logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
   const code = document.createElement("span");
-  code.textContent = record.team;
+  code.textContent = teamLabel(record.team);
 
   wrap.append(logo, code);
   td.appendChild(wrap);
@@ -389,7 +394,7 @@ export function makeLinemateCell(record) {
   btn.type = "button";
   btn.className = "merge-row-linemate-toggle";
   btn.innerHTML = '<i class="fa-solid fa-people-group"></i>';
-  btn.setAttribute("aria-label", `Linemates for ${record.player}`);
+  btn.setAttribute("aria-label", `${rosterNoun().card} for ${record.player}`);
   btn.addEventListener("click", () => toggleLinemateCard(record));
   td.appendChild(btn);
   return td;
@@ -401,7 +406,8 @@ export function makeLinemateCell(record) {
 // (never the raw stat), same reasoning as Linemate Card's own sort value fn.
 function mergeSortValue({ record, pool }, label, cat) {
   if (label === "Player") return (record.abbr_name || record.player).toLowerCase();
-  if (label === "Team") return record.team;
+  if (label === "Team") return String(teamLabel(record.team)).toLowerCase();
+  if (label === "Status") return record.status ?? null;
   if (label === "Games") return record.games ?? null;
   if (label === cat.threshold_field) return record[cat.threshold_field] ?? null;
   const meta = cat.metrics[label];
@@ -444,6 +450,8 @@ function makeDataCell({ player: { record, pool }, column }, cat) {
   if (column.kind === "name") {
     td.className = "merge-table-name";
     td.textContent = record.abbr_name || record.player;
+  } else if (column.kind === "status") {
+    td.textContent = record.status ?? "—";
   } else if (column.kind === "games") {
     td.textContent = record.games ?? "—";
   } else if (column.kind === "snaps") {
@@ -480,7 +488,7 @@ function renderSortTable(table, layout, cat, sortState, rerender) {
   layout.head.forEach((column) => {
     if (column.kind === "linemates") {
       const th = document.createElement("th");
-      th.textContent = column.key;
+      th.textContent = rosterNoun().card;
       headRow.appendChild(th);
     } else {
       headRow.appendChild(makeSortableHeader(column.key, column.key, sortState, rerender));
@@ -587,7 +595,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
     ? pools[0].record.position
     : null;
-  const thresholdClause = `with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}`;
+  const thresholdClause = `with ${thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).join(" / ")}`;
   poolEl.textContent = sharedPosition
     ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition} ${thresholdClause}.`
     : `Percentiles calculated among ${pools
@@ -607,7 +615,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
-  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys);
+  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys, undefined, IS_CAREER);
 
   table.innerHTML = "";
   table.classList.toggle("merge-table--read", isRead);
@@ -947,8 +955,8 @@ export function renderMergeEditDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${editBelowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(editBelowThresholdMatches, appliedCategoryMeta(), (value) => {
-        applyThresholdImmediately(value);
+      openBelowThresholdPopup(editBelowThresholdMatches, appliedCategoryMeta(), (value, record) => {
+        applyThresholdImmediately(value, record);
         runMergeEditSearch();
       })
     );
@@ -975,7 +983,7 @@ export function renderMergeEditDropdown(matches) {
     logo.onerror = () => logo.replaceWith(teamSwatch(record.team));
 
     const code = document.createElement("span");
-    code.textContent = record.team;
+    code.textContent = teamLabel(record.team);
 
     team.append(logo, code);
     opt.append(name, team);
@@ -1000,7 +1008,7 @@ export function runMergeEditSearch() {
   // Same two-independent-passes shape as runPlayersSearch() (filters.js).
   const cat = appliedCategoryMeta();
   const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
-  editBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+  editBelowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, appliedThreshold()));
 
   // No exclusion set — an already-on-this-card pick is caught (and
   // explained) defensively in addMergeMember() rather than hidden from the

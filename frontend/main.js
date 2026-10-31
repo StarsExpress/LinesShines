@@ -15,6 +15,8 @@ import {
   seasonSwitchChangesThresholdDefault,
   currentCategoryMeta,
   metadata,
+  LEAGUE,
+  IS_CAREER,
 } from "./data.js";
 import {
   selectedPlayers,
@@ -23,6 +25,8 @@ import {
   populateCategoryDependentControls,
   resetThresholdToCategoryDefault,
   populateTeamsChecklist,
+  markAllTeamsSelected,
+  markNoTeamsSelected,
   updateTeamsSummary,
   openTeamsDropdown,
   closeTeamsDropdown,
@@ -38,6 +42,9 @@ import {
   loadCurrentSlice,
   closeFiltersDrawer,
   applyFilters,
+  syncStatusBars,
+  openStatusDropdown,
+  closeStatusDropdown,
 } from "./filters.js";
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
@@ -75,9 +82,26 @@ import {
 // end of every season "change" event itself.
 let previousSeasonValue = null;
 
+// The Career page has no Season: it shows the Status Filter in its place, a second
+// threshold bar (Potential Draftees), and names the first bar after Joined NFL.
+function setUpCareerControls() {
+  if (!IS_CAREER) return;
+  els.seasonControl.hidden = true;
+  els.statusControl.hidden = false;
+  els.thresholdPotentialControl.hidden = false;
+  els.thresholdStatusLabel.hidden = false;
+  // Joined NFL starts switched off: grey its bar and set the button's label.
+  syncStatusBars();
+  // Teams, Players and Status combine as a union, so with every team lit nothing
+  // would be dimmed and Status would show nothing. Career starts with no team picked.
+  markNoTeamsSelected();
+}
+
 async function loadMetadata() {
-  const res = await fetch("/api/metadata");
-  if (!res.ok) throw new Error(`GET /api/metadata → ${res.status}`);
+  setUpCareerControls();
+  const metadataUrl = `${LEAGUE.apiPrefix}/metadata`;
+  const res = await fetch(metadataUrl);
+  if (!res.ok) throw new Error(`GET ${metadataUrl} → ${res.status}`);
   // setMetadata()/setPlayerPool()/setAppliedFilters() replace the original's
   // direct assignments below — data.js owns that state now, see its header
   // comment for why. Same assignments, same order, same timing.
@@ -85,7 +109,7 @@ async function loadMetadata() {
 
   populateCategoryDependentControls();
   previousSeasonValue = els.season.value;
-  populateTeamsChecklist();
+  populateTeamsChecklist(els.season.value);
   attachEvents();
   await loadCurrentSlice();
   setPlayerPool(currentRecords, currentSliceCategory);
@@ -113,7 +137,7 @@ async function loadMetadata() {
 //
 // A "TPS "-prefixed metric additionally gets the shared TPS_NOTE appended
 // as a second paragraph (`extraText`) — that text lives once, server-side
-// (config.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
+// (config/metrics.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
 // every TPS metric's own note, so the "is this a TPS metric" check is done
 // here, off the metric's own name, rather than baked into per-metric data.
 function axisFormulaContent(selectEl) {
@@ -130,7 +154,12 @@ function axisFormulaContent(selectEl) {
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
-      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
+      {
+        text: IS_CAREER
+          ? "Teams, Players and Status combine as a union — highlights a player if his:"
+          : "Teams and Players combine as a union — highlights a player if his:",
+        bullets: ["Team is chosen.", "OR", "Name is selected.", ...(IS_CAREER ? ["OR", "Status is lit."] : [])],
+      },
       { ariaLabel: "Players filter info", label: "ⓘ" }
     )
   );
@@ -172,6 +201,40 @@ function attachEvents() {
       { ariaLabel: "Install the app", label: "Install", alignRight: true }
     )
   );
+
+  if (IS_CAREER) {
+    els.statusInfoSlot.appendChild(
+      createInfoPopover(
+        {
+          bullets: [
+            "Potential Draftees: still playing in the latest college season.",
+            "Joined NFL: played NCAAF and appeared in NFL — potential draftees' benchmark.",
+          ],
+        },
+        { ariaLabel: "Status filter info", label: "ⓘ" }
+      )
+    );
+
+    els.statusBtn.addEventListener("click", () => {
+      if (els.statusDropdown.hidden) openStatusDropdown();
+      else closeStatusDropdown();
+    });
+
+    // Same e.isTrusted guard as the Teams dropdown: the PNG export's synthetic
+    // anchor click must not shut it.
+    document.addEventListener("click", (e) => {
+      if (!e.isTrusted) return;
+      if (els.statusDropdown.hidden) return;
+      if (!els.statusControl.contains(e.target)) closeStatusDropdown();
+    });
+
+    [els.statusJoined, els.statusPotential].forEach((box) =>
+      box.addEventListener("change", () => {
+        syncStatusBars();
+        updatePendingState();
+      })
+    );
+  }
 
   els.teamsInfoSlot.appendChild(
     createInfoPopover(
@@ -216,6 +279,7 @@ function attachEvents() {
     // compares against what's actually on screen now, not a stale value
     // from before this category switch.
     previousSeasonValue = els.season.value;
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -254,6 +318,8 @@ function attachEvents() {
       setResetThresholdOnNextRange(true);
     }
     previousSeasonValue = els.season.value;
+    // The NCAAF checklist groups schools by that season's conferences.
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -275,12 +341,14 @@ function attachEvents() {
 
   els.teamsSelectAll.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = true));
+    markAllTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });
 
   els.teamsSelectNone.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+    markNoTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });
@@ -298,6 +366,28 @@ function attachEvents() {
     if (!e.isTrusted) return;
     if (els.teamsDropdown.hidden) return;
     if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
+  });
+
+  // League navigation: on narrow screens the three pages sit behind a hamburger
+  // button (CSS shows it below 860px). It closes on Escape and on a click outside,
+  // with the same e.isTrusted guard as the dropdowns here, so the PNG export's
+  // synthetic click cannot shut it.
+  const setLeagueNavOpen = (open) => {
+    els.leagueNav.classList.toggle("is-open", open);
+    els.leagueNavToggle.setAttribute("aria-expanded", String(open));
+  };
+
+  els.leagueNavToggle.addEventListener("click", () => {
+    setLeagueNavOpen(!els.leagueNav.classList.contains("is-open"));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (!els.leagueNav.contains(e.target)) setLeagueNavOpen(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setLeagueNavOpen(false);
   });
 
   // Players: collapsed behind a button + panel, same mechanism as Teams —
@@ -368,55 +458,61 @@ function attachEvents() {
   // clicks Apply (or presses Enter in the number field). Re-rendering on
   // every pixel of drag / every keystroke was the whole problem on dense
   // positions.
-  els.threshold.addEventListener("input", () => {
-    els.thresholdNumber.value = els.threshold.value;
-    // The user just gave an explicit threshold — don't let a pending
-    // category switch stomp it back to that category's default at Apply
-    // time (see the resetThresholdOnNextRange comment above its declaration).
-    setResetThresholdOnNextRange(false);
-    // Selected Players are deliberately NOT re-checked here: while the slider
-    // is still being dragged the value is not final. The "change" listener
-    // below does it once the slider is released.
-    updatePendingState();
-  });
+  // The Career page has a second bar (Potential Draftees) wired exactly like the first.
+  [
+    [els.threshold, els.thresholdNumber],
+    [els.thresholdPotential, els.thresholdPotentialNumber],
+  ].forEach(([slider, number]) => {
+    slider.addEventListener("input", () => {
+      number.value = slider.value;
+      // The user just gave an explicit threshold — don't let a pending
+      // category switch stomp it back to that category's default at Apply
+      // time (see the resetThresholdOnNextRange comment above its declaration).
+      setResetThresholdOnNextRange(false);
+      // Selected Players are deliberately NOT re-checked here: while the slider
+      // is still being dragged the value is not final. The "change" listener
+      // below does it once the slider is released.
+      updatePendingState();
+    });
 
-  // Fires once, on release (or after a keyboard step): the threshold is now a
-  // committed value, so selected players who no longer qualify are dropped
-  // and the user is told who (see prunePlayerSelections()).
-  els.threshold.addEventListener("change", () => {
-    prunePlayerSelections();
-    updatePendingState();
-  });
+    // Fires once, on release (or after a keyboard step): the threshold is now a
+    // committed value, so selected players who no longer qualify are dropped
+    // and the user is told who (see prunePlayerSelections()).
+    slider.addEventListener("change", () => {
+      prunePlayerSelections();
+      updatePendingState();
+    });
 
-  els.thresholdNumber.addEventListener("input", () => {
-    const min = Number(els.threshold.min);
-    const max = Number(els.threshold.max);
-    const step = Number(els.threshold.step) || 1;
+    number.addEventListener("input", () => {
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+      const step = Number(slider.step) || 1;
 
-    let raw = Number(els.thresholdNumber.value);
-    if (Number.isNaN(raw)) raw = min;
-    raw = Math.min(Math.max(raw, min), max);
-    els.thresholdNumber.value = raw;
+      let raw = Number(number.value);
+      if (Number.isNaN(raw)) raw = min;
+      raw = Math.min(Math.max(raw, min), max);
+      number.value = raw;
 
-    // Slider snaps to the nearest step just to keep the handle in sync
-    // visually — filtering below still uses the exact typed number.
-    els.threshold.value = min + Math.round((raw - min) / step) * step;
-    setResetThresholdOnNextRange(false);
-    // Not re-checking selected Players per keystroke — see the slider's
-    // "input" handler above; the "change" listener below does it on commit.
-    updatePendingState();
-  });
+      // Slider snaps to the nearest step just to keep the handle in sync
+      // visually — filtering below still uses the exact typed number.
+      slider.value = min + Math.round((raw - min) / step) * step;
+      setResetThresholdOnNextRange(false);
+      // Not re-checking selected Players per keystroke — see the slider's
+      // "input" handler above; the "change" listener below does it on commit.
+      updatePendingState();
+    });
 
-  // Fires when the typed value is committed (Enter or leaving the field).
-  els.thresholdNumber.addEventListener("change", () => {
-    prunePlayerSelections();
-    updatePendingState();
-  });
+    // Fires when the typed value is committed (Enter or leaving the field).
+    number.addEventListener("change", () => {
+      prunePlayerSelections();
+      updatePendingState();
+    });
 
-  els.thresholdNumber.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    applyFilters();
+    number.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      applyFilters();
+    });
   });
 
   els.applyBtn.addEventListener("click", applyFilters);
@@ -619,6 +715,6 @@ function attachEvents() {
 loadMetadata().catch((err) => {
   console.error(err);
   els.chart.innerHTML =
-    `<p style="color:#f1ecdd;padding:24px;">Could not load /api/metadata — ` +
+    `<p style="color:#f1ecdd;padding:24px;">Could not load ${LEAGUE.apiPrefix}/metadata — ` +
     `is the FastAPI server running? (${err.message})</p>`;
 });

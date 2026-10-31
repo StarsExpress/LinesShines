@@ -53,3 +53,40 @@ re-fetching only on season/category change. Holding every position client-side (
 selected one) is what Merge/Linemate Cards below build on. Plots use the vendored
 `frontend/vendor/plotly.min.js` (fetched via `npm run vendor:plotly`, committed to the repo
 since Railway doesn't run `npm install` for the frontend).
+
+## One frontend, two leagues (`LEAGUE`)
+
+The NFL and NCAAF season pages are the same `index.html` and the same modules. `main.py`'s `render_page()` fills
+`window.LEAGUE` into the page and `data.js` exports it as `LEAGUE` (falling back to the NFL values if the page was
+served raw): `key`, `name` (used in the chart title), `apiPrefix` (`/api/nfl` or `/api/ncaaf`, used by `fetchSlice()`
+and `loadMetadata()`), `logoDir` (`logos/{logoDir}/{team}.png`), `teamGroups` and `teamLabel`. Positions, metrics and
+default thresholds already come from `/api/{league}/metadata`, so the config holds nothing else.
+
+- **The Career page (`/ncaaf-career`).** A third entry in `main.py`'s `PAGES` with `mode: "career"` and its own
+  `apiPrefix` (`/api/ncaaf/career`); `data.js` exports `IS_CAREER`. It reuses every module. Its payload is shaped like a
+  Season one in `setMetadata()` (one "season", the word `Career`, one flat conference map), so the controls, titles and
+  cards stay shared (a card reads "Alabama · Career"). What differs: `main.js` hides Season and shows the Status
+  Filter (a dropdown of two checkboxes built like Teams, `#status-toggle-btn`, `#status-joined` / `#status-potential`) and a second bar (`#threshold-potential-*`);
+  `fetchSlice()` has no season in the URL; the applied state carries `potentialThreshold` and `statuses` (left out on a
+  Season page); `filters.js`'s `thresholdBars()` is the one list the range, default and reset code loops over (one bar on
+  Season, two on Career, each bar's slider ceiling taken from its own status). A threshold is read through
+  `appliedThreshold()` / `pendingThreshold()` and judged by `pinned-impact.js`'s `meetsThreshold()`, which accepts a number
+  or `{ joined, potential }`, so no call site compares a record with a bare number any more.
+- **Team key vs label.** `record.team` is the NFL code but the NCAAF franchise id (a number). Keys, logo file names and
+  `metadata.teams` lookups use it as is; anything the user reads goes through `teamLabel(team)` (the code for the NFL,
+  the school name for the college). Comparisons with the Teams checklist go through `String(...)`.
+- **NCAAF logo variants.** The college logos in `frontend/images/team_logos/ncaaf/{franchise_id}.png` are ESPN's `dark`
+  variant (readable on the dark chart), except 11 schools whose `dark` variant came out too bright and use the original
+  (`default`) one: Alabama 103, Kentucky 202, Tennessee 307, Vanderbilt 333, Indiana 190, Clemson 140, Duke 154,
+  North Carolina 245, Texas 311, Utah 328, Buffalo 126 (franchise ids). When re-downloading with
+  `tools/download_ncaaf_logos.py`, skip these ids (or run them with `--variant default`), or the originals are
+  overwritten.
+- **Teams checklist.** `populateTeamsChecklist(season)` builds it from `teamGroups(season)`: `static` is the NFL's
+  fixed AFC/NFC divisions in `config.js`; `by_season` is the college's conferences taken from the metadata's
+  `team_conferences[season]` in `conference_order`, schools by name, with each conference header a button that selects or
+  clears the whole conference. The college checklist is rebuilt when the Season or Category changes (a school's
+  conference depends on the season); the teams the user unchecked are remembered across rebuilds (`uncheckedTeams`).
+- **Page switch.** The `.league-nav` links (one URL per page, current one marked) are filled by `main.py`; below 860px
+  they hide behind a hamburger button (`#league-nav-toggle`) that closes on Escape and on an outside click, with the
+  same `isTrusted` guard as the other dropdowns. It sits in the hero's top row, which is not part of any PNG export.
+  In the installed desktop app it is pushed right by 110px (unverified: the window buttons' exact width).

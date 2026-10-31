@@ -10,10 +10,30 @@
  * assignment, same order, same timing as the original app.js.
  */
 import { els } from "./dom.js";
+import { thresholdSpec, meetsThreshold, JOINED_NFL, POTENTIAL_DRAFTEES } from "./pinned-impact.js";
 
-export const LOGO_PATH = (team) => `logos/nfl/${team}.png`;
+// The page's league (NFL or NCAAF), filled into index.html by main.py: the API
+// prefix, the logo folder, how the Teams checklist is grouped and how a team is
+// named in text. The NFL values are the fallback if the page was served raw.
+const NFL_LEAGUE = {
+  key: "nfl",
+  name: "NFL",
+  apiPrefix: "/api/nfl",
+  logoDir: "nfl",
+  teamGroups: "static",
+  teamLabel: "code",
+};
+export const LEAGUE = window.LEAGUE || NFL_LEAGUE;
 
-export let metadata = null; // /api/metadata payload
+// The Career page pools every college season of a player into one row, so it has
+// no season (its one "season" is the word below), a Status Filter instead, and
+// two threshold bars, one per status. A Season page is the plain case.
+export const IS_CAREER = LEAGUE.mode === "career";
+export const CAREER_SEASON = "Career";
+
+export const LOGO_PATH = (team) => `logos/${LEAGUE.logoDir}/${team}.png`;
+
+export let metadata = null; // /api/{league}/metadata payload
 export const sliceCache = new Map(); // key = `${category}:${season}:${position}` → records[]
 export let currentRecords = []; // records for the current slice (all threshold values)
 export let currentFiltered = []; // records >= threshold (what the chart shows)
@@ -47,12 +67,63 @@ export let playerPoolCategory = null;
 export let appliedFilters = null;
 
 // Decoded Image objects, keyed by team code, filled once at page load so
-// filter changes never wait on the browser to re-resolve/decode /logos/nfl/*.png
+// filter changes never wait on the browser to re-resolve/decode /logos/{league}/*.png
 // again — layout.images and the scout card both just point at these.
 export const logoCache = {};
 
 export function setMetadata(m) {
   metadata = m;
+
+  if (IS_CAREER) {
+    // Shape the Career payload like a Season one, so the controls stay shared: one
+    // "season" and one flat conference map. The Career statuses and their two
+    // default bars stay as the API sent them.
+    ["pass_rush", "pass_block"].forEach((key) => {
+      metadata[key].seasons = [CAREER_SEASON];
+    });
+    if (metadata.team_conferences && !(CAREER_SEASON in metadata.team_conferences)) {
+      metadata.team_conferences = { [CAREER_SEASON]: metadata.team_conferences };
+    }
+  }
+}
+
+// The threshold in force, as a number (Season) or { joined, potential } (Career).
+// `appliedThreshold()` reads the last-applied state, `pendingThreshold()` the
+// controls as they are right now.
+export function appliedThreshold() {
+  return thresholdSpec(appliedFilters.threshold, appliedFilters.potentialThreshold);
+}
+
+export function pendingThreshold() {
+  return thresholdSpec(els.thresholdNumber.value, IS_CAREER ? els.thresholdPotentialNumber.value : undefined);
+}
+
+// "300" for a bar given as a plain number.
+export function thresholdPhrase(spec) {
+  return String(spec);
+}
+
+// The threshold as clauses a card can print: one ("≥ 300 pass rush opportunities") on
+// a Season page, one per status on Career ("≥ 450 pass rush opportunities (Joined NFL)",
+// "≥ 350 pass rush opportunities (Potential Draftees)"). `onlyStatus` keeps just that
+// status's bar, unlabelled, for a card whose whole roster has that one status.
+export function thresholdClauses(spec, fieldLabel, onlyStatus = null) {
+  if (typeof spec === "number") return [`≥ ${spec} ${fieldLabel}`];
+
+  if (onlyStatus === JOINED_NFL) return [`≥ ${spec.joined} ${fieldLabel}`];
+
+  if (onlyStatus === POTENTIAL_DRAFTEES) return [`≥ ${spec.potential} ${fieldLabel}`];
+
+  return [
+    `≥ ${spec.joined} ${fieldLabel} (${JOINED_NFL})`,
+    `≥ ${spec.potential} ${fieldLabel} (${POTENTIAL_DRAFTEES})`,
+  ];
+}
+
+// Which statuses are lit on the Career page (empty on a Season page). A status
+// that is off only dims its players; it never leaves the percentile pool.
+export function litStatuses(statusesText) {
+  return new Set(statusesText ? statusesText.split(",") : []);
 }
 
 export function setCurrentSlice(records, category) {
@@ -117,7 +188,7 @@ export function currentCategoryMeta() {
 // threshold — an ongoing season (DYNAMIC_THRESHOLDS) against a finalized one
 // (DEFAULT_THRESHOLDS), in either direction. Two finalized seasons share one
 // static default, so the user's value stays. Reads the default each season
-// carries in /api/metadata, so it follows whatever config.py resolved.
+// carries in /api/metadata, so it follows whatever config/thresholds.py resolved.
 export function seasonSwitchChangesThresholdDefault(fromSeason, toSeason) {
   const defaults = currentCategoryMeta().default_thresholds;
   return defaults[fromSeason] !== defaults[toSeason];
@@ -125,7 +196,7 @@ export function seasonSwitchChangesThresholdDefault(fromSeason, toSeason) {
 
 // True for whatever season is still in progress this calendar year, false
 // for every finalized/historical one — same Calendar Year comparison
-// config.py's resolve_default_threshold() routes the static-vs-dynamic
+// config/thresholds.py's resolve_default_threshold() routes the static-vs-dynamic
 // threshold default on, backed by metadata.current_year (see main.py's
 // /api/metadata) rather than a separate date.today().year call here, so
 // the frontend can never classify a season differently than the backend
@@ -163,7 +234,8 @@ export function appliedCategoryMeta() {
 export async function fetchSlice(category, season) {
   const key = `${category}:${season}`;
   if (!sliceCache.has(key)) {
-    const url = `/api/${category}?season=${season}`;
+    // The Career route has no season: it sends every member.
+    const url = IS_CAREER ? `${LEAGUE.apiPrefix}/${category}` : `${LEAGUE.apiPrefix}/${category}?season=${season}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     const data = await res.json();
@@ -179,8 +251,8 @@ export async function fetchSlice(category, season) {
 // position instead of being locked to appliedFilters.position.
 export function positionPool(position) {
   const cat = appliedCategoryMeta();
-  const minThreshold = Number(appliedFilters.threshold);
-  return currentRecords.filter((r) => r.position === position && r[cat.threshold_field] >= minThreshold);
+  const threshold = appliedThreshold();
+  return currentRecords.filter((r) => r.position === position && meetsThreshold(r, cat.threshold_field, threshold));
 }
 
 export function median(values) {
@@ -223,6 +295,13 @@ export function teamColor(code) {
 export function teamName(code) {
   const t = metadata.teams && metadata.teams[code];
   return (t && t.full_name) || code;
+}
+
+// How a team reads in text (rows, badges, table cells): the NFL shows its short
+// code (BUF), while a college team's key is only a franchise id, so it shows the
+// school's name. Keys and logo file names always stay the raw key.
+export function teamLabel(team) {
+  return LEAGUE.teamLabel === "name" ? teamName(team) : team;
 }
 
 // Fallback swatch for the teams-dropdown checklist when a team's logo file

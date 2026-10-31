@@ -70,8 +70,12 @@
         );
       })();
     </script>
-    <title>LinesShines · 鋒光</title>
-    <meta name="description" content="Interactive exploration platform: NFL OL & DL PFF metrics." />
+    <title>{{PAGE_TITLE}}</title>
+    <meta name="description" content="{{PAGE_DESCRIPTION}}" />
+    <!-- The page's league (main.py fills the placeholder); data.js falls back to the NFL if it is missing. -->
+    <script>
+      window.LEAGUE = {{LEAGUE_JSON}};
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -99,6 +103,7 @@
     <div class="field-texture" aria-hidden="true"></div>
 
     <header class="hero">
+      {{LEAGUE_NAV}}
       <a
         class="hero-github"
         href="https://github.com/StarsExpress/LinesShines"
@@ -118,7 +123,7 @@
         <img class="hero-logo" src="images/lines_shines_logo.png" alt="LinesShines logo" />
         <div class="hero-text">
           <h1 class="hero-title">LinesShines · 鋒光</h1>
-          <p class="eyebrow">🏈NFL OL & DL PFF Premium Stats Interactive Exploration</p>
+          <p class="eyebrow">{{EYEBROW}}</p>
           <p class="hero-byline">
             "No Line No Shine."<br /><br />
             Infrastructure always starts everything, but quite often gets ignored<br />
@@ -133,6 +138,7 @@
       <span class="meta-segment">Source: PFF Premium Stats</span>
       <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Downloaded PFF data stays private</span>
       <span class="meta-segment">&nbsp;&nbsp;·&nbsp;&nbsp;Median lines are calculated according to current filter</span>
+      {{SCOPE_SEGMENT}}
     </p>
 
     <main class="layout">
@@ -147,6 +153,51 @@
           <div class="control control-season">
             <label for="season-select">Season</label>
             <select id="season-select"></select>
+          </div>
+
+          <!-- Career page only (main.js unhides it and hides Season): the two
+           kinds of Career member. Only Potential Draftees is lit at first; Joined NFL
+           stays in the pool as the yardstick, dimmed. It only dims, like Teams; it never
+           changes the percentile pool. -->
+          <div class="control control-status" id="status-control" hidden>
+            <div class="axis-label-row">
+              <label id="status-label" for="status-toggle-btn">Status</label>
+              <span class="info-popover-slot" id="status-info-slot"></span>
+            </div>
+            <div class="teams-select">
+              <button
+                type="button"
+                id="status-toggle-btn"
+                class="teams-select-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-labelledby="status-label status-select-summary"
+              >
+                <span id="status-select-summary">Potential Draftees</span>
+                <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path
+                    d="M4 6l4 4 4-4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <div class="teams-dropdown status-dropdown" id="status-dropdown" hidden>
+                <div class="teams-checklist">
+                  <label class="team-option">
+                    <input type="checkbox" id="status-joined" value="Joined NFL" />
+                    <span>Joined NFL</span>
+                  </label>
+                  <label class="team-option">
+                    <input type="checkbox" id="status-potential" value="Potential Draftees" checked />
+                    <span>Potential Draftees</span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="control control-teams">
@@ -277,11 +328,32 @@
            row below it. -->
           <div class="row-break" aria-hidden="true"></div>
 
-          <div class="control control-slider">
-            <label for="threshold-slider"> Min <span id="threshold-field-label">opportunities</span> </label>
+          <div class="control control-slider" id="threshold-control">
+            <label for="threshold-slider">
+              <span id="threshold-status-label" hidden>Joined NFL · </span>Min
+              <span id="threshold-field-label">opportunities</span>
+            </label>
             <div class="threshold-row">
               <input type="range" id="threshold-slider" min="0" max="100" value="0" />
               <input type="number" id="threshold-number" min="0" step="1" aria-label="min opportunities exact value" />
+            </div>
+          </div>
+
+          <!-- Career page only: the looser bar for Potential Draftees (a young
+           player has few snaps). Greyed out while that status is switched off. -->
+          <div class="control control-slider" id="potential-threshold-control" hidden>
+            <label for="threshold-potential-slider">
+              Potential Draftees · Min <span id="threshold-potential-field-label">opportunities</span>
+            </label>
+            <div class="threshold-row">
+              <input type="range" id="threshold-potential-slider" min="0" max="100" value="0" />
+              <input
+                type="number"
+                id="threshold-potential-number"
+                min="0"
+                step="1"
+                aria-label="min opportunities exact value for Potential Draftees"
+              />
             </div>
           </div>
 

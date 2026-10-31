@@ -16,12 +16,16 @@ grep -H "Add tests here when" playbook/tests/*.md
 | A shared fixture, or how tests get a database or a running server | `conftest.py` ([CONFTEST.md](CONFTEST.md)) | fixtures |
 | A JSON API endpoint under `/api/` (parameters, response shape, error codes) | `test_api_endpoints.py` ([doc](TEST_API_ENDPOINTS.md)) | API |
 | How the app is assembled: mounts, `/health`, how `sw.js` and `index.html` are served | `test_app_startup.py` ([doc](TEST_APP_STARTUP.md)) | API |
-| Season-threshold routing in `config.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
+| Season-threshold routing in `config/thresholds.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
+| Who is on the college Career page (Joined NFL, Potential Draftees) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
+| The merged Career row (summed counts, weighted rates, Pass Cov Percent, last-season identity) and the `/api/ncaaf/career` routes | `test_career_merge.py` ([doc](TEST_CAREER_MERGE.md)) | pure Python and API |
+| The NCAAF Career page (Status Filter, two threshold bars, one pool) | `test_ncaaf_career_page.py` ([doc](TEST_NCAAF_CAREER_PAGE.md)) | browser |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
 | The `nfl_*` table names, unique key, NOT NULL `player_id`, and which table has the pass-rush percent columns | `test_db_models.py` ([doc](TEST_DB_MODELS.md)) | pure Python |
 | Neutral metrics: Pass Cov Percent order, grey chip on Player/Comparison/Linemate cards, chip contrast | `test_neutral_metric.py` ([doc](TEST_NEUTRAL_METRIC.md)) | browser |
 | The league handling of the preprocessing scripts: `League`, per-league paths, the required-column check, the command line | `test_preprocessing_league.py` ([doc](TEST_PREPROCESSING_LEAGUE.md)) | pure Python |
 | The NCAAF conference table: a school's stints per conference, `conference_of()`, the out-of-scope list | `test_teams_ncaaf.py` ([doc](TEST_TEAMS_NCAAF.md)) | pure Python |
+| Updating a traded player's team mid-season (`midseason_trades.py`) | `test_midseason_trades.py` ([doc](TEST_MIDSEASON_TRADES.md)) | pure Python |
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
 | The Comparison (Merge) Card's table: Read and Sort layouts, and how it follows the sort order | `test_merge_table.py` ([doc](TEST_MERGE_TABLE.md)) | browser |
 | How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
@@ -35,6 +39,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
+| The NCAAF Teams checklist: per-season schools and what stays checked across seasons | `test_ncaaf_teams_checklist.py` ([doc](TEST_NCAAF_TEAMS_CHECKLIST.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
 | Anything else | a new `tests/test_*.py` plus its own `TEST_*.md` here, in the same change | |

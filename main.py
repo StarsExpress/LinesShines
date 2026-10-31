@@ -1,17 +1,20 @@
 """Game of Trenches API + static frontend, single deployable FastAPI service.
 
-Routes:
-  GET  /api/metadata                    → seasons, positions, metric defs, teams
-  GET  /api/pass_rush?season=[&position=] → records; position omitted → every
-                                             position in the category (client
-                                             partitions/filters from there)
-  GET  /api/pass_block?season=[&position=] → same shape as pass_rush
+Routes (one set per league, {league} is nfl or ncaaf):
+  GET  /api/{league}/metadata           → seasons, positions, metric defs, teams
+                                           (ncaaf adds each season's conferences)
+  GET  /api/{league}/pass_rush?season=[&position=] → records; position omitted →
+                                           every position in the category (client
+                                           partitions/filters from there)
+  GET  /api/{league}/pass_block?season=[&position=] → same shape as pass_rush
   GET  /health                          → readiness probe for Railway
+  GET  /, /ncaaf-season                 → the page of each league's season view
 
 Anything else falls through to StaticFiles serving `frontend/`.
 """
 
 from __future__ import annotations
+import json
 import os
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
@@ -27,18 +30,33 @@ from config import (
     PASS_COV_PERCENT_NOTE,
     PBE_NOTE,
     PRP_NOTE,
+    NCAAF_CAREER_DEFAULT_THRESHOLDS,
     TPS_NOTE,
+    CareerStatus,
+    League,
     resolve_default_threshold,
+)
+from database.career_merge import (
+    PASS_BLOCK_CAREER,
+    PASS_RUSH_CAREER,
+    last_season_conferences,
+    merged_career_rows,
 )
 from database.db_models import (
     Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
     NFLPassBlockStat,
     NFLPassRushStat,
     NFLTeam,
+    ncaaf_pass_block_row_to_dict,
+    ncaaf_pass_rush_row_to_dict,
     pass_block_row_to_dict,
     pass_rush_row_to_dict,
 )
 from database.session import SessionLocal, engine
+from teams.ncaaf import SCOPED_CONFERENCES
 
 # Railway sets this per-deploy; falls back to "dev" for local runs. Used to
 # cache-bust static assets referenced from index.html so iOS Safari (and
@@ -187,7 +205,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-# ---- League API: one router factory, used by the NFL now and NCAAF later. ---
+# ---- League API: one router factory, used by the NFL and NCAAF. -------------
 
 
 @dataclass(frozen=True)
@@ -207,15 +225,43 @@ class _CategoryApi:
 class _LeagueApi:
     """A league's team table and its two stat categories."""
 
+    league: League
     team_model: type
+    team_id_attr: str  # The team table's key: NFL code, NCAAF franchise_id.
     categories: tuple
+    has_conferences: bool = False  # NCAAF rows carry a conference per season.
+
+
+def _conference_payload(sess, league: _LeagueApi) -> dict:
+    """Each season's conference of every school with rows, for the Teams checklist.
+
+    `team_conferences` is {season: {team: conference}}, read from the rows
+    themselves, so it is exactly the data that was loaded; `conference_order` is
+    the column order of the checklist.
+    """
+    team_conferences = dict()
+
+    for category in league.categories:
+        rows = sess.execute(
+            select(
+                category.model.season,
+                category.model.team_code,
+                category.model.conference,
+            ).distinct()
+        )
+        for season, team_code, conference in rows:
+            team_conferences.setdefault(season, dict())[team_code] = conference
+
+    return {
+        "conference_order": list(SCOPED_CONFERENCES),
+        "team_conferences": team_conferences,
+    }
 
 
 def build_api_router(league: _LeagueApi) -> APIRouter:
     """Build /metadata, /pass_rush and /pass_block for one league.
 
-    Mounted under a league prefix by the caller, so the NFL keeps today's
-    /api/... paths while NCAAF can be added later with its own prefix.
+    Mounted under a league prefix (/api/nfl, /api/ncaaf) by the caller.
     """
     router = APIRouter()
     categories = {category.key: category for category in league.categories}
@@ -242,16 +288,21 @@ def build_api_router(league: _LeagueApi) -> APIRouter:
                     "threshold_field": category.threshold_field,
                     "seasons": seasons,
                     "default_thresholds": {
-                        season: resolve_default_threshold(category.key, season)
+                        season: resolve_default_threshold(
+                            category.key, season, league.league
+                        )
                         for season in seasons
                     },
                 }
 
             teams = sess.execute(select(league.team_model)).scalars().all()
+            conference_payload = (
+                _conference_payload(sess, league) if league.has_conferences else {}
+            )
 
         return {
             # Same Calendar Year comparison resolve_default_threshold() uses to
-            # route a season to the static vs. dynamic threshold (see config.py) —
+            # route a season to the static vs. dynamic threshold (see config/thresholds.py) —
             # exposed here so the frontend can classify a season as "ongoing" vs
             # "historical" the same way, without duplicating a date.today().year
             # call client-side (which would drift out of sync with whatever this
@@ -265,8 +316,9 @@ def build_api_router(league: _LeagueApi) -> APIRouter:
             # "TPS " (see main.js's axisFormulaContent()).
             "tps_note": TPS_NOTE,
             **category_payload,
+            **conference_payload,
             "teams": {
-                team.code: {
+                getattr(team, league.team_id_attr): {
                     "full_name": team.full_name,
                     "primary_color": team.primary_color,
                 }
@@ -329,7 +381,9 @@ def build_api_router(league: _LeagueApi) -> APIRouter:
 
 
 NFL_API = _LeagueApi(
+    league=League.NFL,
     team_model=NFLTeam,
+    team_id_attr="code",
     categories=(
         _CategoryApi(
             key="pass_rush",
@@ -352,6 +406,114 @@ NFL_API = _LeagueApi(
     ),
 )
 
+NCAAF_API = _LeagueApi(
+    league=League.NCAAF,
+    team_model=NCAAFTeam,
+    team_id_attr="franchise_id",
+    has_conferences=True,
+    categories=(
+        _CategoryApi(
+            key="pass_rush",
+            model=NCAAFPassRushStat,
+            positions=PASS_RUSH_POSITIONS,
+            metrics=PASS_RUSH_METRICS,
+            threshold_field="PR Opp",
+            order_attr="pr_opp",
+            row_to_dict=ncaaf_pass_rush_row_to_dict,
+        ),
+        _CategoryApi(
+            key="pass_block",
+            model=NCAAFPassBlockStat,
+            positions=PASS_BLOCK_POSITIONS,
+            metrics=PASS_BLOCK_METRICS,
+            threshold_field="Non Spike PB Snaps",
+            order_attr="non_spike_pb_snaps",
+            row_to_dict=ncaaf_pass_block_row_to_dict,
+        ),
+    ),
+)
+
+
+# The Career merge behind each college category (see database/career_merge.py).
+CAREER_SPECS = {"pass_rush": PASS_RUSH_CAREER, "pass_block": PASS_BLOCK_CAREER}
+
+
+def build_career_router(league: _LeagueApi) -> APIRouter:
+    """Build /metadata, /pass_rush and /pass_block for the college Career page.
+
+    A record is one member's whole college career merged into a row (no season, no
+    percentile: the browser ranks), and the thresholds are display-only like the
+    season ones, so every member is sent. Mounted under /api/ncaaf/career.
+    """
+    router = APIRouter()
+    categories = {category.key: category for category in league.categories}
+
+    @router.get("/metadata")
+    def metadata() -> dict:
+        with SessionLocal() as sess:
+            teams = sess.execute(select(league.team_model)).scalars().all()
+            team_conferences = dict()
+
+            for spec in CAREER_SPECS.values():
+                team_conferences.update(last_season_conferences(sess, spec))
+
+        return {
+            "current_year": date.today().year,
+            "tps_note": TPS_NOTE,
+            "statuses": [status.value for status in CareerStatus],
+            **{
+                key: {
+                    "positions": category.positions,
+                    "metrics": category.metrics,
+                    "threshold_field": category.threshold_field,
+                    # One per status, so the page can show two sliders.
+                    "default_thresholds": NCAAF_CAREER_DEFAULT_THRESHOLDS[key],
+                }
+                for key, category in categories.items()
+            },
+            "conference_order": list(SCOPED_CONFERENCES),
+            # {franchise_id: conference of the school's last season}, unlike the
+            # season metadata, which gives each season's conferences.
+            "team_conferences": team_conferences,
+            "teams": {
+                getattr(team, league.team_id_attr): {
+                    "full_name": team.full_name,
+                    "primary_color": team.primary_color,
+                }
+                for team in teams
+            },
+        }
+
+    def career_records(key: str, position: str | None) -> dict:
+        category = categories[key]
+
+        if position is not None and position not in category.positions:
+            raise HTTPException(
+                400,
+                f"invalid position: {position!r} — choose from {list(category.positions)}",
+            )
+
+        positions = (position,) if position is not None else tuple(category.positions)
+
+        with SessionLocal() as sess:
+            records = merged_career_rows(sess, CAREER_SPECS[key], positions)
+
+        return {"category": key, "position": position, "records": records}
+
+    @router.get("/pass_rush")
+    def pass_rush(
+        position: str | None = Query(None, min_length=1, max_length=4)
+    ) -> dict:
+        return career_records("pass_rush", position)
+
+    @router.get("/pass_block")
+    def pass_block(
+        position: str | None = Query(None, min_length=1, max_length=4)
+    ) -> dict:
+        return career_records("pass_block", position)
+
+    return router
+
 
 app = FastAPI(
     title="Game of Trenches API",
@@ -365,9 +527,132 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-# NFL stays at /api/metadata, /api/pass_rush, /api/pass_block (PR #19). PR #20
-# moves it under /api/nfl and adds /api/ncaaf with the same factory.
-app.include_router(build_api_router(NFL_API), prefix="/api")
+# One router per league from the same factory, each under its own prefix.
+app.include_router(build_api_router(NFL_API), prefix="/api/nfl")
+app.include_router(build_api_router(NCAAF_API), prefix="/api/ncaaf")
+app.include_router(build_career_router(NCAAF_API), prefix="/api/ncaaf/career")
+
+
+# ---- Pages: one per league view, all served from frontend/index.html. -------
+
+
+@dataclass(frozen=True)
+class _Page:
+    """One page of the site: its URL, the league it shows and its own texts."""
+
+    path: str
+    league: League
+    nav_label: str
+    eyebrow: str  # The line under the title; differs per league and mode.
+    tab_title: str
+    description: str
+    scope_segment: str  # Extra item of the meta band, "" for none.
+    team_groups: str  # "static" (frontend list) or "by_season" (from metadata).
+    team_label: str  # "code" shows the team key, "name" shows the full name.
+    mode: str = "season"  # "season" (one season per view) or "career" (all seasons).
+    api_path: str = ""  # Overrides /api/<league> when the page reads another route.
+
+
+NCAAF_SCOPE_SEGMENT = "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC · B1G · ACC · Big 12 · Pac-12 · MAC · Notre Dame"
+
+# The order is the order of the navigation buttons.
+PAGES = (
+    _Page(
+        path="/",
+        league=League.NFL,
+        nav_label="NFL Season",
+        eyebrow="🏈NFL OL & DL PFF Premium Stats Interactive Exploration",
+        tab_title="LinesShines · 鋒光",
+        description="Interactive exploration platform: NFL OL & DL PFF metrics.",
+        scope_segment="",
+        team_groups="static",
+        team_label="code",
+    ),
+    _Page(
+        path="/ncaaf-season",
+        league=League.NCAAF,
+        nav_label="NCAAF Season",
+        eyebrow="🏈NCAAF OL & DL PFF Premium Stats Interactive Exploration",
+        tab_title="LinesShines · 鋒光 · NCAAF",
+        description="Interactive exploration platform: NCAAF OL & DL PFF metrics.",
+        scope_segment=NCAAF_SCOPE_SEGMENT,
+        team_groups="by_season",
+        team_label="name",
+    ),
+    _Page(
+        path="/ncaaf-career",
+        league=League.NCAAF,
+        nav_label="NCAAF Career",
+        eyebrow="🏈NCAAF OL & DL PFF Premium Stats Career Exploration",
+        tab_title="LinesShines · 鋒光 · NCAAF Career",
+        description="Interactive exploration platform: NCAAF OL & DL career PFF metrics.",
+        scope_segment=NCAAF_SCOPE_SEGMENT,
+        team_groups="by_season",
+        team_label="name",
+        mode="career",
+        api_path="/api/ncaaf/career",
+    ),
+)
+
+
+def _league_config_json(page: _Page) -> str:
+    """The `LEAGUE` object the frontend reads, as JSON safe inside a script tag."""
+    config = {
+        "key": page.league.value,
+        "name": page.league.value.upper(),
+        "apiPrefix": page.api_path or f"/api/{page.league.value}",
+        "mode": page.mode,
+        "logoDir": page.league.value,
+        "teamGroups": page.team_groups,
+        "teamLabel": page.team_label,
+    }
+
+    return json.dumps(config).replace("</", "<\\/")
+
+
+def _navigation_html(current: _Page) -> str:
+    """The page switch: inline links on wide screens, a hamburger list on narrow ones."""
+    items = []
+    for page in PAGES:
+        is_current = page.path == current.path
+        current_attribute = ' aria-current="page"' if is_current else ""
+        current_class = " is-current" if is_current else ""
+        items.append(
+            f'<li><a class="league-nav-link{current_class}" href="{page.path}"'
+            f"{current_attribute}>{page.nav_label}</a></li>"
+        )
+
+    return (
+        '<nav class="league-nav" aria-label="Pages">'
+        '<button type="button" class="league-nav-toggle" id="league-nav-toggle" '
+        'aria-expanded="false" aria-controls="league-nav-list">'
+        '<span class="league-nav-bars" aria-hidden="true"></span>'
+        f"<span>{current.nav_label}</span></button>"
+        f'<ul class="league-nav-list" id="league-nav-list">{"".join(items)}</ul>'
+        "</nav>"
+    )
+
+
+def render_page(template: str, page: _Page) -> str:
+    """Fill a page's own texts, navigation and league config into index.html."""
+    replacements = {
+        "{{VERSION}}": COMMIT_SHA,
+        "{{PAGE_TITLE}}": page.tab_title,
+        "{{PAGE_DESCRIPTION}}": page.description,
+        "{{EYEBROW}}": page.eyebrow,
+        "{{SCOPE_SEGMENT}}": (
+            f'<span class="meta-segment">{page.scope_segment}</span>'
+            if page.scope_segment
+            else ""
+        ),
+        "{{LEAGUE_NAV}}": _navigation_html(page),
+        "{{LEAGUE_JSON}}": _league_config_json(page),
+    }
+
+    for placeholder, value in replacements.items():
+        template = template.replace(placeholder, value)
+
+    return template
 
 
 # ---- Static frontend (mounted LAST so /api/* routes above win). -------------
@@ -405,11 +690,22 @@ _frontend_dir = _here / "frontend"
 if _frontend_dir.exists():
     _index_path = _frontend_dir / "index.html"
 
-    @app.get("/", response_class=HTMLResponse)
-    def serve_index() -> HTMLResponse:
-        return HTMLResponse(
-            _index_path.read_text().replace("{{VERSION}}", COMMIT_SHA),
-            headers={"Cache-Control": "no-cache"},
+    def _page_route(page: _Page):
+        def serve_page() -> HTMLResponse:
+            return HTMLResponse(
+                render_page(_index_path.read_text(), page),
+                headers={"Cache-Control": "no-cache"},
+            )
+
+        return serve_page
+
+    for _page in PAGES:
+        app.add_api_route(
+            _page.path,
+            _page_route(_page),
+            methods=["GET"],
+            response_class=HTMLResponse,
+            include_in_schema=False,
         )
 
     _sw_path = _frontend_dir / "sw.js"

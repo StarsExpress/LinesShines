@@ -8,12 +8,24 @@ import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from database import db_ingestion
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat
+from config import League
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+)
+from teams.ncaaf import SCHOOL_NAMES
+
+AKRON_ID = 102  # MAC.
 
 
 def _write_front_7_xlsx(
-    path, team="BUF", player="T. Test", player_id=1001, drop=()
+    path, team="BUF", player="T. Test", player_id=1001, drop=(), extra=None
 ) -> None:
     df = pd.DataFrame(
         {
@@ -34,6 +46,7 @@ def _write_front_7_xlsx(
             "TPS Havoc Rate": [10.0],
             "PRP": [6.0],
             "TPS PRP": [7.5],
+            **(extra or {}),
         }
     ).drop(columns=list(drop))
 
@@ -41,7 +54,9 @@ def _write_front_7_xlsx(
         df.to_excel(writer, sheet_name="ED", index=False)
 
 
-def _write_ol_xlsx(path, team="MIA", player="O. Line", player_id=2001) -> None:
+def _write_ol_xlsx(
+    path, team="MIA", player="O. Line", player_id=2001, extra=None
+) -> None:
     df = pd.DataFrame(
         {
             "Team": [team],
@@ -57,6 +72,7 @@ def _write_ol_xlsx(path, team="MIA", player="O. Line", player_id=2001) -> None:
             "TPS Allowed Havoc %": [3.0],
             "PBE": [95.0],
             "TPS PBE": [92.0],
+            **(extra or {}),
         }
     )
 
@@ -216,3 +232,227 @@ def test_season_discovery_reads_only_the_nfl_subfolder(tmp_path):
     _write_ol_xlsx(tmp_path / "ncaaf" / "ol_pass_block" / "2022.xlsx")
 
     assert db_ingestion._discover_seasons(tmp_path) == [2024]
+
+
+def _college_columns(franchise_id=AKRON_ID, conference="MAC") -> dict:
+    """The two columns the college conversion adds to a workbook."""
+    return {"Franchise Id": [franchise_id], "Conference": [conference]}
+
+
+def _snap_columns() -> dict:
+    """The four snap counts a college pass-rush workbook carries for the Career page."""
+    return {
+        "PR Snaps": [67],
+        "Snap Counts Pass Play": [341],
+        "TPS PR Snaps": [21],
+        "TPS Snap Counts Pass Play": [141],
+    }
+
+
+def test_ncaaf_pass_rush_is_read_from_the_ncaaf_folder_into_the_college_table(
+    tmp_path,
+):
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(
+        tmp_path / "ncaaf" / "front_7_pass_rush" / "2025.xlsx",
+        team="AKRON",
+        extra={**_college_columns(), **_snap_columns()},
+    )
+    sess = _fresh_session()
+    db_ingestion.upsert_ncaaf_teams(sess)
+
+    count = db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+
+    row = sess.query(NCAAFPassRushStat).one()
+    assert count == 1
+    assert (row.team_code, row.conference, row.player_id) == (AKRON_ID, "MAC", 1001)
+    assert sess.query(NFLPassRushStat).count() == 0
+
+
+def test_ncaaf_pass_rush_stores_the_four_snap_counts_the_career_merge_needs(tmp_path):
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(
+        tmp_path / "ncaaf" / "front_7_pass_rush" / "2025.xlsx",
+        extra={**_college_columns(), **_snap_columns()},
+    )
+    sess = _fresh_session()
+    db_ingestion.upsert_ncaaf_teams(sess)
+
+    db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+
+    row = sess.query(NCAAFPassRushStat).one()
+    assert (
+        row.pass_rush_snaps,
+        row.pass_play_snaps,
+        row.tps_pass_rush_snaps,
+        row.tps_pass_play_snaps,
+    ) == (67, 341, 21, 141)
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        "PR Snaps",
+        "Snap Counts Pass Play",
+        "TPS PR Snaps",
+        "TPS Snap Counts Pass Play",
+    ],
+)
+def test_a_college_pass_rush_workbook_without_a_snap_count_stops_the_run(
+    tmp_path, column
+):
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(
+        tmp_path / "ncaaf" / "front_7_pass_rush" / "2025.xlsx",
+        extra={**_college_columns(), **_snap_columns()},
+        drop=[column],
+    )
+    sess = _fresh_session()
+
+    with pytest.raises(ValueError, match=column):
+        db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+
+    assert sess.query(NCAAFPassRushStat).count() == 0
+
+
+def test_ncaaf_pass_block_is_read_from_the_ncaaf_folder_into_the_college_table(
+    tmp_path,
+):
+    (tmp_path / "ncaaf" / "ol_pass_block").mkdir(parents=True)
+    _write_ol_xlsx(
+        tmp_path / "ncaaf" / "ol_pass_block" / "2025.xlsx",
+        team="AKRON",
+        extra=_college_columns(),
+    )
+    sess = _fresh_session()
+    db_ingestion.upsert_ncaaf_teams(sess)
+
+    count = db_ingestion.ingest_ncaaf_pass_block(sess, tmp_path, [2025])
+
+    row = sess.query(NCAAFPassBlockStat).one()
+    assert count == 1
+    assert (row.team_code, row.conference) == (AKRON_ID, "MAC")
+    assert sess.query(NFLPassBlockStat).count() == 0
+
+
+def test_ncaaf_ingestion_does_not_read_the_nfl_folder(tmp_path):
+    (tmp_path / "nfl" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(
+        tmp_path / "nfl" / "front_7_pass_rush" / "2025.xlsx",
+        extra=_college_columns(),
+    )
+    sess = _fresh_session()
+
+    assert db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025]) == 0
+
+
+def test_a_college_workbook_without_a_conference_stops_the_run(tmp_path):
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(
+        tmp_path / "ncaaf" / "front_7_pass_rush" / "2025.xlsx",
+        extra={**_college_columns(), **_snap_columns()},
+        drop=["Conference"],
+    )
+    sess = _fresh_session()
+
+    with pytest.raises(ValueError, match="Conference"):
+        db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+
+    assert sess.query(NCAAFPassRushStat).count() == 0
+
+
+def test_a_college_workbook_without_a_franchise_id_stops_the_run(tmp_path):
+    (tmp_path / "ncaaf" / "ol_pass_block").mkdir(parents=True)
+    _write_ol_xlsx(
+        tmp_path / "ncaaf" / "ol_pass_block" / "2025.xlsx", extra=_college_columns()
+    )
+    path = tmp_path / "ncaaf" / "ol_pass_block" / "2025.xlsx"
+    broken_df = pd.read_excel(path).drop(columns=["Franchise Id"])
+    with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        broken_df.to_excel(writer, sheet_name="T", index=False)
+    sess = _fresh_session()
+
+    with pytest.raises(ValueError, match="Franchise Id"):
+        db_ingestion.ingest_ncaaf_pass_block(sess, tmp_path, [2025])
+
+
+def test_college_reingestion_replaces_the_season_position_slice(tmp_path):
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    path = tmp_path / "ncaaf" / "front_7_pass_rush" / "2025.xlsx"
+    sess = _fresh_session()
+    db_ingestion.upsert_ncaaf_teams(sess)
+
+    _write_front_7_xlsx(
+        path, player="Old Guy", extra={**_college_columns(), **_snap_columns()}
+    )
+    db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+    _write_front_7_xlsx(
+        path,
+        player="New Guy",
+        player_id=1002,
+        extra={**_college_columns(), **_snap_columns()},
+    )
+    db_ingestion.ingest_ncaaf_pass_rush(sess, tmp_path, [2025])
+
+    assert [row.player for row in sess.query(NCAAFPassRushStat)] == ["New Guy"]
+
+
+def test_season_discovery_looks_only_in_the_requested_leagues_folder(tmp_path):
+    (tmp_path / "nfl" / "front_7_pass_rush").mkdir(parents=True)
+    (tmp_path / "ncaaf" / "front_7_pass_rush").mkdir(parents=True)
+    _write_front_7_xlsx(tmp_path / "nfl" / "front_7_pass_rush" / "2024.xlsx")
+    _write_front_7_xlsx(tmp_path / "ncaaf" / "front_7_pass_rush" / "2026.xlsx")
+
+    assert db_ingestion._discover_seasons(tmp_path, League.NFL) == [2024]
+    assert db_ingestion._discover_seasons(tmp_path, League.NCAAF) == [2026]
+
+
+def test_the_college_team_table_holds_every_scoped_school_and_is_rerunnable():
+    sess = _fresh_session()
+
+    db_ingestion.upsert_ncaaf_teams(sess)
+    db_ingestion.upsert_ncaaf_teams(sess)
+
+    teams = {team.franchise_id: team.full_name for team in sess.query(NCAAFTeam)}
+    assert teams == SCHOOL_NAMES
+    assert all(team.primary_color is None for team in sess.query(NCAAFTeam))
+
+
+def _patch_ingestion_to_an_in_memory_database(monkeypatch) -> None:
+    """Point `main()` at a throwaway database, so a run never touches the real one."""
+    engine = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+
+    monkeypatch.setattr(db_ingestion, "engine", engine)
+    monkeypatch.setattr(db_ingestion, "SessionLocal", sessionmaker(engine))
+
+
+def test_only_the_college_run_rebuilds_the_career_members(tmp_path, monkeypatch):
+    _patch_ingestion_to_an_in_memory_database(monkeypatch)
+    rebuilds = []
+    monkeypatch.setattr(
+        db_ingestion, "rebuild_all_career_members", lambda sess: rebuilds.append(sess)
+    )
+
+    for league in ("nfl", "ncaaf"):
+        monkeypatch.setattr(
+            "sys.argv",
+            ["db_ingestion", "--league", league, "--data-dir", str(tmp_path)],
+        )
+        db_ingestion.main()
+
+    assert len(rebuilds) == 1
+
+
+def test_the_command_line_needs_a_league(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["db_ingestion", "--seasons", "2026"])
+
+    with pytest.raises(SystemExit):
+        db_ingestion.main()
+
+
+def test_every_league_has_two_categories_and_a_team_upsert():
+    assert set(db_ingestion.LEAGUE_CATEGORIES) == set(League)
+    assert set(db_ingestion.LEAGUE_TEAM_UPSERTS) == set(League)
+    assert all(len(cats) == 2 for cats in db_ingestion.LEAGUE_CATEGORIES.values())

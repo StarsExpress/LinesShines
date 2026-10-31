@@ -92,3 +92,58 @@ def test_logos_mount_is_left_alone(client):
 def test_sw_js_is_network_first_with_a_three_second_timeout(client):
     text = client.get("/sw.js").text
     assert "const NETWORK_TIMEOUT_MS = 3000;" in text
+
+
+def test_each_season_page_is_filled_with_its_own_league(client):
+    nfl = client.get("/").text
+    ncaaf = client.get("/ncaaf-season").text
+
+    assert '"key": "nfl"' in nfl and '"apiPrefix": "/api/nfl"' in nfl
+    assert '"key": "ncaaf"' in ncaaf and '"apiPrefix": "/api/ncaaf"' in ncaaf
+    assert '"teamLabel": "name"' in ncaaf
+
+    # The subtitle (eyebrow) and the tab title differ per page.
+    assert "NFL OL & DL PFF Premium Stats" in nfl
+    assert "NCAAF OL & DL PFF Premium Stats" in ncaaf
+    assert "<title>LinesShines · 鋒光</title>" in nfl
+    assert "<title>LinesShines · 鋒光 · NCAAF</title>" in ncaaf
+
+    # Only the college page states its data scope.
+    assert "Scope:" in ncaaf and "Scope:" not in nfl
+
+
+def test_the_career_page_reads_the_career_routes(client):
+    career = client.get("/ncaaf-career").text
+
+    assert '"key": "ncaaf"' in career
+    assert '"apiPrefix": "/api/ncaaf/career"' in career
+    assert '"mode": "career"' in career
+    assert '"mode": "season"' in client.get("/ncaaf-season").text
+    assert "<title>LinesShines · 鋒光 · NCAAF Career</title>" in career
+    assert "Scope:" in career
+
+
+def test_no_placeholder_is_left_in_a_served_page(client):
+    for path in ("/", "/ncaaf-season", "/ncaaf-career"):
+        text = client.get(path).text
+        assert "{{" not in text, path
+
+
+def test_every_page_carries_the_navigation_with_its_own_page_marked(client):
+    for path, current in (
+        ("/", "NFL Season"),
+        ("/ncaaf-season", "NCAAF Season"),
+        ("/ncaaf-career", "NCAAF Career"),
+    ):
+        text = client.get(path).text
+
+        assert 'class="league-nav"' in text
+        assert 'href="/"' in text and 'href="/ncaaf-season"' in text
+        assert 'href="/ncaaf-career"' in text
+        assert text.count('aria-current="page"') == 1
+        assert f'aria-current="page">{current}</a>' in text
+
+
+def test_the_season_pages_are_not_cached_and_are_not_in_the_api_schema(client):
+    assert client.get("/ncaaf-season").headers["cache-control"] == "no-cache"
+    assert "/ncaaf-season" not in client.get("/openapi.json").text

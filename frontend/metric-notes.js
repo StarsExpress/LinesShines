@@ -13,13 +13,13 @@
  * ever covers metrics that actually have a defined formula/note.
  *
  * Deduped by note TEXT, not by metric key: a metric and its "TPS "
- * counterpart intentionally share the same note (config.py's
+ * counterpart intentionally share the same note (config/metrics.py's
  * HAVOC_RATE_NOTE/PRP_NOTE/PBE_NOTE convention, same one
  * frontend/main.js's axisFormulaContent() already relies on for the axis
  * popovers), so this collapses them to one line for free rather than
  * needing a separate "is this a TPS duplicate" check.
  *
- * `tpsNote` (config.py's TPS_NOTE, exposed at metadata.tps_note) is a
+ * `tpsNote` (config/metrics.py's TPS_NOTE, exposed at metadata.tps_note) is a
  * shared concept, not a per-metric formula — appended once, last, whenever
  * ANY of the given metricKeys is a "TPS "-prefixed variant, never
  * duplicated per TPS metric and never included when none of the export's
