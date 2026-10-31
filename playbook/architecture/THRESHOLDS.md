@@ -8,7 +8,7 @@
 **Season-threshold routing** (`config/thresholds.py::resolve_default_threshold`, consumed by `main.py`'s
 `/api/{league}/metadata` and, on the frontend, `filters.js`'s `updateThresholdRange()` /
 `resetThresholdToCategoryDefault()` / `updatePendingThresholdMax()`): a season is either "finalized" (`season_year < current
-calendar year` → the static `DEFAULT_THRESHOLDS`, 230 PR Opp / 300 Non Spike PB Snaps; the college has its own pair, `NCAAF_DEFAULT_THRESHOLDS` 230 / 360 and `NCAAF_DYNAMIC_THRESHOLDS`, chosen by the `league` argument of `resolve_default_threshold()`) or "in
+calendar year` → the static `DEFAULT_THRESHOLDS`, 230 PR Opp / 300 Non Spike PB Snaps; the college Career page has two thresholds per category instead (`NCAAF_CAREER_DEFAULT_THRESHOLDS`, one per `CareerStatus`, stricter for Joined NFL, no dynamic entry); the college has its own pair, `NCAAF_DEFAULT_THRESHOLDS` 230 / 360 and `NCAAF_DYNAMIC_THRESHOLDS`, chosen by the `league` argument of `resolve_default_threshold()`) or "in
 progress" (`season_year == current calendar year` → `DYNAMIC_THRESHOLDS[season]`, hand-edited
 weekly during the local `python -m database.db_ingestion --league nfl` run — eyeballed against how far the
 season has actually progressed, deliberately **not** a fraction-of-season-elapsed formula, since

@@ -37,6 +37,13 @@
    not Joined NFL. The NFL run never rebuilds them, so run the NFL ingestion first when both run. The college
    pass-rush table also keeps four snap counts (`pass_rush_snaps`, `pass_play_snaps` and the TPS pair) that
    only the Career merge reads; they are not in `PASS_RUSH_DATA_COLUMNS` and never in the API payload.
+   **Career API.** `build_career_router()` is mounted at `/api/ncaaf/career`: `/metadata` (statuses, per-category
+   positions, metrics, `threshold_field`, one default threshold per status, teams, conference order, and
+   `team_conferences` = the conference of each school's last season) and `/pass_rush`, `/pass_block` (optional
+   `position`, 400 if unknown). A record is a member's whole college career as one row
+   (`database/career_merge.py`, `GROUP BY player_id`): counts summed, rates weighted by their own denominator,
+   Pass Cov Percent rebuilt from the snap counts; the name, position, team and conference are those of the last
+   season. Every member is sent; the thresholds are applied in the browser (INVARIANTS 5).
 
 4. `database/db_models.py` defines the SQLAlchemy schema (`NFLTeam`, `NFLPassRushStat`, `NFLPassBlockStat`; the `nfl_` prefix leaves room for NCAAF tables). The stat tables take their
    columns from mixins — `StatIdentityMixin` (id, season, position, player_id, player, abbr_name, games),

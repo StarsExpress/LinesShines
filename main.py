@@ -30,9 +30,17 @@ from config import (
     PASS_COV_PERCENT_NOTE,
     PBE_NOTE,
     PRP_NOTE,
+    NCAAF_CAREER_DEFAULT_THRESHOLDS,
     TPS_NOTE,
+    CareerStatus,
     League,
     resolve_default_threshold,
+)
+from database.career_merge import (
+    PASS_BLOCK_CAREER,
+    PASS_RUSH_CAREER,
+    last_season_conferences,
+    merged_career_rows,
 )
 from database.db_models import (
     Base,
@@ -426,6 +434,87 @@ NCAAF_API = _LeagueApi(
 )
 
 
+# The Career merge behind each college category (see database/career_merge.py).
+CAREER_SPECS = {"pass_rush": PASS_RUSH_CAREER, "pass_block": PASS_BLOCK_CAREER}
+
+
+def build_career_router(league: _LeagueApi) -> APIRouter:
+    """Build /metadata, /pass_rush and /pass_block for the college Career page.
+
+    A record is one member's whole college career merged into a row (no season, no
+    percentile: the browser ranks), and the thresholds are display-only like the
+    season ones, so every member is sent. Mounted under /api/ncaaf/career.
+    """
+    router = APIRouter()
+    categories = {category.key: category for category in league.categories}
+
+    @router.get("/metadata")
+    def metadata() -> dict:
+        with SessionLocal() as sess:
+            teams = sess.execute(select(league.team_model)).scalars().all()
+            team_conferences = dict()
+
+            for spec in CAREER_SPECS.values():
+                team_conferences.update(last_season_conferences(sess, spec))
+
+        return {
+            "current_year": date.today().year,
+            "tps_note": TPS_NOTE,
+            "statuses": [status.value for status in CareerStatus],
+            **{
+                key: {
+                    "positions": category.positions,
+                    "metrics": category.metrics,
+                    "threshold_field": category.threshold_field,
+                    # One per status, so the page can show two sliders.
+                    "default_thresholds": NCAAF_CAREER_DEFAULT_THRESHOLDS[key],
+                }
+                for key, category in categories.items()
+            },
+            "conference_order": list(SCOPED_CONFERENCES),
+            # {franchise_id: conference of the school's last season}, unlike the
+            # season metadata, which gives each season's conferences.
+            "team_conferences": team_conferences,
+            "teams": {
+                getattr(team, league.team_id_attr): {
+                    "full_name": team.full_name,
+                    "primary_color": team.primary_color,
+                }
+                for team in teams
+            },
+        }
+
+    def career_records(key: str, position: str | None) -> dict:
+        category = categories[key]
+
+        if position is not None and position not in category.positions:
+            raise HTTPException(
+                400,
+                f"invalid position: {position!r} — choose from {list(category.positions)}",
+            )
+
+        positions = (position,) if position is not None else tuple(category.positions)
+
+        with SessionLocal() as sess:
+            records = merged_career_rows(sess, CAREER_SPECS[key], positions)
+
+        return {"category": key, "position": position, "records": records}
+
+    @router.get("/pass_rush")
+    def pass_rush(
+        position: str | None = Query(None, min_length=1, max_length=4)
+    ) -> dict:
+        return career_records("pass_rush", position)
+
+    @router.get("/pass_block")
+    def pass_block(
+        position: str | None = Query(None, min_length=1, max_length=4)
+    ) -> dict:
+        return career_records("pass_block", position)
+
+    return router
+
+
 app = FastAPI(
     title="Game of Trenches API",
     description="PFF-derived front-7 & O-line metrics for the LinesShines dashboard.",
@@ -441,6 +530,7 @@ def health() -> dict:
 # One router per league from the same factory, each under its own prefix.
 app.include_router(build_api_router(NFL_API), prefix="/api/nfl")
 app.include_router(build_api_router(NCAAF_API), prefix="/api/ncaaf")
+app.include_router(build_career_router(NCAAF_API), prefix="/api/ncaaf/career")
 
 
 # ---- Pages: one per league view, all served from frontend/index.html. -------

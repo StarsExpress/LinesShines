@@ -1,7 +1,7 @@
 """The default thresholds per league, and the rule that picks one for a season."""
 
 from datetime import date
-from config.leagues import League
+from config.leagues import CareerStatus, League
 
 # Default "historical seasons'" thresholds applied on page load.
 DEFAULT_THRESHOLDS: dict[str, int] = {
@@ -43,6 +43,22 @@ NCAAF_DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
         "pass_rush": 120,  # Min PR Opp for pass rush filter.
         "pass_block": 205,  # Min Non Spike PB Snaps for pass block filter.
+    },
+}
+
+# The college Career page has no season, so no dynamic entry, and two thresholds per
+# category: a Joined NFL player must have played more college snaps than a Potential
+# Draftee, whose few snaps (a young player) still make a projection worth showing. The
+# numbers count the merged career (summed PR Opp, summed Non Spike PB Snaps). Starting
+# values only: the owner tunes them by running the page locally.
+NCAAF_CAREER_DEFAULT_THRESHOLDS: dict[str, dict[str, int]] = {
+    "pass_rush": {
+        CareerStatus.JOINED_NFL.value: 300,
+        CareerStatus.POTENTIAL_DRAFTEES.value: 150,
+    },
+    "pass_block": {
+        CareerStatus.JOINED_NFL.value: 450,
+        CareerStatus.POTENTIAL_DRAFTEES.value: 225,
     },
 }
 
