@@ -100,9 +100,14 @@ def page(live_server_url, seeded_career_page_db):
 
         # The app has finished loading once it has drawn the chart: the metadata and the
         # applied filters come first, then the logos preload, then the first render.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters) && d.currentFiltered.length > 0 && !!document.querySelector('#chart').layout; }"
-        )
+        ready_js = "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters) && d.currentFiltered.length > 0 && !!document.querySelector('#chart').layout; }"
+        pg.wait_for_function(ready_js)
+
+        # The first render can be redone once the page's last requests land (the logo
+        # preload), which empties the chart for a moment; wait for the network to go quiet
+        # and for the chart to be drawn again, so no test reads it mid-redraw.
+        pg.wait_for_load_state("networkidle")
+        pg.wait_for_function(ready_js)
 
         yield pg
         browser.close()
@@ -145,6 +150,10 @@ def _is_muted(page, control_id):
     return page.eval_on_selector(control_id, "el => el.classList.contains('is-muted')")
 
 
+def _opacity(page, control_id):
+    return page.eval_on_selector(control_id, "el => getComputedStyle(el).opacity")
+
+
 def test_the_page_shows_a_status_dropdown_and_two_bars_and_no_season(page):
     assert page.is_hidden(".control-season")
     assert page.is_visible("#status-control")
@@ -158,8 +167,22 @@ def test_only_potential_draftees_is_lit_at_first(page):
     assert page.is_checked("#status-potential")
     assert page.inner_text("#status-select-summary") == "Potential Draftees"
     assert _applied(page)["statuses"] == POTENTIAL
-    assert _is_muted(page, "#threshold-control")
-    assert not _is_muted(page, "#potential-threshold-control")
+
+
+def test_both_bars_stay_fully_usable_whatever_status_is_lit(page):
+    # Joined NFL is off at first; its bar is neither greyed nor tied to the Status Filter.
+    for control in ("#threshold-control", "#potential-threshold-control"):
+        assert not _is_muted(page, control)
+        assert _opacity(page, control) == "1"
+
+    _toggle_status(page, "#status-potential")
+
+    for control in ("#threshold-control", "#potential-threshold-control"):
+        assert _opacity(page, control) == "1"
+
+    _set_bar(page, "#threshold-number", "300")
+
+    assert page.input_value("#threshold-number") == "300"
 
 
 def test_the_status_summary_follows_the_ticks(page):
@@ -220,14 +243,19 @@ def test_raising_one_bar_changes_only_that_statuss_players(page):
     assert _pool_ids(page) == [1, 5]
 
 
-def test_the_chart_title_names_career_and_the_subtitle_both_bars(page):
+def test_the_chart_title_names_career_and_the_subtitle_counts_each_status(page):
     title = page.evaluate("document.querySelector('#chart').layout.title")
+    subtitle = title["subtitle"]["text"]
 
     assert "Career" in title["text"]
-    assert (
-        f"{JOINED_BAR} (Joined NFL) / {POTENTIAL_BAR} (Potential Draftees)"
-        in title["subtitle"]["text"]
-    )
+
+    # Two lines: Potential Draftees first, then Joined NFL, each with its own count and bar.
+    potential_line, joined_line = subtitle.split("<br>")
+
+    assert potential_line.startswith("2 Potential Draftees with at least ")
+    assert f"at least {POTENTIAL_BAR} " in potential_line
+    assert joined_line.startswith("1 Joined NFL with at least ")
+    assert f"at least {JOINED_BAR} " in joined_line
 
 
 def test_a_changed_bar_lights_apply_until_it_is_applied(page):
@@ -284,6 +312,104 @@ def test_a_picked_player_is_highlighted_whatever_the_status(page):
     _apply_and_wait(page, "players", "Player 1")
 
     assert _lit_players(page) == [1, 2, 5]
+
+
+def test_the_nfl_alumni_roster_is_joined_nfl_only(page):
+    # Anchor is a Potential Draftee; his card's roster is the school's same-line players who
+    # reached the NFL and clear the Joined NFL bar. Player 4 is Joined NFL but below the bar,
+    # Player 5 clears his own bar but is a Potential Draftee — neither is an alum.
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const l = await import('/linemate-card.js');
+  const anchor = d.currentRecords.find((r) => r.player === 'Player 2');
+  const roster = l.computeLinemateRoster(anchor);
+  return { players: roster.map((r) => r.player), statuses: roster.map((r) => r.status) };
+}""")
+
+    assert out["players"] == ["Player 1"]
+    assert set(out["statuses"]) == {"Joined NFL"}
+
+
+def test_the_career_cards_are_named_nfl_alumni(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const s = await import('/scout-card.js');
+  const l = await import('/linemate-card.js');
+  const anchor = d.currentRecords.find((r) => r.player === 'Player 2');
+  s.openScoutCard(anchor);
+  const button = document.querySelector('.card-linemate-toggle').textContent.trim();
+  l.openLinemateCard(anchor);
+  const title = document.querySelector('.linemate-card-title').textContent;
+  return { button, title };
+}""")
+
+    assert out["button"] == "NFL Alumni"
+    assert "NFL Alumni" in out["title"]
+    assert "Linemate" not in out["title"]
+
+
+def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  s.renderScoutCardStats(card, d.currentRecords.find((r) => r.player === 'Player 2'));
+  const metadata = card.querySelector('.scout-stat-grid');
+  return {
+    labels: [...metadata.querySelectorAll('dt')].map((e) => e.textContent),
+    values: [...metadata.querySelectorAll('dd.scout-stat-value')].map((e) => e.textContent),
+    threshold: card.querySelector('.scout-card-threshold').textContent,
+    bars: d.appliedThreshold(),
+  };
+}""")
+
+    assert out["labels"][0] == "Status"
+    assert out["values"][0] == "Potential Draftees"
+    joined_line, potential_line = out["threshold"].split("\n")
+    assert joined_line.startswith(f"Threshold: ≥ {out['bars']['joined']} ")
+    assert joined_line.endswith("(Joined NFL).")
+    assert potential_line.startswith(f"≥ {out['bars']['potential']} ")
+    assert potential_line.endswith("(Potential Draftees).")
+
+
+def test_the_nfl_alumni_card_marks_the_status_and_states_only_the_joined_nfl_bar(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const l = await import('/linemate-card.js');
+  l.openLinemateCard(d.currentRecords.find((r) => r.player === 'Player 2'));
+  return {
+    note: document.querySelector('.linemate-card-roster-note').textContent,
+    labels: [...document.querySelectorAll('.linemate-read-label')].map((e) => e.textContent),
+    bars: d.appliedThreshold(),
+  };
+}""")
+
+    assert out["note"].startswith(f"1 NFL alumnus with ≥ {out['bars']['joined']} ")
+    assert "Potential" not in out["note"]
+    assert "Status" in out["labels"]
+
+
+def test_a_career_comparison_card_marks_each_status_and_writes_both_bars(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const m = await import('/merge-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.mergeCardTemplate.content.firstElementChild.cloneNode(true);
+  const records = ['Player 1', 'Player 2'].map((n) => d.currentRecords.find((r) => r.player === n));
+  m.renderMergeCardBody(card, records, { key: null, dir: 'asc' });
+  const row = [...card.querySelectorAll('tr')].find(
+    (tr) => tr.querySelector('th')?.textContent === 'Status'
+  );
+  return {
+    status: [...row.querySelectorAll('td')].map((e) => e.textContent),
+    pool: card.querySelector('.merge-card-pool').textContent,
+  };
+}""")
+
+    assert out["status"] == ["Joined NFL", "Potential Draftees"]
+    assert "(Joined NFL)" in out["pool"]
+    assert "(Potential Draftees)" in out["pool"]
 
 
 def test_the_season_pages_keep_one_bar_and_no_status_filter(

@@ -28,7 +28,7 @@ import {
   thresholdPhrase,
   litStatuses,
 } from "./data.js";
-import { meetsThreshold } from "./pinned-impact.js";
+import { meetsThreshold, JOINED_NFL, POTENTIAL_DRAFTEES } from "./pinned-impact.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
 import { viewFloatingCard } from "./scout-card.js";
 import { collectMetricNotes } from "./metric-notes.js";
@@ -227,11 +227,23 @@ export function applyLabelEmphasis(chartDiv, spotlightNames) {
   });
 }
 
-// Plain "N players with at least X <field>." line. Teams/Players only dim
-// (see the isDimmed comment in render()), so the on-screen point count never
-// changes with them and the subtitle doesn't mention the highlight at all.
+// A count line. On a Season page it is a plain "N players with at least X <field>." On the
+// Career page it is two lines — Potential Draftees first, then Joined NFL — because the two
+// share one pool but each clears its own bar, so each status gets its own count and bar.
+// Teams/Players only dim (see the isDimmed comment in render()), so the on-screen point count
+// never changes with them and the subtitle doesn't mention the highlight at all.
 export function highlightSubtitle(cat, records, threshold) {
   const fieldLabel = thresholdFieldLabel(cat);
+
+  if (IS_CAREER) {
+    const countFor = (status) => records.filter((r) => r.status === status).length;
+
+    const potentialLine = `${countFor(POTENTIAL_DRAFTEES)} ${POTENTIAL_DRAFTEES} with at least ${thresholdPhrase(threshold.potential)} ${fieldLabel}.`;
+    const joinedLine = `${countFor(JOINED_NFL)} ${JOINED_NFL} with at least ${thresholdPhrase(threshold.joined)} ${fieldLabel}.`;
+
+    return `${potentialLine}<br>${joinedLine}`;
+  }
+
   return `${records.length} players with at least ${thresholdPhrase(threshold)} ${fieldLabel}.`;
 }
 

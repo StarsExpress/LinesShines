@@ -186,13 +186,11 @@ export function closeStatusDropdown() {
   els.statusBtn.setAttribute("aria-expanded", "false");
 }
 
-// A status switched off greys its bar: its players only dim, and its bar no longer
-// matters to what the eye follows. The bar still counts in the pool.
+// The two bars do not follow the Status Filter: both stay fully usable whatever is lit,
+// since a status that is off only dims its players and its bar still counts in the pool.
 export function syncStatusBars() {
   if (!IS_CAREER) return;
   updateStatusSummary();
-  els.thresholdControl.classList.toggle("is-muted", !els.statusJoined.checked);
-  els.thresholdPotentialControl.classList.toggle("is-muted", !els.statusPotential.checked);
 }
 
 // True when a pending bar differs from the applied one (either bar on Career).

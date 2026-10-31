@@ -10,7 +10,7 @@
  * assignment, same order, same timing as the original app.js.
  */
 import { els } from "./dom.js";
-import { thresholdSpec, meetsThreshold } from "./pinned-impact.js";
+import { thresholdSpec, meetsThreshold, JOINED_NFL, POTENTIAL_DRAFTEES } from "./pinned-impact.js";
 
 // The page's league (NFL or NCAAF), filled into index.html by main.py: the API
 // prefix, the logo folder, how the Teams checklist is grouped and how a team is
@@ -98,10 +98,26 @@ export function pendingThreshold() {
   return thresholdSpec(els.thresholdNumber.value, IS_CAREER ? els.thresholdPotentialNumber.value : undefined);
 }
 
-// "300" on a Season page, "300 (Joined NFL) / 150 (Potential Draftees)" on Career.
+// "300" for a bar given as a plain number.
 export function thresholdPhrase(spec) {
-  if (typeof spec === "number") return String(spec);
-  return `${spec.joined} (Joined NFL) / ${spec.potential} (Potential Draftees)`;
+  return String(spec);
+}
+
+// The threshold as clauses a card can print: one ("≥ 300 pass rush opportunities") on
+// a Season page, one per status on Career ("≥ 450 pass rush opportunities (Joined NFL)",
+// "≥ 350 pass rush opportunities (Potential Draftees)"). `onlyStatus` keeps just that
+// status's bar, unlabelled, for a card whose whole roster has that one status.
+export function thresholdClauses(spec, fieldLabel, onlyStatus = null) {
+  if (typeof spec === "number") return [`≥ ${spec} ${fieldLabel}`];
+
+  if (onlyStatus === JOINED_NFL) return [`≥ ${spec.joined} ${fieldLabel}`];
+
+  if (onlyStatus === POTENTIAL_DRAFTEES) return [`≥ ${spec.potential} ${fieldLabel}`];
+
+  return [
+    `≥ ${spec.joined} ${fieldLabel} (${JOINED_NFL})`,
+    `≥ ${spec.potential} ${fieldLabel} (${POTENTIAL_DRAFTEES})`,
+  ];
 }
 
 // Which statuses are lit on the Career page (empty on a Season page). A status

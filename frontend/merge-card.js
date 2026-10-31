@@ -52,7 +52,8 @@ import {
   metadata,
   teamLabel,
   appliedThreshold,
-  thresholdPhrase,
+  thresholdClauses,
+  IS_CAREER,
 } from "./data.js";
 import { meetsThreshold } from "./pinned-impact.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
@@ -71,7 +72,7 @@ import {
   updateScoutEmptyHint,
   withTrailingPeriod,
 } from "./cards-base.js";
-import { toggleLinemateCard, closeLinemateCard, attachAppTooltip } from "./linemate-card.js";
+import { toggleLinemateCard, closeLinemateCard, attachAppTooltip, rosterNoun } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
@@ -393,7 +394,7 @@ export function makeLinemateCell(record) {
   btn.type = "button";
   btn.className = "merge-row-linemate-toggle";
   btn.innerHTML = '<i class="fa-solid fa-people-group"></i>';
-  btn.setAttribute("aria-label", `Linemates for ${record.player}`);
+  btn.setAttribute("aria-label", `${rosterNoun().card} for ${record.player}`);
   btn.addEventListener("click", () => toggleLinemateCard(record));
   td.appendChild(btn);
   return td;
@@ -406,6 +407,7 @@ export function makeLinemateCell(record) {
 function mergeSortValue({ record, pool }, label, cat) {
   if (label === "Player") return (record.abbr_name || record.player).toLowerCase();
   if (label === "Team") return String(teamLabel(record.team)).toLowerCase();
+  if (label === "Status") return record.status ?? null;
   if (label === "Games") return record.games ?? null;
   if (label === cat.threshold_field) return record[cat.threshold_field] ?? null;
   const meta = cat.metrics[label];
@@ -448,6 +450,8 @@ function makeDataCell({ player: { record, pool }, column }, cat) {
   if (column.kind === "name") {
     td.className = "merge-table-name";
     td.textContent = record.abbr_name || record.player;
+  } else if (column.kind === "status") {
+    td.textContent = record.status ?? "—";
   } else if (column.kind === "games") {
     td.textContent = record.games ?? "—";
   } else if (column.kind === "snaps") {
@@ -484,7 +488,7 @@ function renderSortTable(table, layout, cat, sortState, rerender) {
   layout.head.forEach((column) => {
     if (column.kind === "linemates") {
       const th = document.createElement("th");
-      th.textContent = column.key;
+      th.textContent = rosterNoun().card;
       headRow.appendChild(th);
     } else {
       headRow.appendChild(makeSortableHeader(column.key, column.key, sortState, rerender));
@@ -591,7 +595,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
     ? pools[0].record.position
     : null;
-  const thresholdClause = `with ≥ ${thresholdPhrase(appliedThreshold())} ${thresholdFieldLabel(cat)}`;
+  const thresholdClause = `with ${thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).join(" / ")}`;
   poolEl.textContent = sharedPosition
     ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition} ${thresholdClause}.`
     : `Percentiles calculated among ${pools
@@ -611,7 +615,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
-  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys);
+  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys, undefined, IS_CAREER);
 
   table.innerHTML = "";
   table.classList.toggle("merge-table--read", isRead);

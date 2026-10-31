@@ -23,8 +23,8 @@ snap threshold alone. If Teams ever starts filtering the pool, that popover's te
 Draftees is lit by default, Joined NFL stays in the pool as the dimmed yardstick) behaves like Teams: it is Apply-gated and joins the same union in `render()`'s `isDimmed`: a player is lit when his
 status is lit, or his team is chosen, or his name is selected (a status that is off lights nobody by itself). Because a full
 Teams selection already lights everyone, the Career page starts with **No Teams** (`main.js`'s `setUpCareerControls()`), so
-the lit status shows at first. The Status Filter never changes the percentile pool. A status that is off greys its bar
-(`.is-muted`) but the bar still counts. The pool is the union of the Joined
+the lit status shows at first. The Status Filter never changes the percentile pool. The two bars do not follow the Status Filter:
+both are always usable, and a bar of a status that is off still counts. The pool is the union of the Joined
 NFL players above the first bar and the Potential Draftees above the second, so toggling a status never moves a percentile.
 The ⓘ of the Status Filter says so; keep its text in sync.
 

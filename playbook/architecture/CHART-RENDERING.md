@@ -10,8 +10,10 @@
 Teams selection (and who isn't individually added via Players) still plots, at reduced marker/
 label/logo opacity, rather than disappearing — the point is to see a highlighted subset *in context*
 against the rest of the pool, not to shrink the pool itself (contrast with the Snap threshold filter,
-which does genuinely drop rows). `highlightSubtitle()` is therefore just a plain
-"N players with at least X <field>." line; it never names the highlighted teams/players.
+which does genuinely drop rows). `highlightSubtitle()` is therefore just a count line — a plain
+"N players with at least X <field>." on a Season page, or two lines on the Career page (Potential
+Draftees first, then Joined NFL, each with its own count and bar); it never names the highlighted
+teams/players.
 
 **Player labels get three independent treatments on top of each other: dim-in-place, collision
 declutter, and bold/halo/glow emphasis** (`render.js`) — this grew out of repeated Reddit feedback

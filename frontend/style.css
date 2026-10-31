@@ -607,7 +607,7 @@ body {
 /* --- Career page: Status Filter and the second threshold bar. ---
    The Status Filter takes Season's place in the first row. It is a dropdown of two checkboxes
    like Teams (both lit by default); a status that is off only dims its players.
-   A bar of a status that is off is greyed (.is-muted) but stays usable. */
+   Both bars are always usable: they do not follow the Status Filter. */
 .control-status {
   --w: 150;
   min-width: auto;
@@ -628,9 +628,6 @@ body {
 }
 .status-dropdown .team-option {
   white-space: nowrap;
-}
-.control-slider.is-muted {
-  opacity: 0.45;
 }
 
 /* --- Teams multi-selection. ---
@@ -2579,6 +2576,9 @@ body {
   padding-left: 16px;
   list-style: disc;
 }
+.scout-card-threshold {
+  white-space: pre-line;
+}
 .scout-card-note {
   font-family: var(--font-body);
   font-size: 11px;
@@ -3875,7 +3875,7 @@ thead .linemate-table-frozen {
   }
   .filters-drawer .control select,
   .filters-drawer #threshold-number,
-#threshold-potential-number {
+  #threshold-potential-number {
     width: 100%;
   }
   .filters-drawer .control-season select {

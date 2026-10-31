@@ -373,3 +373,17 @@ def test_the_model_takes_its_identity_columns_from_the_caller(page):
         ["Required Metrics", ["M1"]],
         ["Bonus Metrics", ["B1"]],
     ]
+
+
+def test_the_model_adds_a_status_row_to_the_metadata_only_when_asked(page):
+    out = page.evaluate("""async () => {
+  const m = await import('/player-table-model.js');
+  const keys = (includeStatus) => {
+    const model = m.buildPlayerTableModel(['A'], 'PR Opp', ['M1'], [], undefined, includeStatus);
+    return m.readLayout(model).sections[0].rows.map((r) => r.column.key);
+  };
+  return { season: keys(false), career: keys(true) };
+}""")
+
+    assert out["season"] == ["Games", "PR Opp"]
+    assert out["career"] == ["Status", "Games", "PR Opp"]

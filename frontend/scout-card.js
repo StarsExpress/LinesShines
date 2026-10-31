@@ -14,7 +14,8 @@ import {
   thresholdFieldLabel,
   metadata,
   appliedThreshold,
-  thresholdPhrase,
+  thresholdClauses,
+  IS_CAREER,
 } from "./data.js";
 import {
   ordinal,
@@ -28,7 +29,7 @@ import {
   endScoutDrag,
   updateScoutEmptyHint,
 } from "./cards-base.js";
-import { toggleLinemateCard, setPlayerCardOpener } from "./linemate-card.js";
+import { toggleLinemateCard, setPlayerCardOpener, rosterNoun } from "./linemate-card.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { DISPLAY_DECIMALS } from "./config.js";
@@ -86,7 +87,9 @@ export function renderScoutCardStats(cardEl, record) {
   poolEl.textContent = `Percentiles calculated among ${pool.length} ${record.position}.`;
 
   const thresholdEl = cardEl.querySelector(".scout-card-threshold");
-  thresholdEl.textContent = `Threshold: ≥ ${thresholdPhrase(appliedThreshold())} ${thresholdFieldLabel(cat)}.`;
+  // One line per status on Career (the note's CSS keeps the line break), one line otherwise.
+  const thresholdLines = thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).map((clause) => `${clause}.`);
+  thresholdEl.textContent = `Threshold: ${thresholdLines.join("\n")}`;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
@@ -135,6 +138,8 @@ export function renderScoutCardStats(cardEl, record) {
   // stats, not rate metrics — rank/percentile against them wouldn't mean
   // "how well this player performed," so only the metrics loop below gets a rank.
   const metadataGrid = addSection("Metadata");
+  if (IS_CAREER) addRow(metadataGrid, "Status", record.status);
+
   addRow(metadataGrid, "Games", record.games);
   addRow(metadataGrid, cat.threshold_field, record[cat.threshold_field]);
 
@@ -236,6 +241,13 @@ export function openScoutCard(record) {
   // entry.record, not the closed-over `record`: retargetScoutCard() swaps it
   // when a season change carries this card to another season's row.
   linemateBtn.addEventListener("click", () => toggleLinemateCard(entry.record));
+
+  if (IS_CAREER) {
+    // On the Career page the button and the card it opens are "NFL Alumni" (see linemate-card.js).
+    const noun = rosterNoun().card;
+    linemateBtn.setAttribute("aria-label", `Show ${noun}`);
+    linemateBtn.lastChild.textContent = ` ${noun}`;
+  }
   // abbr_name shortens the first name to an initial, keeping the last name
   // intact (e.g. "D. Hall") — same convention already shown on every card
   // title/table cell, just applied to the downloaded filename too.
