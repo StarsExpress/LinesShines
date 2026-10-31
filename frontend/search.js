@@ -20,7 +20,9 @@ import {
   positionPool,
   appliedFilters,
   currentRecords,
+  pendingThreshold,
 } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 
 export const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]);
 
@@ -171,8 +173,10 @@ export function scorePlayerAgainstQuery(queryTokens, playerRecord) {
 export function qualifyingPlayerPool() {
   if (!playerPoolCategory) return [];
   const cat = metadata[playerPoolCategory];
-  const minThreshold = Number(els.thresholdNumber.value);
-  return playerPoolRecords.filter((r) => r.position === els.position.value && r[cat.threshold_field] >= minThreshold);
+  const threshold = pendingThreshold();
+  return playerPoolRecords.filter(
+    (r) => r.position === els.position.value && meetsThreshold(r, cat.threshold_field, threshold)
+  );
 }
 
 // Same pool as qualifyingPlayerPool() but without the threshold cut — the

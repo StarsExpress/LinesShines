@@ -549,6 +549,8 @@ class _Page:
     scope_segment: str  # Extra item of the meta band, "" for none.
     team_groups: str  # "static" (frontend list) or "by_season" (from metadata).
     team_label: str  # "code" shows the team key, "name" shows the full name.
+    mode: str = "season"  # "season" (one season per view) or "career" (all seasons).
+    api_path: str = ""  # Overrides /api/<league> when the page reads another route.
 
 
 NCAAF_SCOPE_SEGMENT = "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC · B1G · ACC · Big 12 · Pac-12 · MAC · Notre Dame"
@@ -577,6 +579,19 @@ PAGES = (
         team_groups="by_season",
         team_label="name",
     ),
+    _Page(
+        path="/ncaaf-career",
+        league=League.NCAAF,
+        nav_label="NCAAF Career",
+        eyebrow="🏈NCAAF OL & DL PFF Premium Stats Career Exploration",
+        tab_title="LinesShines · 鋒光 · NCAAF Career",
+        description="Interactive exploration platform: NCAAF OL & DL career PFF metrics.",
+        scope_segment=NCAAF_SCOPE_SEGMENT,
+        team_groups="by_season",
+        team_label="name",
+        mode="career",
+        api_path="/api/ncaaf/career",
+    ),
 )
 
 
@@ -585,7 +600,8 @@ def _league_config_json(page: _Page) -> str:
     config = {
         "key": page.league.value,
         "name": page.league.value.upper(),
-        "apiPrefix": f"/api/{page.league.value}",
+        "apiPrefix": page.api_path or f"/api/{page.league.value}",
+        "mode": page.mode,
         "logoDir": page.league.value,
         "teamGroups": page.team_groups,
         "teamLabel": page.team_label,

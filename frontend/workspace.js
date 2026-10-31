@@ -18,7 +18,8 @@
  * merge-card.js's header.
  */
 import { els } from "./dom.js";
-import { logoSrc, teamSwatch, teamLabel, findRecordByPlayer, appliedCategoryMeta, appliedFilters } from "./data.js";
+import { logoSrc, teamSwatch, teamLabel, findRecordByPlayer, appliedCategoryMeta, appliedThreshold } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
@@ -118,8 +119,8 @@ export function renderPcsAddDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${pcsAddBelowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(pcsAddBelowThresholdMatches, appliedCategoryMeta(), (value) => {
-        applyThresholdImmediately(value);
+      openBelowThresholdPopup(pcsAddBelowThresholdMatches, appliedCategoryMeta(), (value, record) => {
+        applyThresholdImmediately(value, record);
         runPcsAddSearch();
       })
     );
@@ -178,7 +179,7 @@ export function runPcsAddSearch() {
   const cat = appliedCategoryMeta();
   const excludeKeys = new Set(workspaceSingles.keys());
   const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), excludeKeys, BELOW_THRESHOLD_TOP_K);
-  pcsAddBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+  pcsAddBelowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, appliedThreshold()));
 
   renderPcsAddDropdown(searchPlayersExcluding(query, pcsSearchPool(), excludeKeys));
 }

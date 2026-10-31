@@ -112,18 +112,34 @@ def test_each_season_page_is_filled_with_its_own_league(client):
     assert "Scope:" in ncaaf and "Scope:" not in nfl
 
 
+def test_the_career_page_reads_the_career_routes(client):
+    career = client.get("/ncaaf-career").text
+
+    assert '"key": "ncaaf"' in career
+    assert '"apiPrefix": "/api/ncaaf/career"' in career
+    assert '"mode": "career"' in career
+    assert '"mode": "season"' in client.get("/ncaaf-season").text
+    assert "<title>LinesShines · 鋒光 · NCAAF Career</title>" in career
+    assert "Scope:" in career
+
+
 def test_no_placeholder_is_left_in_a_served_page(client):
-    for path in ("/", "/ncaaf-season"):
+    for path in ("/", "/ncaaf-season", "/ncaaf-career"):
         text = client.get(path).text
         assert "{{" not in text, path
 
 
 def test_every_page_carries_the_navigation_with_its_own_page_marked(client):
-    for path, current in (("/", "NFL Season"), ("/ncaaf-season", "NCAAF Season")):
+    for path, current in (
+        ("/", "NFL Season"),
+        ("/ncaaf-season", "NCAAF Season"),
+        ("/ncaaf-career", "NCAAF Career"),
+    ):
         text = client.get(path).text
 
         assert 'class="league-nav"' in text
         assert 'href="/"' in text and 'href="/ncaaf-season"' in text
+        assert 'href="/ncaaf-career"' in text
         assert text.count('aria-current="page"') == 1
         assert f'aria-current="page">{current}</a>' in text
 

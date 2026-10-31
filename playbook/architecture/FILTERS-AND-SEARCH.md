@@ -19,6 +19,15 @@ The Teams header's ⓘ carries the complementary half: Teams only *highlights* (
 `render.js`'s `isDimmed`), never shrinks the percentile pool — which is determined by position and
 snap threshold alone. If Teams ever starts filtering the pool, that popover's text is wrong.
 
+**Career: the Status Filter only dims.** On `/ncaaf-career` the Status Filter (Joined NFL, Potential Draftees; only Potential
+Draftees is lit by default, Joined NFL stays in the pool as the dimmed yardstick) behaves like Teams: it is Apply-gated and joins the same union in `render()`'s `isDimmed`: a player is lit when his
+status is lit, or his team is chosen, or his name is selected (a status that is off lights nobody by itself). Because a full
+Teams selection already lights everyone, the Career page starts with **No Teams** (`main.js`'s `setUpCareerControls()`), so
+the lit status shows at first. The Status Filter never changes the percentile pool. A status that is off greys its bar
+(`.is-muted`) but the bar still counts. The pool is the union of the Joined
+NFL players above the first bar and the Potential Draftees above the second, so toggling a status never moves a percentile.
+The ⓘ of the Status Filter says so; keep its text in sync.
+
 **The Players search pool has its own live, non-Apply-gated data track, deliberately separate from
 the chart's Apply-gated one** (`data.js`'s `playerPoolRecords`/`playerPoolCategory`, kept current by
 `updatePlayerPool()`): every other piece of chart state (`currentRecords`/`currentSliceCategory`/

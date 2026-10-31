@@ -13,6 +13,8 @@ import {
   logoSrc,
   thresholdFieldLabel,
   metadata,
+  appliedThreshold,
+  thresholdPhrase,
 } from "./data.js";
 import {
   ordinal,
@@ -84,7 +86,7 @@ export function renderScoutCardStats(cardEl, record) {
   poolEl.textContent = `Percentiles calculated among ${pool.length} ${record.position}.`;
 
   const thresholdEl = cardEl.querySelector(".scout-card-threshold");
-  thresholdEl.textContent = `Threshold: ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
+  thresholdEl.textContent = `Threshold: ≥ ${thresholdPhrase(appliedThreshold())} ${thresholdFieldLabel(cat)}.`;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two

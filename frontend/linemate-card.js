@@ -22,7 +22,10 @@ import {
   teamName,
   teamLabel,
   metadata,
+  appliedThreshold,
+  thresholdPhrase,
 } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 import { LINEMATE_POSITIONS, LINEMATE_SIZE_REMINDER_AT } from "./config.js";
 import {
   ordinal,
@@ -118,14 +121,14 @@ export function attachAppTooltip(el, text) {
 export function computeLinemateRoster(anchorRecord) {
   const cat = appliedCategoryMeta();
   const positions = LINEMATE_POSITIONS[appliedFilters.category];
-  const threshold = Number(appliedFilters.threshold);
+  const threshold = appliedThreshold();
 
   const qualifying = currentRecords.filter(
     (r) =>
       positions.includes(r.position) &&
       r.team === anchorRecord.team &&
       r.player !== anchorRecord.player &&
-      r[cat.threshold_field] >= threshold
+      meetsThreshold(r, cat.threshold_field, threshold)
   );
 
   return qualifying.slice().sort((a, b) => b[cat.threshold_field] - a[cat.threshold_field]);
@@ -559,7 +562,7 @@ export function renderLinemateCardBody(entry) {
   // regardless of the anchor toggle — this is the threshold talking, not a
   // literal count of the table's current rows.
   const rosterNoteEl = cardEl.querySelector(".linemate-card-roster-note");
-  rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
+  rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${thresholdPhrase(appliedThreshold())} ${thresholdFieldLabel(cat)}.`;
 
   // With no roster cap, a very low threshold puts many players on the card;
   // past the old cap's size the card says a higher threshold keeps it compact.

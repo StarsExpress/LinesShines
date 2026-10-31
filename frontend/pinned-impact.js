@@ -15,6 +15,9 @@
  *
  * applied / pending: { category, season, position, threshold } — `pending.threshold`
  *   must be the FINAL threshold (already clamped / defaulted for the new season).
+ *   A threshold is a number on a Season page, or { joined, potential } on the
+ *   Career page, where a player is judged against the bar of his own status
+ *   (see thresholdSpec()).
  * pinnedPlayers: iterable of player strings (Single Cards ∪ Merge Card members).
  * playerPoolRecords: records of the pending category + season (every position).
  * thresholdField: the category's threshold column ("PR Opp" / "Non Spike PB Snaps").
@@ -35,6 +38,47 @@
  */
 export const COMPARISON_MIN_MEMBERS = 2;
 
+export const JOINED_NFL = "Joined NFL";
+export const POTENTIAL_DRAFTEES = "Potential Draftees";
+
+// A threshold is a plain number on a Season page. The Career page has two bars,
+// one per status, so there it is { joined, potential }. `potentialThreshold` is
+// undefined on a Season page, which keeps the number.
+export function thresholdSpec(threshold, potentialThreshold) {
+  if (potentialThreshold == null) return Number(threshold);
+  return { joined: Number(threshold), potential: Number(potentialThreshold) };
+}
+
+// A spec may arrive as a number, a numeric string or an object.
+function normalizeSpec(spec) {
+  return spec !== null && typeof spec === "object" ? spec : Number(spec);
+}
+
+// The bar this record is judged against: the single number, or the one of the
+// record's own status.
+export function thresholdOf(record, spec) {
+  const normalized = normalizeSpec(spec);
+  if (typeof normalized === "number") return normalized;
+  return record.status === POTENTIAL_DRAFTEES ? normalized.potential : normalized.joined;
+}
+
+// The one inclusive rule behind every "clears the threshold" check: the record
+// has a value in `field` and it is at least its own bar.
+export function meetsThreshold(record, field, spec) {
+  const value = record[field];
+  return value != null && value >= thresholdOf(record, spec);
+}
+
+// True when `next` is stricter than `previous` for anyone: a higher number, or on
+// the Career page either bar higher.
+export function thresholdRaised(next, previous) {
+  const a = normalizeSpec(next);
+  const b = normalizeSpec(previous);
+  if (typeof a === "number" && typeof b === "number") return a > b;
+  if (typeof a === "number" || typeof b === "number") return true;
+  return a.joined > b.joined || a.potential > b.potential;
+}
+
 const NO_COMPARISONS = { shrunk: [], dissolved: [] };
 
 // Who stays and who goes: a player is eligible when they exist in `records`
@@ -53,8 +97,7 @@ export function partitionByEligibility(names, records, position, threshold, thre
   const removed = [];
   Array.from(names).forEach((name) => {
     const record = byPlayer.get(name);
-    const value = record ? record[thresholdField] : null;
-    if (value == null || value < threshold) removed.push(name);
+    if (!record || !meetsThreshold(record, thresholdField, threshold)) removed.push(name);
     else kept.push(name);
   });
   return { kept, removed };
@@ -70,11 +113,7 @@ export function partitionByEligibility(names, records, position, threshold, thre
 // or null when the card should close.
 export function resolveCarriedRecord(records, name, preferredPosition, linePositions, threshold, thresholdField) {
   const matches = (records || []).filter(
-    (r) =>
-      r.player === name &&
-      linePositions.includes(r.position) &&
-      r[thresholdField] != null &&
-      r[thresholdField] >= threshold
+    (r) => r.player === name && linePositions.includes(r.position) && meetsThreshold(r, thresholdField, threshold)
   );
   return matches.find((r) => r.position === preferredPosition) || matches[0] || null;
 }
@@ -109,11 +148,12 @@ export function evaluatePinnedImpact(
     return { outcome: "reset", kept: [], removed: pinned, comparisons: NO_COMPARISONS };
   }
 
-  const seasonChanged = Number(applied.season) !== Number(pending.season);
-  const pendingThreshold = Number(pending.threshold);
+  // String(), not Number(): the Career page's one "season" is the word Career.
+  const seasonChanged = String(applied.season) !== String(pending.season);
+  const pendingThreshold = normalizeSpec(pending.threshold);
 
   // Same season and a looser (or equal) bar can't remove anyone.
-  if (!seasonChanged && pendingThreshold <= Number(applied.threshold)) {
+  if (!seasonChanged && !thresholdRaised(pendingThreshold, applied.threshold)) {
     return { outcome: "unaffected", kept: pinned, removed: [], comparisons: NO_COMPARISONS };
   }
 

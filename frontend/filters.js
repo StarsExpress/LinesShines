@@ -35,6 +35,10 @@ import {
   LEAGUE,
   allTeamCodes,
   findRecordByPlayer,
+  IS_CAREER,
+  CAREER_SEASON,
+  appliedThreshold,
+  pendingThreshold,
 } from "./data.js";
 import { searchPlayersExcluding, qualifyingPlayerPool, fullPlayerPool } from "./search.js";
 import { CONFERENCES, LINEMATE_POSITIONS } from "./config.js";
@@ -61,6 +65,9 @@ import {
   partitionByEligibility,
   removedPlayersNotice,
   resolveCarriedRecord,
+  meetsThreshold,
+  JOINED_NFL,
+  POTENTIAL_DRAFTEES,
 } from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
@@ -106,6 +113,9 @@ export function currentFilterState() {
     xMetric: els.xMetric.value,
     yMetric: els.yMetric.value,
     threshold: els.thresholdNumber.value,
+    // Career only: the second bar and which statuses are lit. Left out on a Season
+    // page, so its state keeps its old shape.
+    ...(IS_CAREER ? { potentialThreshold: els.thresholdPotentialNumber.value, statuses: litStatusesText() } : {}),
     // Joined into a comparable string (not a bare array) so the `!==`
     // check in filtersArePending() works the same way it does for every
     // other primitive-valued control — two different array references
@@ -113,6 +123,89 @@ export function currentFilterState() {
     teams: selectedTeamCodes().sort().join(","),
     players: Array.from(selectedPlayers.keys()).sort().join(","),
   };
+}
+
+// The lit Career statuses as a sorted comma string (comparable with `!==`, like teams).
+export function litStatusesText() {
+  const lit = [];
+  if (els.statusJoined.checked) lit.push(JOINED_NFL);
+  if (els.statusPotential.checked) lit.push(POTENTIAL_DRAFTEES);
+  return lit.sort().join(",");
+}
+
+// One entry per threshold bar: the single bar of a Season page, or the Joined NFL
+// and Potential Draftees pair on the Career page. `status` is what the bar judges
+// (undefined on a Season page, where it judges every player).
+function thresholdBars() {
+  const bars = [{ slider: els.threshold, number: els.thresholdNumber, status: IS_CAREER ? JOINED_NFL : undefined }];
+  if (IS_CAREER) {
+    bars.push({ slider: els.thresholdPotential, number: els.thresholdPotentialNumber, status: POTENTIAL_DRAFTEES });
+  }
+  return bars;
+}
+
+// The configured default of one bar: the season's number, or on Career the one of the bar's status.
+function defaultThresholdOf(cat, bar) {
+  const key = IS_CAREER ? bar.status : els.season.value;
+  return cat.default_thresholds[key] ?? 0;
+}
+
+// Slider ceiling of one bar for a category's records at the pending position: the
+// largest value of the bar's players, rounded up to ten (Career: of its own status).
+function barMax(records, cat, bar) {
+  const values = records
+    .filter((r) => r.position === els.position.value && (bar.status === undefined || r.status === bar.status))
+    .map((r) => r[cat.threshold_field])
+    .filter((v) => v != null);
+  const maxVal = values.length ? Math.max(...values) : 100;
+  return Math.ceil(maxVal / 10) * 10;
+}
+
+// The season value the controls hold: a number, or the word Career.
+function seasonValue() {
+  return IS_CAREER ? CAREER_SEASON : Number(els.season.value);
+}
+
+// The Status button's label, like the Teams summary.
+export function updateStatusSummary() {
+  const joined = els.statusJoined.checked;
+  const potential = els.statusPotential.checked;
+  if (joined && potential) els.statusSummary.textContent = "All Status";
+  else if (joined) els.statusSummary.textContent = JOINED_NFL;
+  else if (potential) els.statusSummary.textContent = POTENTIAL_DRAFTEES;
+  else els.statusSummary.textContent = "No Status";
+}
+
+export function openStatusDropdown() {
+  els.statusDropdown.hidden = false;
+  els.statusBtn.setAttribute("aria-expanded", "true");
+}
+
+export function closeStatusDropdown() {
+  els.statusDropdown.hidden = true;
+  els.statusBtn.setAttribute("aria-expanded", "false");
+}
+
+// A status switched off greys its bar: its players only dim, and its bar no longer
+// matters to what the eye follows. The bar still counts in the pool.
+export function syncStatusBars() {
+  if (!IS_CAREER) return;
+  updateStatusSummary();
+  els.thresholdControl.classList.toggle("is-muted", !els.statusJoined.checked);
+  els.thresholdPotentialControl.classList.toggle("is-muted", !els.statusPotential.checked);
+}
+
+// True when a pending bar differs from the applied one (either bar on Career).
+function thresholdsChanged() {
+  return (
+    els.thresholdNumber.value !== appliedFilters.threshold ||
+    (IS_CAREER && els.thresholdPotentialNumber.value !== appliedFilters.potentialThreshold)
+  );
+}
+
+// The state the pool checks judge, from the applied snapshot: its threshold as a number or pair.
+function appliedPoolState() {
+  return { ...appliedFilters, threshold: appliedThreshold() };
 }
 
 export function selectedTeamCodes() {
@@ -378,8 +471,8 @@ export function renderPlayersDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${belowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(belowThresholdMatches, metadata[playerPoolCategory], (value) => {
-        quickSetPlayersThreshold(value);
+      openBelowThresholdPopup(belowThresholdMatches, metadata[playerPoolCategory], (value, record) => {
+        quickSetPlayersThreshold(value, record);
         runPlayersSearch();
       })
     );
@@ -450,9 +543,9 @@ export function runPlayersSearch() {
   // already clear the bar, so it can never overlap with the normal results.
   if (playerPoolCategory) {
     const cat = metadata[playerPoolCategory];
-    const minThreshold = Number(els.thresholdNumber.value);
+    const threshold = pendingThreshold();
     const fullMatches = searchPlayers(query, fullPlayerPool(), BELOW_THRESHOLD_TOP_K);
-    belowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < minThreshold);
+    belowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, threshold));
   } else {
     belowThresholdMatches = [];
   }
@@ -516,7 +609,7 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
       // Query text is left untouched (nothing in this flow writes to the
       // triggering box's own input) — onSetThreshold's own rerun surfaces
       // the just-qualified player the same way retyping the query would.
-      onSetThreshold(record[cat.threshold_field]);
+      onSetThreshold(record[cat.threshold_field], record);
       closeBelowThresholdPopup();
     });
 
@@ -542,17 +635,19 @@ export function closeBelowThresholdPopup() {
 // override) rather than reimplementing that logic per caller. Neither
 // caller's own appliedFilters/pool-refresh handling lives here — that's each
 // one's own job, since they differ (stay pending vs. commit now).
-function syncThresholdControls(value) {
-  const min = Number(els.threshold.min);
-  const max = Number(els.threshold.max);
-  const step = Number(els.threshold.step) || 1;
+function syncThresholdControls(value, record) {
+  // On Career the bar that moves is the one of the player's own status.
+  const bar = thresholdBars().find((b) => b.status === (record && record.status)) || thresholdBars()[0];
+  const min = Number(bar.slider.min);
+  const max = Number(bar.slider.max);
+  const step = Number(bar.slider.step) || 1;
   const clamped = Math.min(Math.max(value, min), max);
 
-  els.thresholdNumber.value = clamped;
+  bar.number.value = clamped;
   // Slider snaps to the nearest step just to keep the handle in sync
-  // visually — filtering itself reads thresholdNumber.value (the exact
+  // visually — filtering itself reads the number input's value (the exact
   // value), same split as the manual number-input handler in main.js.
-  els.threshold.value = min + Math.round((clamped - min) / step) * step;
+  bar.slider.value = min + Math.round((clamped - min) / step) * step;
   setResetThresholdOnNextRange(false);
 }
 
@@ -588,8 +683,8 @@ export function setThresholdTo(value) {
 // pending edit sitting unapplied in the drawer right now) and refreshes
 // every already-open card in place instead of invalidating the Workspace
 // the way a normal Apply's threshold change does.
-export function applyThresholdImmediately(value) {
-  syncThresholdControls(value);
+export function applyThresholdImmediately(value, record) {
+  syncThresholdControls(value, record);
   commitPendingThreshold();
 }
 
@@ -602,7 +697,11 @@ function commitPendingThreshold() {
   // currentFilterState() would have produced — that's what keeps
   // filtersArePending() from lighting the Apply button for a threshold that
   // in fact just got committed.
-  setAppliedFilters({ ...appliedFilters, threshold: els.thresholdNumber.value });
+  setAppliedFilters({
+    ...appliedFilters,
+    threshold: els.thresholdNumber.value,
+    ...(IS_CAREER ? { potentialThreshold: els.thresholdPotentialNumber.value } : {}),
+  });
   prunePlayerSelections();
   render();
   reconcileCarriedCards();
@@ -622,8 +721,8 @@ function commitPendingThreshold() {
 // field untouched. Even then it must pass evaluatePinnedImpact(); "reset"
 // (a pinned player would fall under the bar) also falls back to staging, so
 // the normal Apply flow shows its usual confirm.
-function quickSetPlayersThreshold(value) {
-  syncThresholdControls(value);
+function quickSetPlayersThreshold(value, record) {
+  syncThresholdControls(value, record);
   prunePlayerSelections();
   const poolMatchesApplied =
     els.category.value === appliedFilters.category &&
@@ -631,7 +730,7 @@ function quickSetPlayersThreshold(value) {
     els.position.value === appliedFilters.position;
   if (poolMatchesApplied && playerPoolCategory === appliedFilters.category) {
     const impact = evaluatePinnedImpact(
-      appliedFilters,
+      appliedPoolState(),
       pendingPoolState(),
       distinctWorkspacePlayers(),
       playerPoolRecords,
@@ -657,7 +756,7 @@ function pendingPoolState() {
     category: els.category.value,
     season: els.season.value,
     position: els.position.value,
-    threshold: Number(els.thresholdNumber.value),
+    threshold: pendingThreshold(),
   };
 }
 
@@ -669,11 +768,11 @@ function pendingPoolState() {
 // guaranteed to resolve — evaluatePinnedImpact() checked them first.
 function reconcileCarriedCards() {
   const field = appliedCategoryMeta().threshold_field;
-  const threshold = Number(appliedFilters.threshold);
+  const threshold = appliedThreshold();
   // Pinned players are judged at the applied position only.
   const resolve = (name) => {
     const r = currentRecords.find((x) => x.player === name && x.position === appliedFilters.position);
-    return r && r[field] != null && r[field] >= threshold ? r : null;
+    return r && meetsThreshold(r, field, threshold) ? r : null;
   };
   // A Player Card opened from a Linemate Card's "Card" button, and a Linemate
   // Card anchored on such a player, can belong to a teammate at another
@@ -738,7 +837,7 @@ export function prunePlayerSelections({ notify = true } = {}) {
     Array.from(selectedPlayers.keys()),
     hasPool ? playerPoolRecords : [],
     els.position.value,
-    Number(els.thresholdNumber.value),
+    pendingThreshold(),
     hasPool ? metadata[playerPoolCategory].threshold_field : null
   );
   if (!removed.length) return [];
@@ -827,11 +926,12 @@ export function populateCategoryDependentControls() {
   }
 
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
+  els.thresholdPotentialFieldLabel.textContent = thresholdFieldLabel(cat);
 }
 
 export async function loadCurrentSlice() {
   const category = els.category.value;
-  const season = Number(els.season.value);
+  const season = seasonValue();
   // setCurrentSlice() replaces the original's direct `currentRecords =`/
   // `currentSliceCategory =` assignments — data.js owns that state now, and
   // ES modules don't let an importer reassign an imported `let` (see
@@ -854,7 +954,7 @@ export async function loadCurrentSlice() {
 // own comment for why.
 export async function updatePlayerPool() {
   const category = els.category.value;
-  const season = Number(els.season.value);
+  const season = seasonValue();
   // setPlayerPool() — see the comment in loadCurrentSlice() above.
   setPlayerPool(await fetchSlice(category, season), category);
   updatePendingThresholdMax();
@@ -901,87 +1001,75 @@ export async function updatePlayerPool() {
 function updatePendingThresholdMax() {
   if (!playerPoolCategory) return;
   const cat = metadata[playerPoolCategory];
-  const positionRecords = playerPoolRecords.filter((r) => r.position === els.position.value);
-  const values = positionRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
-  const maxVal = values.length ? Math.max(...values) : 100;
-  const max = Math.ceil(maxVal / 10) * 10;
 
-  if (resetThresholdOnNextRange) {
-    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
-    els.threshold.max = max;
-    els.thresholdNumber.max = max;
-    els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
-    els.thresholdNumber.value = els.threshold.value;
-    return;
-  }
+  // Each bar is judged alone (a Season page has one, the Career page two).
+  thresholdBars().forEach((bar) => {
+    const max = barMax(playerPoolRecords, cat, bar);
 
-  // Read the number box's own current value *before* touching .max below —
-  // a native <input type="range">'s value auto-clamps to a lowered max the
-  // instant it's assigned, so checking els.threshold.value afterward would
-  // silently compare against an already-corrected number and skip
-  // clamping thresholdNumber (caught via manual testing: the slider ended
-  // up right, but the number box was left stuck at the old, too-high
-  // value). thresholdNumber has no such auto-clamp, so it's the only
-  // reliable "what was actually set before this ran" source here.
-  const currentValue = Number(els.thresholdNumber.value);
-  if (currentValue > max) {
-    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
-    const fallback = Math.min(Math.max(defaultValue, 0), max);
-    els.threshold.max = max;
-    els.thresholdNumber.max = max;
-    els.threshold.value = fallback;
-    els.thresholdNumber.value = fallback;
-  }
+    if (resetThresholdOnNextRange) {
+      const defaultValue = defaultThresholdOf(cat, bar);
+      bar.slider.max = max;
+      bar.number.max = max;
+      bar.slider.value = Math.min(Math.max(defaultValue, 0), max);
+      bar.number.value = bar.slider.value;
+      return;
+    }
+
+    // Read the number box's own current value *before* touching .max below —
+    // a native <input type="range">'s value auto-clamps to a lowered max the
+    // instant it's assigned, so checking the slider's value afterward would
+    // silently compare against an already-corrected number and skip clamping
+    // the number box. The number box has no such auto-clamp, so it's the only
+    // reliable "what was actually set before this ran" source here.
+    const currentValue = Number(bar.number.value);
+    if (currentValue > max) {
+      const defaultValue = defaultThresholdOf(cat, bar);
+      const fallback = Math.min(Math.max(defaultValue, 0), max);
+      bar.slider.max = max;
+      bar.number.max = max;
+      bar.slider.value = fallback;
+      bar.number.value = fallback;
+    }
+  });
 }
 
 export function updateThresholdRange() {
   const cat = currentCategoryMeta();
-  // currentRecords now holds every position in the category (see
-  // fetchSlice) — scope to the pending position before computing the
-  // slider's max, otherwise switching to a smaller-pool position (e.g. DI)
-  // would inherit a max sized for a bigger one (e.g. ED).
-  const positionRecords = currentRecords.filter((r) => r.position === els.position.value);
-  const values = positionRecords.map((r) => r[cat.threshold_field]).filter((v) => v != null);
-  const maxVal = values.length ? Math.max(...values) : 100;
-  const max = Math.ceil(maxVal / 10) * 10;
+  const resetting = resetThresholdOnNextRange;
 
-  els.threshold.min = 0;
-  els.threshold.step = 5;
-  els.thresholdNumber.min = 0;
+  thresholdBars().forEach((bar) => {
+    // currentRecords holds every position in the category (see fetchSlice) —
+    // barMax() scopes to the pending position (and, on Career, to the bar's
+    // status), otherwise switching to a smaller-pool position would inherit a
+    // max sized for a bigger one.
+    const max = barMax(currentRecords, cat, bar);
 
-  // .max is only reassigned inside the two branches below, not
-  // unconditionally up front — same "don't move the bar unless the value
-  // actually needs to" rule as updatePendingThresholdMax()'s live
-  // counterpart (see its comment for the full reasoning). A no-op Apply
-  // (e.g. one historical season swapped for another, both sharing
-  // DEFAULT_THRESHOLDS' one static value) now leaves the slider's fill
-  // percentage exactly where it was instead of jumping to match
-  // whatever slightly different real max the new slice happens to have.
-  if (resetThresholdOnNextRange) {
-    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
-    els.threshold.max = max;
-    els.thresholdNumber.max = max;
-    els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
-    resetThresholdOnNextRange = false;
-  } else if (Number(els.threshold.value) > max) {
-    // Every other Season/Position change (Position always; Season only
-    // when it isn't an ongoing↔historical transition — main.js's season
-    // "change" handler already forces resetThresholdOnNextRange for that
-    // case via resetThresholdToCategoryDefault(), so this branch won't even
-    // run for it) — keep the user's value if it still fits; otherwise fall
-    // back to this season's configured default rather than the new slice's
-    // raw max (see updatePendingThresholdMax()'s matching comment — same
-    // bug, same fix, just the Apply-time copy of it).
-    const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
-    els.threshold.max = max;
-    els.thresholdNumber.max = max;
-    els.threshold.value = Math.min(Math.max(defaultValue, 0), max);
-  }
-  // else: the current value still fits under the new max, and nothing
-  // forced a default reset — leave .max/.thresholdNumber.max exactly as
-  // they are so the bar doesn't move for a change that isn't there.
+    bar.slider.min = 0;
+    bar.slider.step = 5;
+    bar.number.min = 0;
 
-  els.thresholdNumber.value = els.threshold.value;
+    // .max is only reassigned inside the two branches below, not
+    // unconditionally up front: the bar must not move unless the value
+    // actually needs to (see updatePendingThresholdMax()).
+    if (resetting) {
+      const defaultValue = defaultThresholdOf(cat, bar);
+      bar.slider.max = max;
+      bar.number.max = max;
+      bar.slider.value = Math.min(Math.max(defaultValue, 0), max);
+    } else if (Number(bar.slider.value) > max) {
+      // The user's value no longer fits: fall back to the configured default
+      // rather than the new slice's raw max.
+      const defaultValue = defaultThresholdOf(cat, bar);
+      bar.slider.max = max;
+      bar.number.max = max;
+      bar.slider.value = Math.min(Math.max(defaultValue, 0), max);
+    }
+    // else: the current value still fits and nothing forced a reset, so the bar stays.
+
+    bar.number.value = bar.slider.value;
+  });
+
+  if (resetting) resetThresholdOnNextRange = false;
 }
 
 // Fired immediately on a Category switch only (main.js's attachEvents()) —
@@ -1009,17 +1097,22 @@ export function updateThresholdRange() {
 // other, same as every other place both controls change at once.
 export function resetThresholdToCategoryDefault() {
   const cat = currentCategoryMeta();
-  const defaultValue = cat.default_thresholds[els.season.value] ?? 0;
-  // The outgoing category's slider max may be smaller than the incoming
-  // default (e.g. a narrow DL pool's max sitting below OL's 300 default) —
-  // extend it so the browser doesn't silently clamp the value we're about
-  // to set. loadCurrentSlice() overwrites this with the real max at Apply.
-  if (Number(els.threshold.max) < defaultValue) {
-    els.threshold.max = defaultValue;
-    els.thresholdNumber.max = defaultValue;
-  }
-  els.threshold.value = defaultValue;
-  els.thresholdNumber.value = defaultValue;
+
+  thresholdBars().forEach((bar) => {
+    const defaultValue = defaultThresholdOf(cat, bar);
+
+    // The outgoing category's slider max may be smaller than the incoming
+    // default (e.g. a narrow DL pool's max sitting below OL's default) —
+    // extend it so the browser doesn't silently clamp the value we're about
+    // to set. loadCurrentSlice() overwrites this with the real max at Apply.
+    if (Number(bar.slider.max) < defaultValue) {
+      bar.slider.max = defaultValue;
+      bar.number.max = defaultValue;
+    }
+
+    bar.slider.value = defaultValue;
+    bar.number.value = defaultValue;
+  });
 }
 
 export function closeFiltersDrawer() {
@@ -1048,7 +1141,7 @@ export async function applyFilters() {
   if (
     els.category.value === appliedFilters.category &&
     els.position.value === appliedFilters.position &&
-    (els.season.value !== appliedFilters.season || els.thresholdNumber.value !== appliedFilters.threshold)
+    (els.season.value !== appliedFilters.season || thresholdsChanged())
   ) {
     await updatePlayerPool();
   }
@@ -1057,7 +1150,7 @@ export async function applyFilters() {
   // (see pinned-impact.js and CLAUDE.md's "Pool-change invalidation"). Axes /
   // Teams / Players never participate — none affect positionPool().
   const impact = evaluatePinnedImpact(
-    appliedFilters,
+    appliedPoolState(),
     pendingPoolState(),
     pinned,
     playerPoolRecords,

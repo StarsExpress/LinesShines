@@ -51,7 +51,10 @@ import {
   thresholdFieldLabel,
   metadata,
   teamLabel,
+  appliedThreshold,
+  thresholdPhrase,
 } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 import { searchPlayersExcluding, pcsSearchPool, fullPcsSearchPool } from "./search.js";
 import { MERGE_CARD_MAX_MEMBERS, MERGE_QUOTA } from "./config.js";
 import { openBelowThresholdPopup, applyThresholdImmediately, BELOW_THRESHOLD_TOP_K } from "./filters.js";
@@ -225,8 +228,8 @@ export function renderCreateDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${createBelowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(createBelowThresholdMatches, appliedCategoryMeta(), (value) => {
-        applyThresholdImmediately(value);
+      openBelowThresholdPopup(createBelowThresholdMatches, appliedCategoryMeta(), (value, record) => {
+        applyThresholdImmediately(value, record);
         runCreateSearch();
       })
     );
@@ -279,7 +282,7 @@ export function runCreateSearch() {
   // player instead).
   const cat = appliedCategoryMeta();
   const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
-  createBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+  createBelowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, appliedThreshold()));
 
   // No exclusion set — an already-picked player is caught (and explained) in
   // addCreateMember() instead, same "blocked, with a prompt" convention the
@@ -588,7 +591,7 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
     ? pools[0].record.position
     : null;
-  const thresholdClause = `with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}`;
+  const thresholdClause = `with ≥ ${thresholdPhrase(appliedThreshold())} ${thresholdFieldLabel(cat)}`;
   poolEl.textContent = sharedPosition
     ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition} ${thresholdClause}.`
     : `Percentiles calculated among ${pools
@@ -948,8 +951,8 @@ export function renderMergeEditDropdown(matches) {
     toggle.className = "below-threshold-toggle";
     toggle.textContent = `Below Threshold Matches (${editBelowThresholdMatches.length})`;
     toggle.addEventListener("click", () =>
-      openBelowThresholdPopup(editBelowThresholdMatches, appliedCategoryMeta(), (value) => {
-        applyThresholdImmediately(value);
+      openBelowThresholdPopup(editBelowThresholdMatches, appliedCategoryMeta(), (value, record) => {
+        applyThresholdImmediately(value, record);
         runMergeEditSearch();
       })
     );
@@ -1001,7 +1004,7 @@ export function runMergeEditSearch() {
   // Same two-independent-passes shape as runPlayersSearch() (filters.js).
   const cat = appliedCategoryMeta();
   const fullMatches = searchPlayersExcluding(query, fullPcsSearchPool(), new Set(), BELOW_THRESHOLD_TOP_K);
-  editBelowThresholdMatches = fullMatches.filter((r) => r[cat.threshold_field] < Number(appliedFilters.threshold));
+  editBelowThresholdMatches = fullMatches.filter((r) => !meetsThreshold(r, cat.threshold_field, appliedThreshold()));
 
   // No exclusion set — an already-on-this-card pick is caught (and
   // explained) defensively in addMergeMember() rather than hidden from the

@@ -10,6 +10,7 @@
  * assignment, same order, same timing as the original app.js.
  */
 import { els } from "./dom.js";
+import { thresholdSpec, meetsThreshold } from "./pinned-impact.js";
 
 // The page's league (NFL or NCAAF), filled into index.html by main.py: the API
 // prefix, the logo folder, how the Teams checklist is grouped and how a team is
@@ -23,6 +24,12 @@ const NFL_LEAGUE = {
   teamLabel: "code",
 };
 export const LEAGUE = window.LEAGUE || NFL_LEAGUE;
+
+// The Career page pools every college season of a player into one row, so it has
+// no season (its one "season" is the word below), a Status Filter instead, and
+// two threshold bars, one per status. A Season page is the plain case.
+export const IS_CAREER = LEAGUE.mode === "career";
+export const CAREER_SEASON = "Career";
 
 export const LOGO_PATH = (team) => `logos/${LEAGUE.logoDir}/${team}.png`;
 
@@ -66,6 +73,41 @@ export const logoCache = {};
 
 export function setMetadata(m) {
   metadata = m;
+
+  if (IS_CAREER) {
+    // Shape the Career payload like a Season one, so the controls stay shared: one
+    // "season" and one flat conference map. The Career statuses and their two
+    // default bars stay as the API sent them.
+    ["pass_rush", "pass_block"].forEach((key) => {
+      metadata[key].seasons = [CAREER_SEASON];
+    });
+    if (metadata.team_conferences && !(CAREER_SEASON in metadata.team_conferences)) {
+      metadata.team_conferences = { [CAREER_SEASON]: metadata.team_conferences };
+    }
+  }
+}
+
+// The threshold in force, as a number (Season) or { joined, potential } (Career).
+// `appliedThreshold()` reads the last-applied state, `pendingThreshold()` the
+// controls as they are right now.
+export function appliedThreshold() {
+  return thresholdSpec(appliedFilters.threshold, appliedFilters.potentialThreshold);
+}
+
+export function pendingThreshold() {
+  return thresholdSpec(els.thresholdNumber.value, IS_CAREER ? els.thresholdPotentialNumber.value : undefined);
+}
+
+// "300" on a Season page, "300 (Joined NFL) / 150 (Potential Draftees)" on Career.
+export function thresholdPhrase(spec) {
+  if (typeof spec === "number") return String(spec);
+  return `${spec.joined} (Joined NFL) / ${spec.potential} (Potential Draftees)`;
+}
+
+// Which statuses are lit on the Career page (empty on a Season page). A status
+// that is off only dims its players; it never leaves the percentile pool.
+export function litStatuses(statusesText) {
+  return new Set(statusesText ? statusesText.split(",") : []);
 }
 
 export function setCurrentSlice(records, category) {
@@ -176,7 +218,8 @@ export function appliedCategoryMeta() {
 export async function fetchSlice(category, season) {
   const key = `${category}:${season}`;
   if (!sliceCache.has(key)) {
-    const url = `${LEAGUE.apiPrefix}/${category}?season=${season}`;
+    // The Career route has no season: it sends every member.
+    const url = IS_CAREER ? `${LEAGUE.apiPrefix}/${category}` : `${LEAGUE.apiPrefix}/${category}?season=${season}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     const data = await res.json();
@@ -192,8 +235,8 @@ export async function fetchSlice(category, season) {
 // position instead of being locked to appliedFilters.position.
 export function positionPool(position) {
   const cat = appliedCategoryMeta();
-  const minThreshold = Number(appliedFilters.threshold);
-  return currentRecords.filter((r) => r.position === position && r[cat.threshold_field] >= minThreshold);
+  const threshold = appliedThreshold();
+  return currentRecords.filter((r) => r.position === position && meetsThreshold(r, cat.threshold_field, threshold));
 }
 
 export function median(values) {

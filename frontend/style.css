@@ -523,14 +523,16 @@ body {
   gap: 10px;
 }
 
-#threshold-slider {
+#threshold-slider,
+#threshold-potential-slider {
   flex: 1 1 auto;
   width: 100%;
   accent-color: var(--flag-gold);
   height: 28px;
 }
 
-#threshold-number {
+#threshold-number,
+#threshold-potential-number {
   flex: none;
   width: 70px;
   background: var(--turf-950);
@@ -545,11 +547,14 @@ body {
 /* Chrome/Safari spinner arrows clash with the turf theme — hide them,
    the range slider next to it already covers coarse adjustment. */
 #threshold-number::-webkit-inner-spin-button,
-#threshold-number::-webkit-outer-spin-button {
+#threshold-number::-webkit-outer-spin-button,
+#threshold-potential-number::-webkit-inner-spin-button,
+#threshold-potential-number::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#threshold-number {
+#threshold-number,
+#threshold-potential-number {
   -moz-appearance: textfield;
 }
 
@@ -599,12 +604,42 @@ body {
   padding-right: 4px;
 }
 
+/* --- Career page: Status Filter and the second threshold bar. ---
+   The Status Filter takes Season's place in the first row. It is a dropdown of two checkboxes
+   like Teams (both lit by default); a status that is off only dims its players.
+   A bar of a status that is off is greyed (.is-muted) but stays usable. */
+.control-status {
+  --w: 150;
+  min-width: auto;
+}
+/* A native [hidden] loses to .control's display, so say it again here. */
+.control[hidden] {
+  display: none;
+}
+/* Two short rows, so the dropdown is only as wide as its button. */
+.status-dropdown {
+  width: max-content;
+  min-width: 100%;
+}
+.status-dropdown .teams-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.status-dropdown .team-option {
+  white-space: nowrap;
+}
+.control-slider.is-muted {
+  opacity: 0.45;
+}
+
 /* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
    <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
    discoverable and doesn't work at all on touch. Positioned/sized to sit
    next to Season/Category like a normal .control select. */
-.control-teams {
+.control-teams,
+.control-status {
   position: relative;
 }
 
@@ -3581,6 +3616,7 @@ thead .linemate-table-frozen {
    width; the label text still elides via the existing overflow rules. */
 @media (min-width: 861px) {
   .control-season,
+  .control-status,
   .control-teams,
   #players-control,
   .control-category,
@@ -3591,6 +3627,7 @@ thead .linemate-table-frozen {
   }
   .control-season select,
   .control-teams .teams-select-btn,
+  .control-status .teams-select-btn,
   #players-control .teams-select-btn,
   .control-category select,
   .control-position select,
@@ -3827,7 +3864,8 @@ thead .linemate-table-frozen {
     border-radius: 0;
   }
   .filters-drawer .control select,
-  .filters-drawer #threshold-number {
+  .filters-drawer #threshold-number,
+#threshold-potential-number {
     width: 100%;
   }
   .filters-drawer .control-season select {

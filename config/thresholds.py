@@ -49,16 +49,17 @@ NCAAF_DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
 # The college Career page has no season, so no dynamic entry, and two thresholds per
 # category: a Joined NFL player must have played more college snaps than a Potential
 # Draftee, whose few snaps (a young player) still make a projection worth showing. The
-# numbers count the merged career (summed PR Opp, summed Non Spike PB Snaps). Starting
-# values only: the owner tunes them by running the page locally.
+# numbers count the merged career (summed PR Opp, summed Non Spike PB Snaps). The owner
+# tunes them by running the page locally; the front 7 pair was set that way, the OL pair
+# is still a starting point.
 NCAAF_CAREER_DEFAULT_THRESHOLDS: dict[str, dict[str, int]] = {
     "pass_rush": {
-        CareerStatus.JOINED_NFL.value: 300,
-        CareerStatus.POTENTIAL_DRAFTEES.value: 150,
+        CareerStatus.JOINED_NFL.value: 400,
+        CareerStatus.POTENTIAL_DRAFTEES.value: 300,
     },
     "pass_block": {
-        CareerStatus.JOINED_NFL.value: 450,
-        CareerStatus.POTENTIAL_DRAFTEES.value: 225,
+        CareerStatus.JOINED_NFL.value: 650,
+        CareerStatus.POTENTIAL_DRAFTEES.value: 500,
     },
 }
 

@@ -23,7 +23,12 @@ import {
   thresholdFieldLabel,
   metadata,
   LEAGUE,
+  IS_CAREER,
+  appliedThreshold,
+  thresholdPhrase,
+  litStatuses,
 } from "./data.js";
+import { meetsThreshold } from "./pinned-impact.js";
 import { DIM_OPACITY, LABEL_ALPHA } from "./config.js";
 import { viewFloatingCard } from "./scout-card.js";
 import { collectMetricNotes } from "./metric-notes.js";
@@ -225,15 +230,15 @@ export function applyLabelEmphasis(chartDiv, spotlightNames) {
 // Plain "N players with at least X <field>." line. Teams/Players only dim
 // (see the isDimmed comment in render()), so the on-screen point count never
 // changes with them and the subtitle doesn't mention the highlight at all.
-export function highlightSubtitle(cat, records, minThreshold) {
+export function highlightSubtitle(cat, records, threshold) {
   const fieldLabel = thresholdFieldLabel(cat);
-  return `${records.length} players with at least ${minThreshold} ${fieldLabel}.`;
+  return `${records.length} players with at least ${thresholdPhrase(threshold)} ${fieldLabel}.`;
 }
 
 export function render() {
   const cat = appliedCategoryMeta();
 
-  const minThreshold = Number(appliedFilters.threshold);
+  const threshold = appliedThreshold();
   const selectedTeams = new Set(appliedFilters.teams ? appliedFilters.teams.split(",") : []);
   const selectedPlayerKeys = new Set(appliedFilters.players ? appliedFilters.players.split(",") : []);
 
@@ -247,7 +252,9 @@ export function render() {
   // reassign an imported `let`. Every `currentFiltered` read below this
   // point sees the update immediately — imported bindings are live.
   setCurrentFiltered(
-    currentRecords.filter((r) => r.position === appliedFilters.position && r[cat.threshold_field] >= minThreshold)
+    currentRecords.filter(
+      (r) => r.position === appliedFilters.position && meetsThreshold(r, cat.threshold_field, threshold)
+    )
   );
   // Players joins Teams via OR — a player is highlighted if their team is
   // selected OR they were explicitly added, so an explicitly-picked player
@@ -255,7 +262,18 @@ export function render() {
   // with no players picked has both .has() calls return false for every
   // record, which dims everyone uniformly — no special-casing needed.
   // String(): the NCAAF team key is a number, the checklist values are strings.
-  const isDimmed = currentFiltered.map((r) => !(selectedTeams.has(String(r.team)) || selectedPlayerKeys.has(r.player)));
+  // Career only: the Status Filter joins the same union. A player is lit when his
+  // team is chosen, or he is picked, or his status is lit; a status that is off
+  // lights nobody by itself and never takes a player out of the pool.
+  const litStatusSet = litStatuses(appliedFilters.statuses);
+  const isDimmed = currentFiltered.map(
+    (r) =>
+      !(
+        selectedTeams.has(String(r.team)) ||
+        selectedPlayerKeys.has(r.player) ||
+        (IS_CAREER && litStatusSet.has(r.status))
+      )
+  );
 
   if (currentFiltered.length < 2) {
     els.emptyState.hidden = false;
@@ -422,7 +440,7 @@ export function render() {
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
   const titleText = `${appliedFilters.season} ${LEAGUE.name} ${positionLabel} ${xKey} & ${yKey}`;
-  const subtitleText = highlightSubtitle(cat, currentFiltered, minThreshold);
+  const subtitleText = highlightSubtitle(cat, currentFiltered, threshold);
 
   const layout = {
     paper_bgcolor: "transparent",
