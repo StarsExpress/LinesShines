@@ -1,7 +1,7 @@
 """Tests for database/career.py: who is on the college Career page.
 
 A member is Joined NFL (the player_id also sits in the NFL table of the same category)
-or a Potential Draftee (a row in the latest college season, and not Joined NFL).
+or a Prospect (a row in the latest college season, and not Joined NFL).
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from database.db_models import (
 
 AKRON_ID = 102  # MAC.
 JOINED = CareerStatus.JOINED_NFL.value
-POTENTIAL = CareerStatus.POTENTIAL_DRAFTEES.value
+PROSPECT = CareerStatus.PROSPECTS.value
 
 PASS_RUSH_TABLES = career.CAREER_TABLES[0]
 PASS_BLOCK_TABLES = career.CAREER_TABLES[1]
@@ -74,13 +74,13 @@ def test_a_player_also_in_the_nfl_table_is_joined_nfl(sess):
     assert _members(sess, NCAAFPassRushCareerMember) == {1: JOINED}
 
 
-def test_a_player_in_the_latest_season_and_not_in_the_nfl_is_a_potential_draftee(sess):
+def test_a_player_in_the_latest_season_and_not_in_the_nfl_is_a_prospect(sess):
     sess.add(_college_row(NCAAFPassRushStat, 2025, 2))
     sess.commit()
 
     career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
-    assert _members(sess, NCAAFPassRushCareerMember) == {2: POTENTIAL}
+    assert _members(sess, NCAAFPassRushCareerMember) == {2: PROSPECT}
 
 
 def test_a_player_in_neither_group_is_not_a_member(sess):
@@ -91,10 +91,10 @@ def test_a_player_in_neither_group_is_not_a_member(sess):
 
     career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
-    assert _members(sess, NCAAFPassRushCareerMember) == {4: POTENTIAL}
+    assert _members(sess, NCAAFPassRushCareerMember) == {4: PROSPECT}
 
 
-def test_a_joined_nfl_player_in_the_latest_season_is_not_also_a_potential_draftee(sess):
+def test_a_joined_nfl_player_in_the_latest_season_is_not_also_a_prospect(sess):
     sess.add(_college_row(NCAAFPassRushStat, 2025, 5))
     sess.add(_nfl_row(NFLPassRushStat, 2026, 5))
     sess.commit()
@@ -102,7 +102,7 @@ def test_a_joined_nfl_player_in_the_latest_season_is_not_also_a_potential_drafte
     counts = career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
     assert _members(sess, NCAAFPassRushCareerMember) == {5: JOINED}
-    assert counts == {JOINED: 1, POTENTIAL: 0}
+    assert counts == {JOINED: 1, PROSPECT: 0}
 
 
 def test_the_latest_season_is_read_from_the_table_not_from_the_seasons_just_loaded(
@@ -117,14 +117,14 @@ def test_the_latest_season_is_read_from_the_table_not_from_the_seasons_just_load
     sess.commit()
     career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
-    assert _members(sess, NCAAFPassRushCareerMember) == {6: POTENTIAL}
+    assert _members(sess, NCAAFPassRushCareerMember) == {6: PROSPECT}
 
 
 def test_rebuilding_follows_the_nfl_table_and_replaces_the_old_members(sess):
     sess.add(_college_row(NCAAFPassRushStat, 2025, 8))
     sess.commit()
     career.rebuild_career_members(sess, PASS_RUSH_TABLES)
-    assert _members(sess, NCAAFPassRushCareerMember) == {8: POTENTIAL}
+    assert _members(sess, NCAAFPassRushCareerMember) == {8: PROSPECT}
 
     # He is drafted and shows up in the NFL table: the next rebuild flips him.
     sess.add(_nfl_row(NFLPassRushStat, 2026, 8))
@@ -144,13 +144,13 @@ def test_rebuilding_twice_gives_the_same_members(sess):
     first = _members(sess, NCAAFPassRushCareerMember)
     career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
-    assert first == {9: POTENTIAL, 10: JOINED}
+    assert first == {9: PROSPECT, 10: JOINED}
     assert _members(sess, NCAAFPassRushCareerMember) == first
 
 
 def test_each_category_matches_against_its_own_nfl_table(sess):
     # He is in the NFL pass-rush table only, so he is Joined NFL for the front 7
-    # and a Potential Draftee for the OL (a college tackle who plays on the edge in the
+    # and a Prospect for the OL (a college tackle who plays on the edge in the
     # pros is not flagged; accepted, rare).
     sess.add(_college_row(NCAAFPassRushStat, 2025, 11))
     sess.add(_college_row(NCAAFPassBlockStat, 2025, 11, position="T"))
@@ -161,7 +161,7 @@ def test_each_category_matches_against_its_own_nfl_table(sess):
     career.rebuild_career_members(sess, PASS_BLOCK_TABLES)
 
     assert _members(sess, NCAAFPassRushCareerMember) == {11: JOINED}
-    assert _members(sess, NCAAFPassBlockCareerMember) == {11: POTENTIAL}
+    assert _members(sess, NCAAFPassBlockCareerMember) == {11: PROSPECT}
 
 
 def test_the_pass_block_members_use_the_nfl_pass_block_table(sess):
@@ -177,7 +177,7 @@ def test_the_pass_block_members_use_the_nfl_pass_block_table(sess):
 def test_an_empty_college_table_gives_no_members(sess):
     counts = career.rebuild_career_members(sess, PASS_RUSH_TABLES)
 
-    assert counts == {JOINED: 0, POTENTIAL: 0}
+    assert counts == {JOINED: 0, PROSPECT: 0}
     assert _members(sess, NCAAFPassRushCareerMember) == {}
 
 

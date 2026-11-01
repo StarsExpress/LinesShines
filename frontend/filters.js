@@ -67,7 +67,7 @@ import {
   resolveCarriedRecord,
   meetsThreshold,
   JOINED_NFL,
-  POTENTIAL_DRAFTEES,
+  PROSPECTS,
 } from "./pinned-impact.js";
 
 // True right after page load and right after a category switch — both cases
@@ -115,7 +115,7 @@ export function currentFilterState() {
     threshold: els.thresholdNumber.value,
     // Career only: the second bar and which statuses are lit. Left out on a Season
     // page, so its state keeps its old shape.
-    ...(IS_CAREER ? { potentialThreshold: els.thresholdPotentialNumber.value, statuses: litStatusesText() } : {}),
+    ...(IS_CAREER ? { prospectThreshold: els.thresholdProspectNumber.value, statuses: litStatusesText() } : {}),
     // Joined into a comparable string (not a bare array) so the `!==`
     // check in filtersArePending() works the same way it does for every
     // other primitive-valued control — two different array references
@@ -132,17 +132,17 @@ export function litStatusesText() {
 
   const lit = [];
   if (els.statusJoined.checked) lit.push(JOINED_NFL);
-  if (els.statusPotential.checked) lit.push(POTENTIAL_DRAFTEES);
+  if (els.statusProspect.checked) lit.push(PROSPECTS);
   return lit.sort().join(",");
 }
 
 // One entry per threshold bar: the single bar of a Season page, or the Joined NFL
-// and Potential Draftees pair on the Career page. `status` is what the bar judges
+// and Prospects pair on the Career page. `status` is what the bar judges
 // (undefined on a Season page, where it judges every player).
 function thresholdBars() {
   const bars = [{ slider: els.threshold, number: els.thresholdNumber, status: IS_CAREER ? JOINED_NFL : undefined }];
   if (IS_CAREER) {
-    bars.push({ slider: els.thresholdPotential, number: els.thresholdPotentialNumber, status: POTENTIAL_DRAFTEES });
+    bars.push({ slider: els.thresholdProspect, number: els.thresholdProspectNumber, status: PROSPECTS });
   }
   return bars;
 }
@@ -172,11 +172,11 @@ function seasonValue() {
 // The Status button's label, like the Teams summary.
 export function updateStatusSummary() {
   const joined = els.statusJoined.checked;
-  const potential = els.statusPotential.checked;
+  const prospect = els.statusProspect.checked;
   if (!els.statusEnabled.checked) els.statusSummary.textContent = "Off";
-  else if (joined && potential) els.statusSummary.textContent = "All Status";
+  else if (joined && prospect) els.statusSummary.textContent = "All Status";
   else if (joined) els.statusSummary.textContent = JOINED_NFL;
-  else if (potential) els.statusSummary.textContent = POTENTIAL_DRAFTEES;
+  else if (prospect) els.statusSummary.textContent = PROSPECTS;
   else els.statusSummary.textContent = "No Status";
 
   // The button's name is its visible label, which no longer says "Status".
@@ -209,7 +209,7 @@ export function syncStatusBars() {
 function thresholdsChanged() {
   return (
     els.thresholdNumber.value !== appliedFilters.threshold ||
-    (IS_CAREER && els.thresholdPotentialNumber.value !== appliedFilters.potentialThreshold)
+    (IS_CAREER && els.thresholdProspectNumber.value !== appliedFilters.prospectThreshold)
   );
 }
 
@@ -710,7 +710,7 @@ function commitPendingThreshold() {
   setAppliedFilters({
     ...appliedFilters,
     threshold: els.thresholdNumber.value,
-    ...(IS_CAREER ? { potentialThreshold: els.thresholdPotentialNumber.value } : {}),
+    ...(IS_CAREER ? { prospectThreshold: els.thresholdProspectNumber.value } : {}),
   });
   prunePlayerSelections();
   render();
@@ -936,7 +936,7 @@ export function populateCategoryDependentControls() {
   }
 
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
-  els.thresholdPotentialFieldLabel.textContent = thresholdFieldLabel(cat);
+  els.thresholdProspectFieldLabel.textContent = thresholdFieldLabel(cat);
 }
 
 export async function loadCurrentSlice() {

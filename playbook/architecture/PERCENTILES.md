@@ -12,8 +12,8 @@ every position in the category (see item 6 above) — a Guard's percentile has t
 whether Guard or Tackle is the currently selected chart position.
 
 **Career pool.** The Career page has no season. A Career percentile is taken among the Career members of the same exact
-position who clear the bar of their own status (Joined NFL above the first bar, Potential Draftees above the second), so a
-Joined NFL player and a Potential Draftee are ranked in one pool. The Status Filter only dims and never changes that pool.
+position who clear the bar of their own status (Joined NFL above the first bar, Prospects above the second), so a
+Joined NFL player and a Prospect are ranked in one pool. The Status Filter only dims and never changes that pool.
 Each member is one merged row (see `BACKEND-AND-DEPLOY.md`, "Career API"); there is no per-season percentile.
 
 **Rank and percentile use competition ranking, not an arbitrary tiebreak** (`data.js`'s

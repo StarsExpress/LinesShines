@@ -24,7 +24,7 @@ class CareerStatus(str, Enum):
     """Who is on the college Career page. The value is what the table stores and the page shows."""
 
     JOINED_NFL = "Joined NFL"
-    POTENTIAL_DRAFTEES = "Potential Draftees"
+    PROSPECTS = "Prospects"
 
 
 LEAGUE_DATA_PATHS: dict[League, str] = {

@@ -15,7 +15,7 @@
  *
  * applied / pending: { category, season, position, threshold } — `pending.threshold`
  *   must be the FINAL threshold (already clamped / defaulted for the new season).
- *   A threshold is a number on a Season page, or { joined, potential } on the
+ *   A threshold is a number on a Season page, or { joined, prospect } on the
  *   Career page, where a player is judged against the bar of his own status
  *   (see thresholdSpec()).
  * pinnedPlayers: iterable of player strings (Single Cards ∪ Merge Card members).
@@ -39,14 +39,14 @@
 export const COMPARISON_MIN_MEMBERS = 2;
 
 export const JOINED_NFL = "Joined NFL";
-export const POTENTIAL_DRAFTEES = "Potential Draftees";
+export const PROSPECTS = "Prospects";
 
 // A threshold is a plain number on a Season page. The Career page has two bars,
-// one per status, so there it is { joined, potential }. `potentialThreshold` is
+// one per status, so there it is { joined, prospect }. `prospectThreshold` is
 // undefined on a Season page, which keeps the number.
-export function thresholdSpec(threshold, potentialThreshold) {
-  if (potentialThreshold == null) return Number(threshold);
-  return { joined: Number(threshold), potential: Number(potentialThreshold) };
+export function thresholdSpec(threshold, prospectThreshold) {
+  if (prospectThreshold == null) return Number(threshold);
+  return { joined: Number(threshold), prospect: Number(prospectThreshold) };
 }
 
 // A spec may arrive as a number, a numeric string or an object.
@@ -59,7 +59,7 @@ function normalizeSpec(spec) {
 export function thresholdOf(record, spec) {
   const normalized = normalizeSpec(spec);
   if (typeof normalized === "number") return normalized;
-  return record.status === POTENTIAL_DRAFTEES ? normalized.potential : normalized.joined;
+  return record.status === PROSPECTS ? normalized.prospect : normalized.joined;
 }
 
 // The one inclusive rule behind every "clears the threshold" check: the record
@@ -76,7 +76,7 @@ export function thresholdRaised(next, previous) {
   const b = normalizeSpec(previous);
   if (typeof a === "number" && typeof b === "number") return a > b;
   if (typeof a === "number" || typeof b === "number") return true;
-  return a.joined > b.joined || a.potential > b.potential;
+  return a.joined > b.joined || a.prospect > b.prospect;
 }
 
 const NO_COMPARISONS = { shrunk: [], dissolved: [] };

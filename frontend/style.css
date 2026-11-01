@@ -524,7 +524,7 @@ body {
 }
 
 #threshold-slider,
-#threshold-potential-slider {
+#threshold-prospect-slider {
   flex: 1 1 auto;
   width: 100%;
   accent-color: var(--flag-gold);
@@ -532,7 +532,7 @@ body {
 }
 
 #threshold-number,
-#threshold-potential-number {
+#threshold-prospect-number {
   flex: none;
   width: 70px;
   background: var(--turf-950);
@@ -548,13 +548,13 @@ body {
    the range slider next to it already covers coarse adjustment. */
 #threshold-number::-webkit-inner-spin-button,
 #threshold-number::-webkit-outer-spin-button,
-#threshold-potential-number::-webkit-inner-spin-button,
-#threshold-potential-number::-webkit-outer-spin-button {
+#threshold-prospect-number::-webkit-inner-spin-button,
+#threshold-prospect-number::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 #threshold-number,
-#threshold-potential-number {
+#threshold-prospect-number {
   -moz-appearance: textfield;
 }
 
@@ -610,7 +610,7 @@ body {
    Both bars are always usable: they do not follow the Status Filter. */
 .control-status {
   /* Wider than its neighbours: the label row holds the Enable Status switch and the info
-     icon, and the button holds "Potential Draftees". */
+     icon, and the button holds "Prospects". */
   --w: 190;
   min-width: auto;
 }
@@ -3928,7 +3928,7 @@ thead .linemate-table-frozen {
   }
   .filters-drawer .control select,
   .filters-drawer #threshold-number,
-  #threshold-potential-number {
+  #threshold-prospect-number {
     width: 100%;
   }
   .filters-drawer .control-season select {

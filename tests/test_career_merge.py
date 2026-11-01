@@ -29,7 +29,7 @@ from main import SessionLocal
 AKRON_ID = 102  # MAC.
 ALABAMA_ID = 103  # SEC.
 JOINED = CareerStatus.JOINED_NFL.value
-POTENTIAL = CareerStatus.POTENTIAL_DRAFTEES.value
+PROSPECT = CareerStatus.PROSPECTS.value
 FRONT_7 = ("ED", "DI")
 
 
@@ -160,7 +160,7 @@ def test_the_snap_columns_never_reach_the_record(sess):
 def test_identity_is_that_of_the_last_college_season(sess):
     sess.add(_rush_row(2023, 1, position="DI", team_code=AKRON_ID))
     sess.add(_rush_row(2024, 1, position="ED", team_code=ALABAMA_ID))
-    sess.add(NCAAFPassRushCareerMember(player_id=1, status=POTENTIAL))
+    sess.add(NCAAFPassRushCareerMember(player_id=1, status=PROSPECT))
     sess.commit()
 
     (record,) = _merge_rush(sess)
@@ -168,7 +168,7 @@ def test_identity_is_that_of_the_last_college_season(sess):
     assert record["position"] == "ED"
     assert record["team"] == ALABAMA_ID
     assert record["conference"] == "SEC"
-    assert record["status"] == POTENTIAL
+    assert record["status"] == PROSPECT
 
 
 def test_two_positions_in_the_last_season_pick_the_one_with_more_opportunities(sess):
@@ -301,8 +301,8 @@ def seeded_career_db():
                 _rush_row(2025, 2, position="DI", pr_opp=200),
                 _block_row(2025, 3, position="G"),
                 NCAAFPassRushCareerMember(player_id=1, status=JOINED),
-                NCAAFPassRushCareerMember(player_id=2, status=POTENTIAL),
-                NCAAFPassBlockCareerMember(player_id=3, status=POTENTIAL),
+                NCAAFPassRushCareerMember(player_id=2, status=PROSPECT),
+                NCAAFPassBlockCareerMember(player_id=3, status=PROSPECT),
             ]
         )
         db.commit()
@@ -315,7 +315,7 @@ def test_career_metadata_lists_statuses_positions_and_two_thresholds(
 ):
     body = client.get("/api/ncaaf/career/metadata").json()
 
-    assert body["statuses"] == [JOINED, POTENTIAL]
+    assert body["statuses"] == [JOINED, PROSPECT]
     assert list(body["pass_rush"]["positions"]) == ["ED", "DI"]
     assert list(body["pass_block"]["positions"]) == ["T", "G", "C"]
     assert (
@@ -323,15 +323,15 @@ def test_career_metadata_lists_statuses_positions_and_two_thresholds(
         == NCAAF_CAREER_DEFAULT_THRESHOLDS["pass_rush"]
     )
 
-    assert set(body["pass_block"]["default_thresholds"]) == {JOINED, POTENTIAL}
+    assert set(body["pass_block"]["default_thresholds"]) == {JOINED, PROSPECT}
     assert body["team_conferences"] == {str(ALABAMA_ID): "SEC", str(AKRON_ID): "MAC"}
     assert body["teams"][str(ALABAMA_ID)]["full_name"] == "Alabama"
     assert "tps_note" in body
 
 
-def test_the_joined_nfl_threshold_is_stricter_than_the_potential_draftee_one():
+def test_the_joined_nfl_threshold_is_stricter_than_the_prospect_one():
     for thresholds in NCAAF_CAREER_DEFAULT_THRESHOLDS.values():
-        assert thresholds[JOINED] > thresholds[POTENTIAL]
+        assert thresholds[JOINED] > thresholds[PROSPECT]
 
 
 def test_career_routes_send_every_member_with_no_server_side_threshold(

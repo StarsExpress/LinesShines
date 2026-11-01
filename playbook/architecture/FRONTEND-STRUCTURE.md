@@ -66,12 +66,12 @@ default thresholds already come from `/api/{league}/metadata`, so the config hol
   `apiPrefix` (`/api/ncaaf/career`); `data.js` exports `IS_CAREER`. It reuses every module. Its payload is shaped like a
   Season one in `setMetadata()` (one "season", the word `Career`, one flat conference map), so the controls, titles and
   cards stay shared (a card reads "Alabama · Career"). What differs: `main.js` hides Season and shows the Status
-  Filter (a dropdown of two checkboxes built like Teams, `#status-toggle-btn`, `#status-joined` / `#status-potential`) and a second bar (`#threshold-potential-*`);
-  `fetchSlice()` has no season in the URL; the applied state carries `potentialThreshold` and `statuses` (left out on a
+  Filter (a dropdown of two checkboxes built like Teams, `#status-toggle-btn`, `#status-joined` / `#status-prospect`) and a second bar (`#threshold-prospect-*`);
+  `fetchSlice()` has no season in the URL; the applied state carries `prospectThreshold` and `statuses` (left out on a
   Season page); `filters.js`'s `thresholdBars()` is the one list the range, default and reset code loops over (one bar on
   Season, two on Career, each bar's slider ceiling taken from its own status). A threshold is read through
   `appliedThreshold()` / `pendingThreshold()` and judged by `pinned-impact.js`'s `meetsThreshold()`, which accepts a number
-  or `{ joined, potential }`, so no call site compares a record with a bare number any more.
+  or `{ joined, prospect }`, so no call site compares a record with a bare number any more.
 - **Team key vs label.** `record.team` is the NFL code but the NCAAF franchise id (a number). Keys, logo file names and
   `metadata.teams` lookups use it as is; anything the user reads goes through `teamLabel(team)` (the code for the NFL,
   the school name for the college). Comparisons with the Teams checklist go through `String(...)`.

@@ -40,7 +40,7 @@ export function buildPlayerTableModel(
 ) {
   const columns = [
     ...identityColumns.map((column) => ({ ...column, identity: true })),
-    // Career only: whether the player is a Joined NFL or a Potential Draftee.
+    // Career only: whether the player is a Joined NFL or a Prospect.
     ...(includeStatus ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
     { key: thresholdField, kind: "snaps" },

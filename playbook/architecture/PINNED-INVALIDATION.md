@@ -22,7 +22,7 @@ changed) or `"unaffected"`; **some fail → `"partial"`**; **all fail → `"rese
 It reads the already-fetched `playerPoolRecords`; `applyFilters()` first awaits `updatePlayerPool()`
 when category/position are unchanged so that pool is the pending season's slice (a `sliceCache` hit)
 and `els.thresholdNumber` holds the clamped value. On the Career page the threshold is a pair
-`{ joined, potential }` (`thresholdSpec()`): a player is judged against the bar of his own status, raising either bar counts
+`{ joined, prospect }` (`thresholdSpec()`): a player is judged against the bar of his own status, raising either bar counts
 as a stricter threshold, and the one season, `Career`, never counts as a season change (`String()` comparison).
 
 - **`"unaffected"`**: apply silently. **`"refresh"`**: no confirm; a neutral toast ("Pinned players

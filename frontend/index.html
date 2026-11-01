@@ -156,7 +156,7 @@
           </div>
 
           <!-- Career page only (main.js unhides it and hides Season): the two
-           kinds of Career member. Only Potential Draftees is lit at first; Joined NFL
+           kinds of Career member. Only Prospects is lit at first; Joined NFL
            stays in the pool as the yardstick, dimmed. It only dims, like Teams; it never
            changes the percentile pool. -->
           <div class="control control-status" id="status-control" hidden>
@@ -177,9 +177,9 @@
                 class="teams-select-btn"
                 aria-haspopup="true"
                 aria-expanded="false"
-                aria-label="Status: Potential Draftees"
+                aria-label="Status: Prospects"
               >
-                <span id="status-select-summary">Potential Draftees</span>
+                <span id="status-select-summary">Prospects</span>
                 <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
                   <path
                     d="M4 6l4 4 4-4"
@@ -198,8 +198,8 @@
                     <span>Joined NFL</span>
                   </label>
                   <label class="team-option">
-                    <input type="checkbox" id="status-potential" value="Potential Draftees" checked />
-                    <span>Potential Draftees</span>
+                    <input type="checkbox" id="status-prospect" value="Prospects" checked />
+                    <span>Prospects</span>
                   </label>
                 </div>
               </div>
@@ -345,20 +345,20 @@
             </div>
           </div>
 
-          <!-- Career page only: the looser bar for Potential Draftees (a young
+          <!-- Career page only: the looser bar for Prospects (a young
            player has few snaps). Greyed out while that status is switched off. -->
-          <div class="control control-slider" id="potential-threshold-control" hidden>
-            <label for="threshold-potential-slider">
-              Potential Draftees · Min <span id="threshold-potential-field-label">opportunities</span>
+          <div class="control control-slider" id="prospect-threshold-control" hidden>
+            <label for="threshold-prospect-slider">
+              Prospects · Min <span id="threshold-prospect-field-label">opportunities</span>
             </label>
             <div class="threshold-row">
-              <input type="range" id="threshold-potential-slider" min="0" max="100" value="0" />
+              <input type="range" id="threshold-prospect-slider" min="0" max="100" value="0" />
               <input
                 type="number"
-                id="threshold-potential-number"
+                id="threshold-prospect-number"
                 min="0"
                 step="1"
-                aria-label="min opportunities exact value for Potential Draftees"
+                aria-label="min opportunities exact value for Prospects"
               />
             </div>
           </div>

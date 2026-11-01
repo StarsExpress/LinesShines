@@ -83,12 +83,12 @@ import {
 let previousSeasonValue = null;
 
 // The Career page has no Season: it shows the Status Filter in its place, a second
-// threshold bar (Potential Draftees), and names the first bar after Joined NFL.
+// threshold bar (Prospects), and names the first bar after Joined NFL.
 function setUpCareerControls() {
   if (!IS_CAREER) return;
   els.seasonControl.hidden = true;
   els.statusControl.hidden = false;
-  els.thresholdPotentialControl.hidden = false;
+  els.thresholdProspectControl.hidden = false;
   els.thresholdStatusLabel.hidden = false;
   // Joined NFL starts switched off: grey its bar and set the button's label.
   syncStatusBars();
@@ -207,8 +207,8 @@ function attachEvents() {
       createInfoPopover(
         {
           bullets: [
-            "Potential Draftees: still playing in the latest college season.",
-            "Joined NFL: played NCAAF and appeared in NFL — potential draftees' benchmark.",
+            "Prospects: still playing in the latest college season.",
+            "Joined NFL: played NCAAF and appeared in NFL — prospects' benchmark.",
             "Enable Status: off, and Status leaves the highlights — only Teams and Players light players.",
           ],
         },
@@ -229,7 +229,7 @@ function attachEvents() {
       if (!els.statusControl.contains(e.target)) closeStatusDropdown();
     });
 
-    [els.statusEnabled, els.statusJoined, els.statusPotential].forEach((box) =>
+    [els.statusEnabled, els.statusJoined, els.statusProspect].forEach((box) =>
       box.addEventListener("change", () => {
         syncStatusBars();
         updatePendingState();
@@ -459,10 +459,10 @@ function attachEvents() {
   // clicks Apply (or presses Enter in the number field). Re-rendering on
   // every pixel of drag / every keystroke was the whole problem on dense
   // positions.
-  // The Career page has a second bar (Potential Draftees) wired exactly like the first.
+  // The Career page has a second bar (Prospects) wired exactly like the first.
   [
     [els.threshold, els.thresholdNumber],
-    [els.thresholdPotential, els.thresholdPotentialNumber],
+    [els.thresholdProspect, els.thresholdProspectNumber],
   ].forEach(([slider, number]) => {
     slider.addEventListener("input", () => {
       number.value = slider.value;

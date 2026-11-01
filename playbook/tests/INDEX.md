@@ -17,7 +17,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | A JSON API endpoint under `/api/` (parameters, response shape, error codes) | `test_api_endpoints.py` ([doc](TEST_API_ENDPOINTS.md)) | API |
 | How the app is assembled: mounts, `/health`, how `sw.js` and `index.html` are served | `test_app_startup.py` ([doc](TEST_APP_STARTUP.md)) | API |
 | Season-threshold routing in `config/thresholds.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
-| Who is on the college Career page (Joined NFL, Potential Draftees) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
+| Who is on the college Career page (Joined NFL, Prospects) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
 | The merged Career row (summed counts, weighted rates, Pass Cov Percent, last-season identity) and the `/api/ncaaf/career` routes | `test_career_merge.py` ([doc](TEST_CAREER_MERGE.md)) | pure Python and API |
 | The NCAAF Career page (Status Filter, two threshold bars, one pool) | `test_ncaaf_career_page.py` ([doc](TEST_NCAAF_CAREER_PAGE.md)) | browser |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |

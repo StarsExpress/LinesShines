@@ -691,21 +691,21 @@ def _career_rec(player, opp, status, position="ED"):
 
 
 JOINED = "Joined NFL"
-POTENTIAL = "Potential Draftees"
+PROSPECT = "Prospects"
 CAREER_POOL = [
     _career_rec("J-high", 400, JOINED),
     _career_rec("J-low", 200, JOINED),
-    _career_rec("P-high", 200, POTENTIAL),
-    _career_rec("P-low", 100, POTENTIAL),
+    _career_rec("P-high", 200, PROSPECT),
+    _career_rec("P-low", 100, PROSPECT),
 ]
 
 
-def _career_state(joined, potential, position="ED"):
+def _career_state(joined, prospect, position="ED"):
     return dict(
         category="pass_rush",
         season="Career",
         position=position,
-        threshold=dict(joined=joined, potential=potential),
+        threshold=dict(joined=joined, prospect=prospect),
     )
 
 
@@ -720,7 +720,7 @@ def _spec_call(page, function, *arguments):
 
 
 def test_a_career_player_is_judged_against_the_bar_of_his_own_status(page):
-    spec = dict(joined=300, potential=150)
+    spec = dict(joined=300, prospect=150)
 
     assert _spec_call(page, "meetsThreshold", CAREER_POOL[0], FIELD, spec) is True
     assert _spec_call(page, "meetsThreshold", CAREER_POOL[1], FIELD, spec) is False
@@ -737,21 +737,17 @@ def test_a_plain_number_still_judges_every_player_the_same_way(page):
 def test_the_spec_is_a_number_on_a_season_page_and_a_pair_on_career(page):
     assert _spec_call(page, "thresholdSpec", "230", None) == 230
     assert _spec_call(page, "thresholdSpec", "300", "150") == dict(
-        joined=300, potential=150
+        joined=300, prospect=150
     )
 
 
 def test_raising_either_career_bar_counts_as_a_stricter_threshold(page):
-    base = dict(joined=300, potential=150)
+    base = dict(joined=300, prospect=150)
 
-    assert _spec_call(page, "thresholdRaised", dict(joined=300, potential=151), base)
-    assert _spec_call(page, "thresholdRaised", dict(joined=301, potential=150), base)
-    assert not _spec_call(
-        page, "thresholdRaised", dict(joined=300, potential=150), base
-    )
-    assert not _spec_call(
-        page, "thresholdRaised", dict(joined=200, potential=100), base
-    )
+    assert _spec_call(page, "thresholdRaised", dict(joined=300, prospect=151), base)
+    assert _spec_call(page, "thresholdRaised", dict(joined=301, prospect=150), base)
+    assert not _spec_call(page, "thresholdRaised", dict(joined=300, prospect=150), base)
+    assert not _spec_call(page, "thresholdRaised", dict(joined=200, prospect=100), base)
     assert _spec_call(page, "thresholdRaised", 231, 230)
     assert not _spec_call(page, "thresholdRaised", 230, 230)
 
@@ -760,13 +756,13 @@ def test_eligibility_on_career_uses_each_players_own_bar(page):
     names = ["J-high", "J-low", "P-high", "P-low"]
 
     result = _partition(
-        page, names, CAREER_POOL, threshold=dict(joined=300, potential=150)
+        page, names, CAREER_POOL, threshold=dict(joined=300, prospect=150)
     )
 
     assert result == dict(kept=["J-high", "P-high"], removed=["J-low", "P-low"])
 
 
-def test_a_stricter_potential_bar_removes_only_potential_draftees(page):
+def test_a_stricter_prospect_bar_removes_only_prospects(page):
     pinned = ["J-high", "P-high"]
     applied = _career_state(300, 150)
 

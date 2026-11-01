@@ -14,23 +14,22 @@ from database.db_models import (
 from main import SessionLocal
 
 JOINED = CareerStatus.JOINED_NFL.value
-POTENTIAL = CareerStatus.POTENTIAL_DRAFTEES.value
+PROSPECT = CareerStatus.PROSPECTS.value
 AKRON_ID = 102
 
-# The default bars of the front 7 (Joined NFL stricter than Potential Draftees).
+# The default bars of the front 7 (Joined NFL stricter than Prospects).
 DEFAULTS = NCAAF_CAREER_DEFAULT_THRESHOLDS["pass_rush"]
 JOINED_BAR = DEFAULTS[JOINED]
-POTENTIAL_BAR = DEFAULTS[POTENTIAL]
+PROSPECT_BAR = DEFAULTS[PROSPECT]
 
 # player id -> (status, pass rush opportunities), set around the default bars: only
-# 1, 2 and 5 clear the bar of their own status. Player 5 only lifts the Potential
-# Draftees slider ceiling, so that bar can be raised past player 2.
+# 1, 2 and 5 clear the bar of their own status. Player 5 only lifts the Prospects slider ceiling, so that bar can be raised past player 2.
 PLAYERS = {
     1: (JOINED, JOINED_BAR + 100),
-    2: (POTENTIAL, POTENTIAL_BAR + 50),
-    3: (POTENTIAL, POTENTIAL_BAR - 50),
+    2: (PROSPECT, PROSPECT_BAR + 50),
+    3: (PROSPECT, PROSPECT_BAR - 50),
     4: (JOINED, JOINED_BAR - 50),
-    5: (POTENTIAL, POTENTIAL_BAR + 150),
+    5: (PROSPECT, PROSPECT_BAR + 150),
 }
 
 
@@ -159,25 +158,25 @@ def test_the_page_shows_a_status_dropdown_and_two_bars_and_no_season(page):
     assert page.is_visible("#status-control")
     assert page.is_hidden("#status-dropdown")
     assert page.is_visible("#threshold-control")
-    assert page.is_visible("#potential-threshold-control")
+    assert page.is_visible("#prospect-threshold-control")
 
 
-def test_only_potential_draftees_is_lit_at_first(page):
+def test_only_prospects_is_lit_at_first(page):
     assert not page.is_checked("#status-joined")
-    assert page.is_checked("#status-potential")
-    assert page.inner_text("#status-select-summary") == "Potential Draftees"
-    assert _applied(page)["statuses"] == POTENTIAL
+    assert page.is_checked("#status-prospect")
+    assert page.inner_text("#status-select-summary") == "Prospects"
+    assert _applied(page)["statuses"] == PROSPECT
 
 
 def test_both_bars_stay_fully_usable_whatever_status_is_lit(page):
     # Joined NFL is off at first; its bar is neither greyed nor tied to the Status Filter.
-    for control in ("#threshold-control", "#potential-threshold-control"):
+    for control in ("#threshold-control", "#prospect-threshold-control"):
         assert not _is_muted(page, control)
         assert _opacity(page, control) == "1"
 
-    _toggle_status(page, "#status-potential")
+    _toggle_status(page, "#status-prospect")
 
-    for control in ("#threshold-control", "#potential-threshold-control"):
+    for control in ("#threshold-control", "#prospect-threshold-control"):
         assert _opacity(page, control) == "1"
 
     _set_bar(page, "#threshold-number", "300")
@@ -191,7 +190,7 @@ def test_the_status_summary_follows_the_ticks(page):
 
     assert page.inner_text("#status-select-summary") == "All Status"
 
-    page.click("#status-potential")
+    page.click("#status-prospect")
 
     assert page.inner_text("#status-select-summary") == "Joined NFL"
 
@@ -202,13 +201,13 @@ def test_the_status_summary_follows_the_ticks(page):
 
 def test_the_bars_start_at_the_defaults_of_their_own_status(page):
     assert page.input_value("#threshold-number") == str(JOINED_BAR)
-    assert page.input_value("#threshold-potential-number") == str(POTENTIAL_BAR)
+    assert page.input_value("#threshold-prospect-number") == str(PROSPECT_BAR)
 
     applied = _applied(page)
 
     assert applied["season"] == "Career"
     assert applied["threshold"] == str(JOINED_BAR)
-    assert applied["potentialThreshold"] == str(POTENTIAL_BAR)
+    assert applied["prospectThreshold"] == str(PROSPECT_BAR)
 
 
 def test_each_player_must_clear_the_bar_of_his_own_status(page):
@@ -223,7 +222,7 @@ def test_lighting_joined_nfl_only_changes_the_dimming_and_never_the_pool(page):
         "#apply-filters", "el => el.classList.contains('pending')"
     )
 
-    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+    _apply_and_wait(page, "statuses", f"{JOINED},{PROSPECT}")
 
     assert _pool_ids(page) == [1, 2, 5]
 
@@ -237,8 +236,8 @@ def test_a_switched_off_status_still_counts_toward_the_pool_through_its_bar(page
 
 
 def test_raising_one_bar_changes_only_that_statuss_players(page):
-    _set_bar(page, "#threshold-potential-number", POTENTIAL_BAR + 60)
-    _apply_and_wait(page, "potentialThreshold", POTENTIAL_BAR + 60)
+    _set_bar(page, "#threshold-prospect-number", PROSPECT_BAR + 60)
+    _apply_and_wait(page, "prospectThreshold", PROSPECT_BAR + 60)
 
     assert _pool_ids(page) == [1, 5]
 
@@ -249,11 +248,11 @@ def test_the_chart_title_names_career_and_the_subtitle_counts_each_status(page):
 
     assert "Career" in title["text"]
 
-    # Two lines: Potential Draftees first, then Joined NFL, each with its own count and bar.
-    potential_line, joined_line = subtitle.split("<br>")
+    # Two lines: Prospects first, then Joined NFL, each with its own count and bar.
+    prospect_line, joined_line = subtitle.split("<br>")
 
-    assert potential_line.startswith("2 Potential Draftees with at least ")
-    assert f"at least {POTENTIAL_BAR} " in potential_line
+    assert prospect_line.startswith("2 Prospects with at least ")
+    assert f"at least {PROSPECT_BAR} " in prospect_line
     assert joined_line.startswith("1 Joined NFL with at least ")
     assert f"at least {JOINED_BAR} " in joined_line
 
@@ -263,7 +262,7 @@ def test_a_changed_bar_lights_apply_until_it_is_applied(page):
         "#apply-filters", "el => el.classList.contains('pending')"
     )
 
-    _set_bar(page, "#threshold-potential-number", POTENTIAL_BAR - 20)
+    _set_bar(page, "#threshold-prospect-number", PROSPECT_BAR - 20)
 
     assert page.eval_on_selector(
         "#apply-filters", "el => el.classList.contains('pending')"
@@ -290,7 +289,7 @@ def test_no_team_is_picked_at_first_so_only_the_lit_status_is_highlighted(page):
 
 def test_lighting_a_status_highlights_its_players(page):
     _toggle_status(page, "#status-joined")
-    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+    _apply_and_wait(page, "statuses", f"{JOINED},{PROSPECT}")
 
     assert _lit_players(page) == [1, 2, 5]
 
@@ -321,7 +320,7 @@ def _flip_enable_status(page):
 def test_enable_status_is_on_at_first(page):
     assert page.is_checked("#status-enabled")
     assert page.is_enabled("#status-toggle-btn")
-    assert page.inner_text("#status-select-summary") == "Potential Draftees"
+    assert page.inner_text("#status-select-summary") == "Prospects"
 
 
 def test_turning_enable_status_off_lights_apply_and_takes_status_out_of_the_highlights(
@@ -358,24 +357,24 @@ def test_with_enable_status_off_only_teams_and_players_light_players(page):
 
 def test_the_ticks_are_kept_while_enable_status_is_off_and_come_back_on(page):
     _toggle_status(page, "#status-joined")
-    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+    _apply_and_wait(page, "statuses", f"{JOINED},{PROSPECT}")
     _flip_enable_status(page)
     _apply_and_wait(page, "statuses", "")
 
     assert page.is_checked("#status-joined")
-    assert page.is_checked("#status-potential")
+    assert page.is_checked("#status-prospect")
 
     _flip_enable_status(page)
-    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+    _apply_and_wait(page, "statuses", f"{JOINED},{PROSPECT}")
 
     assert page.inner_text("#status-select-summary") == "All Status"
     assert _lit_players(page) == [1, 2, 5]
 
 
 def test_the_nfl_alumni_roster_is_joined_nfl_only(page):
-    # Anchor is a Potential Draftee; his card's roster is the school's same-line players who
+    # Anchor is a Prospect; his card's roster is the school's same-line players who
     # reached the NFL and clear the Joined NFL bar. Player 4 is Joined NFL but below the bar,
-    # Player 5 clears his own bar but is a Potential Draftee — neither is an alum.
+    # Player 5 clears his own bar but is a Prospect — neither is an alum.
     out = page.evaluate("""async () => {
   const d = await import('/data.js');
   const l = await import('/linemate-card.js');
@@ -423,12 +422,12 @@ def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status
 }""")
 
     assert out["labels"][0] == "Status"
-    assert out["values"][0] == "Potential Draftees"
-    joined_line, potential_line = out["threshold"].split("\n")
+    assert out["values"][0] == "Prospects"
+    joined_line, prospect_line = out["threshold"].split("\n")
     assert joined_line.startswith(f"Threshold: ≥ {out['bars']['joined']} ")
     assert joined_line.endswith("(Joined NFL).")
-    assert potential_line.startswith(f"≥ {out['bars']['potential']} ")
-    assert potential_line.endswith("(Potential Draftees).")
+    assert prospect_line.startswith(f"≥ {out['bars']['prospect']} ")
+    assert prospect_line.endswith("(Prospects).")
 
 
 def test_the_nfl_alumni_card_has_no_line_summary(page):
@@ -467,7 +466,7 @@ def test_the_nfl_alumni_card_marks_the_status_and_states_only_the_joined_nfl_bar
 }""")
 
     assert out["note"].startswith(f"1 NFL alumnus with ≥ {out['bars']['joined']} ")
-    assert "Potential" not in out["note"]
+    assert "Prospect" not in out["note"]
     assert "Status" in out["labels"]
 
 
@@ -488,9 +487,9 @@ def test_a_career_comparison_card_marks_each_status_and_writes_both_bars(page):
   };
 }""")
 
-    assert out["status"] == ["Joined NFL", "Potential Draftees"]
+    assert out["status"] == ["Joined NFL", "Prospects"]
     assert "(Joined NFL)" in out["pool"]
-    assert "(Potential Draftees)" in out["pool"]
+    assert "(Prospects)" in out["pool"]
 
 
 def test_the_season_pages_keep_one_bar_and_no_status_filter(
@@ -513,11 +512,11 @@ def test_the_season_pages_keep_one_bar_and_no_status_filter(
 
         assert pg.is_visible(".control-season")
         assert pg.is_hidden("#status-control")
-        assert pg.is_hidden("#potential-threshold-control")
+        assert pg.is_hidden("#prospect-threshold-control")
 
         applied = pg.evaluate("async () => (await import('/data.js')).appliedFilters")
 
-        assert "potentialThreshold" not in applied
+        assert "prospectThreshold" not in applied
         assert "statuses" not in applied
 
         browser.close()

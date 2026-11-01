@@ -4,7 +4,7 @@ Career Stats lists only two kinds of college player, and the two never overlap:
 
 - Joined NFL: the `player_id` also occurs in the NFL table of the same category.
   A college player keeps his PFF id in the NFL files, so the id is the link.
-- Potential Draftees: the player has a row in the latest college season and is
+- Prospects: the player has a row in the latest college season and is
   not Joined NFL.
 
 The membership is precomputed into one small table per category, so the website
@@ -71,7 +71,7 @@ def rebuild_career_members(sess: Session, tables: _CareerTables) -> dict[str, in
     )
 
     # The latest season comes from the table itself, never from the seasons just
-    # ingested, so back-filling an old season cannot change who is a Potential Draftee.
+    # ingested, so back-filling an old season cannot change who is a Prospect.
     latest_season = sess.scalar(select(func.max(college_model.season)))
     latest_ids = set()
 
@@ -84,7 +84,7 @@ def rebuild_career_members(sess: Session, tables: _CareerTables) -> dict[str, in
             )
         )
 
-    potential_ids = latest_ids - joined_ids
+    prospect_ids = latest_ids - joined_ids
 
     sess.execute(delete(tables.member_model))
     sess.add_all(
@@ -98,16 +98,16 @@ def rebuild_career_members(sess: Session, tables: _CareerTables) -> dict[str, in
     sess.add_all(
         [
             tables.member_model(
-                player_id=player_id, status=CareerStatus.POTENTIAL_DRAFTEES.value
+                player_id=player_id, status=CareerStatus.PROSPECTS.value
             )
-            for player_id in sorted(potential_ids)
+            for player_id in sorted(prospect_ids)
         ]
     )
     sess.commit()
 
     return {
         CareerStatus.JOINED_NFL.value: len(joined_ids),
-        CareerStatus.POTENTIAL_DRAFTEES.value: len(potential_ids),
+        CareerStatus.PROSPECTS.value: len(prospect_ids),
     }
 
 
