@@ -3182,6 +3182,9 @@ thead .linemate-table-frozen {
 .linemate-summary-wrap {
   overflow-x: auto;
 }
+.linemate-summary-wrap[hidden] {
+  display: none;
+}
 /* "Individual" and "Line Summary" use the Player Card's .scout-section-title (gold
    small heading over a divider). The negative top margins offset the 16px gap
    .scout-card-body already leaves between its children. */

@@ -621,8 +621,10 @@ export function renderLinemateCardBody(entry) {
   updateLinemateReadOverflow(cardEl);
 
   // 3M + RSWA summary, computed over every qualifying linemate — plus the
-  // anchor himself when the toggle is on.
-  renderLinemateSummary(entry, displayRoster, summaryTable);
+  // anchor himself when the toggle is on. The NFL Alumni card has none: alumni never
+  // played together, so a line summary of them would describe a line that never existed.
+  cardEl.querySelector(".linemate-summary-wrap").hidden = IS_CAREER;
+  if (!IS_CAREER) renderLinemateSummary(entry, displayRoster, summaryTable);
 }
 
 // Value a Line Summary row sorts by for a given column label — "Metric"
@@ -739,11 +741,15 @@ export function retargetLinemateCard(entry, anchorRecord) {
   setLinemateCardIdentity(entry.el, anchorRecord);
 }
 
-const MODE_SWITCH_HELP = [
-  "Read: players as columns and metrics as rows. No sorting in this mode.",
-  "Sort: players as rows and metrics as columns. Click a column header to order players by that metric.",
-  "Only the Individual table switches; the Line Summary stays as it is.",
-];
+// The third line is about the Line Summary, which the NFL Alumni card does not have.
+function modeSwitchHelp() {
+  const help = [
+    "Read: players as columns and metrics as rows. No sorting in this mode.",
+    "Sort: players as rows and metrics as columns. Click a column header to order players by that metric.",
+  ];
+  if (!IS_CAREER) help.push("Only the Individual table switches; the Line Summary stays as it is.");
+  return help;
+}
 
 export function openLinemateCard(anchorRecord) {
   const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
@@ -794,11 +800,13 @@ export function openLinemateCard(anchorRecord) {
 
   // The Read | Sort switch on the "Individual" heading, and the (i) saying what it covers.
   const modeSwitch = cardEl.querySelector(".merge-mode-switch");
+  const modeHelp = modeSwitchHelp();
   modeSwitch
     .querySelector(".merge-mode-info")
-    .appendChild(
-      createInfoPopover({ bullets: MODE_SWITCH_HELP }, { ariaLabel: MODE_SWITCH_HELP.join(" "), label: "ⓘ" })
-    );
+    .appendChild(createInfoPopover({ bullets: modeHelp }, { ariaLabel: modeHelp.join(" "), label: "ⓘ" }));
+
+  // Without a Line Summary to tell it apart from, "Individual" has nothing to be individual to.
+  if (IS_CAREER) cardEl.querySelector(".linemate-table-title > span").textContent = "Players";
   modeSwitch.querySelectorAll(".merge-mode-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       if (entry.mode === btn.dataset.mode) return;

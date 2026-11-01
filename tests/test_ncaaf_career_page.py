@@ -431,6 +431,29 @@ def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status
     assert potential_line.endswith("(Potential Draftees).")
 
 
+def test_the_nfl_alumni_card_has_no_line_summary(page):
+    # Alumni never played together, so there is no line to summarise.
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const l = await import('/linemate-card.js');
+  l.openLinemateCard(d.currentRecords.find((r) => r.player === 'Player 2'));
+  const card = document.querySelector('.scout-card--linemate');
+  const wrap = card.querySelector('.linemate-summary-wrap');
+  return {
+    hidden: getComputedStyle(wrap).display === 'none',
+    rows: card.querySelectorAll('.linemate-summary-table tbody tr').length,
+    heading: card.querySelector('.linemate-table-title > span').textContent,
+    visibleText: card.innerText,
+  };
+}""")
+
+    assert out["hidden"]
+    assert out["rows"] == 0
+    assert out["heading"] == "Players"
+    assert "Line Summary" not in out["visibleText"]
+    assert "RSWA" not in out["visibleText"]
+
+
 def test_the_nfl_alumni_card_marks_the_status_and_states_only_the_joined_nfl_bar(page):
     out = page.evaluate("""async () => {
   const d = await import('/data.js');
