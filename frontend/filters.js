@@ -126,7 +126,10 @@ export function currentFilterState() {
 }
 
 // The lit Career statuses as a sorted comma string (comparable with `!==`, like teams).
+// Empty while "Enable Status" is off: Status is then out of the highlight union.
 export function litStatusesText() {
+  if (!els.statusEnabled.checked) return "";
+
   const lit = [];
   if (els.statusJoined.checked) lit.push(JOINED_NFL);
   if (els.statusPotential.checked) lit.push(POTENTIAL_DRAFTEES);
@@ -170,10 +173,14 @@ function seasonValue() {
 export function updateStatusSummary() {
   const joined = els.statusJoined.checked;
   const potential = els.statusPotential.checked;
-  if (joined && potential) els.statusSummary.textContent = "All Status";
+  if (!els.statusEnabled.checked) els.statusSummary.textContent = "Off";
+  else if (joined && potential) els.statusSummary.textContent = "All Status";
   else if (joined) els.statusSummary.textContent = JOINED_NFL;
   else if (potential) els.statusSummary.textContent = POTENTIAL_DRAFTEES;
   else els.statusSummary.textContent = "No Status";
+
+  // The button's name is its visible label, which no longer says "Status".
+  els.statusBtn.setAttribute("aria-label", `Status: ${els.statusSummary.textContent}`);
 }
 
 export function openStatusDropdown() {
@@ -188,9 +195,14 @@ export function closeStatusDropdown() {
 
 // The two bars do not follow the Status Filter: both stay fully usable whatever is lit,
 // since a status that is off only dims its players and its bar still counts in the pool.
+// With "Enable Status" off the dropdown is shut and greyed; its ticks are kept.
 export function syncStatusBars() {
   if (!IS_CAREER) return;
   updateStatusSummary();
+
+  const enabled = els.statusEnabled.checked;
+  els.statusBtn.disabled = !enabled;
+  if (!enabled) closeStatusDropdown();
 }
 
 // True when a pending bar differs from the applied one (either bar on Career).

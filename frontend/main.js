@@ -209,6 +209,7 @@ function attachEvents() {
           bullets: [
             "Potential Draftees: still playing in the latest college season.",
             "Joined NFL: played NCAAF and appeared in NFL — potential draftees' benchmark.",
+            "Enable Status: off, and Status leaves the highlights — only Teams and Players light players.",
           ],
         },
         { ariaLabel: "Status filter info", label: "ⓘ" }
@@ -228,7 +229,7 @@ function attachEvents() {
       if (!els.statusControl.contains(e.target)) closeStatusDropdown();
     });
 
-    [els.statusJoined, els.statusPotential].forEach((box) =>
+    [els.statusEnabled, els.statusJoined, els.statusPotential].forEach((box) =>
       box.addEventListener("change", () => {
         syncStatusBars();
         updatePendingState();

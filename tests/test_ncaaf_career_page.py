@@ -314,6 +314,64 @@ def test_a_picked_player_is_highlighted_whatever_the_status(page):
     assert _lit_players(page) == [1, 2, 5]
 
 
+def _flip_enable_status(page):
+    page.click("#status-enabled")
+
+
+def test_enable_status_is_on_at_first(page):
+    assert page.is_checked("#status-enabled")
+    assert page.is_enabled("#status-toggle-btn")
+    assert page.inner_text("#status-select-summary") == "Potential Draftees"
+
+
+def test_turning_enable_status_off_lights_apply_and_takes_status_out_of_the_highlights(
+    page,
+):
+    _flip_enable_status(page)
+
+    assert page.eval_on_selector(
+        "#apply-filters", "el => el.classList.contains('pending')"
+    )
+    assert page.inner_text("#status-select-summary") == "Off"
+    assert page.is_disabled("#status-toggle-btn")
+
+    _apply_and_wait(page, "statuses", "")
+
+    assert _lit_players(page) == []
+    assert _pool_ids(page) == [1, 2, 5]
+
+
+def test_with_enable_status_off_only_teams_and_players_light_players(page):
+    _flip_enable_status(page)
+
+    page.click("#players-toggle-btn")
+    page.fill("#players-input", "Player 1")
+    page.click("#players-dropdown .player-option")
+    page.click("#apply-filters")
+
+    page.wait_for_function(
+        "() => import('/data.js').then(d => d.appliedFilters.players === 'Player 1')"
+    )
+
+    assert _lit_players(page) == [1]
+
+
+def test_the_ticks_are_kept_while_enable_status_is_off_and_come_back_on(page):
+    _toggle_status(page, "#status-joined")
+    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+    _flip_enable_status(page)
+    _apply_and_wait(page, "statuses", "")
+
+    assert page.is_checked("#status-joined")
+    assert page.is_checked("#status-potential")
+
+    _flip_enable_status(page)
+    _apply_and_wait(page, "statuses", f"{JOINED},{POTENTIAL}")
+
+    assert page.inner_text("#status-select-summary") == "All Status"
+    assert _lit_players(page) == [1, 2, 5]
+
+
 def test_the_nfl_alumni_roster_is_joined_nfl_only(page):
     # Anchor is a Potential Draftee; his card's roster is the school's same-line players who
     # reached the NFL and clear the Joined NFL bar. Player 4 is Joined NFL but below the bar,

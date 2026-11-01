@@ -161,7 +161,13 @@
            changes the percentile pool. -->
           <div class="control control-status" id="status-control" hidden>
             <div class="axis-label-row">
-              <label id="status-label" for="status-toggle-btn">Status</label>
+              <!-- Off takes Status out of the highlight union, so Teams and Players can work alone.
+               The ticks in the dropdown are kept while it is off. It sits in the label row, so
+               this control is as tall as its neighbours. -->
+              <label class="checkbox-label status-enable-toggle">
+                <input type="checkbox" id="status-enabled" checked />
+                Enable Status
+              </label>
               <span class="info-popover-slot" id="status-info-slot"></span>
             </div>
             <div class="teams-select">
@@ -171,7 +177,7 @@
                 class="teams-select-btn"
                 aria-haspopup="true"
                 aria-expanded="false"
-                aria-labelledby="status-label status-select-summary"
+                aria-label="Status: Potential Draftees"
               >
                 <span id="status-select-summary">Potential Draftees</span>
                 <svg class="chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">

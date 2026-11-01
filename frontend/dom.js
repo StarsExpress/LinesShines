@@ -31,6 +31,7 @@ export const els = {
   statusSummary: document.getElementById("status-select-summary"),
   statusDropdown: document.getElementById("status-dropdown"),
   statusInfoSlot: document.getElementById("status-info-slot"),
+  statusEnabled: document.getElementById("status-enabled"),
   statusJoined: document.getElementById("status-joined"),
   statusPotential: document.getElementById("status-potential"),
   applyBtn: document.getElementById("apply-filters"),

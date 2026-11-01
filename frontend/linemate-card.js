@@ -121,7 +121,7 @@ export function attachAppTooltip(el, text) {
 // only gate, and every qualifying player is on the card.
 // The card is "Linemates" on a Season page and "NFL Alumni" on the Career page. Its name and
 // who its roster is are the only two things that differ between the two (see
-// next_steps/NFL-ALUMNI.md); everything else is shared. Read at call time so it never depends
+// DECISIONS.md, 2026-10-31); everything else is shared. Read at call time so it never depends
 // on the order data.js is evaluated in.
 export function rosterNoun() {
   return IS_CAREER
