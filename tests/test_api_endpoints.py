@@ -3,6 +3,7 @@
 from __future__ import annotations
 from datetime import date
 from config import DEFAULT_THRESHOLDS, NCAAF_DEFAULT_THRESHOLDS
+from database.columns import tps_proportion_pct
 
 
 def test_metadata_shape(client, seeded_db):
@@ -240,3 +241,47 @@ def test_the_two_leagues_never_mix(client, seeded_db, seeded_ncaaf_db):
 
     assert {r["player_id"] for r in nfl} == {1001, 1002}
     assert {r["player_id"] for r in college} == {5001, 5002}
+
+
+def test_pass_block_payload_carries_the_tps_proportion_from_its_two_counts(
+    client, seeded_db
+):
+    resp = client.get("/api/nfl/pass_block", params={"season": 2025, "position": "T"})
+    (record,) = resp.json()["records"]
+
+    # 200 true pass set snaps out of 500, to one decimal.
+    assert record["TPS Proportion %"] == 40.0
+
+    pass_rush = client.get(
+        "/api/nfl/pass_rush", params={"season": 2025, "position": "ED"}
+    ).json()["records"][0]
+
+    assert "TPS Proportion %" not in pass_rush
+
+
+def test_tps_proportion_rounds_to_one_decimal_and_is_missing_without_a_denominator():
+    assert tps_proportion_pct(1, 3) == 33.3
+    assert tps_proportion_pct(2, 3) == 66.7
+    assert tps_proportion_pct(0, 300) == 0.0
+    assert tps_proportion_pct(5, 0) is None
+    assert tps_proportion_pct(None, 300) is None
+    assert tps_proportion_pct(100, None) is None
+
+
+def test_tps_proportion_is_the_first_coloured_required_metric_of_the_line(
+    client, seeded_db
+):
+    metrics = client.get("/api/nfl/metadata").json()["pass_block"]["metrics"]
+    keys = list(metrics)
+
+    # Directly above Allowed Pressure %, so every list that follows this order shows it there.
+    assert keys[:2] == ["TPS Proportion %", "Allowed Pressure %"]
+    assert metrics["TPS Proportion %"]["higher_is_better"] is True
+    assert metrics["TPS Proportion %"]["unit"] == "%"
+    assert "neutral" not in metrics["TPS Proportion %"]
+    assert metrics["TPS Proportion %"]["formula_note"].startswith("TPS Proportion %")
+
+    # The front 7 has no counterpart.
+    pass_rush = client.get("/api/nfl/metadata").json()["pass_rush"]["metrics"]
+
+    assert "TPS Proportion %" not in pass_rush

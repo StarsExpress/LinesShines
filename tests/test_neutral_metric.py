@@ -136,6 +136,59 @@ def test_the_pass_block_player_card_has_no_bonus_section(page):
     assert all(rows for _, rows in sections)
 
 
+# Five OL players; each metric rises with the player's index, as in SETUP_JS.
+OFFENSIVE_LINE_SETUP_JS = """
+const d = await import('/data.js');
+const cat = d.metadata.pass_block;
+const keys = Object.keys(cat.metrics);
+const records = [1, 2, 3, 4, 5].map((n) => ({
+  player: `P${n}`, abbr_name: `P${n}`, team: 'ARI', position: 'T', games: 17,
+  [cat.threshold_field]: 500,
+  [`TPS ${cat.threshold_field}`]: 200,
+  ...Object.fromEntries(keys.map((k) => [k, n * 10])),
+}));
+d.setCurrentSlice(records, 'pass_block');
+d.setAppliedFilters({ ...d.appliedFilters, category: 'pass_block', position: 'T', threshold: '100' });
+"""
+
+
+def test_the_offensive_line_card_lists_the_tps_proportion_first_with_a_colour_chip(
+    page,
+):
+    out = page.evaluate("async () => {" + OFFENSIVE_LINE_SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  s.renderScoutCardStats(card, records[4]);
+  const labels = [...card.querySelectorAll('dt')].map((e) => e.textContent);
+  const first = [...card.querySelectorAll('dd.scout-stat-rank')][labels.indexOf('TPS Proportion %')];
+  const chip = first.querySelector('.scout-pct-chip');
+  return { labels, cls: chip.className, text: chip.textContent };
+}""")
+
+    required = out["labels"][out["labels"].index("TPS Proportion %") :]
+
+    assert required[:2] == ["TPS Proportion %", "Allowed Pressure %"]
+    assert "scout-pct-neutral" not in out["cls"]
+    assert out["text"].startswith("#1/5")
+
+
+def test_the_line_summary_includes_the_tps_proportion_for_the_offensive_line(page):
+    keys = page.evaluate("async () => {" + OFFENSIVE_LINE_SETUP_JS + """
+  const l = await import('/linemate-card.js');
+  return Object.keys(l.computeThreeMRSWA(records, cat));
+}""")
+
+    assert "TPS Proportion %" in keys
+
+    # The front 7 has no such metric.
+    front_7_keys = page.evaluate(
+        "async () => Object.keys((await import('/data.js')).metadata.pass_rush.metrics)"
+    )
+
+    assert "TPS Proportion %" not in front_7_keys
+
+
 def test_the_line_summary_leaves_out_pass_cov_percent(page):
     result = page.evaluate("async () => {" + SETUP_JS + """
   const l = await import('/linemate-card.js');

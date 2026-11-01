@@ -32,6 +32,7 @@ from config import (
     PRP_NOTE,
     NCAAF_CAREER_DEFAULT_THRESHOLDS,
     TPS_NOTE,
+    TPS_PROPORTION_NOTE,
     CareerStatus,
     League,
     resolve_default_threshold,
@@ -153,6 +154,12 @@ PASS_RUSH_METRICS = {
 }
 
 PASS_BLOCK_METRICS = {
+    "TPS Proportion %": {
+        "unit": "%",
+        "higher_is_better": True,
+        "formula_note": TPS_PROPORTION_NOTE,
+        "pff_note": "Share of non-spike pass block snaps that were true pass sets",
+    },
     "Allowed Pressure %": {
         "unit": "%",
         "higher_is_better": False,

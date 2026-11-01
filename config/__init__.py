@@ -28,6 +28,7 @@ from config.metrics import (
     PRP_NOTE,
     ROUNDING_DECIMALS,
     TPS_NOTE,
+    TPS_PROPORTION_NOTE,
 )
 from config.thresholds import (
     DEFAULT_THRESHOLDS,
@@ -63,6 +64,7 @@ __all__ = [
     "PRP_NOTE",
     "ROUNDING_DECIMALS",
     "TPS_NOTE",
+    "TPS_PROPORTION_NOTE",
     "CareerStatus",
     "League",
     "resolve_default_threshold",

@@ -369,3 +369,32 @@ def test_career_routes_reject_an_unknown_position(client, seeded_career_db):
     block = client.get("/api/ncaaf/career/pass_block", params={"position": "ED"})
 
     assert block.status_code == 400
+
+
+def test_career_tps_proportion_is_the_ratio_of_the_summed_counts(sess):
+    # Season ratios are 10% and 50%; their mean is 30%, but the counts say 110 / 500.
+    sess.add(_block_row(2023, 1, non_spike_pb_snaps=100, tps_non_spike_pb_snaps=10))
+    sess.add(_block_row(2024, 1, non_spike_pb_snaps=400, tps_non_spike_pb_snaps=200))
+    sess.add(NCAAFPassBlockCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = merged_career_rows(sess, PASS_BLOCK_CAREER, ("T", "G", "C"))
+
+    assert record["TPS Non Spike PB Snaps"] == 210
+    assert record["TPS Proportion %"] == 42.0
+
+
+def test_career_tps_proportion_is_missing_without_snaps_and_absent_for_the_front_7(
+    sess,
+):
+    sess.add(_block_row(2024, 1, non_spike_pb_snaps=0, tps_non_spike_pb_snaps=0))
+    sess.add(NCAAFPassBlockCareerMember(player_id=1, status=JOINED))
+    sess.add(_rush_row(2024, 2))
+    sess.add(NCAAFPassRushCareerMember(player_id=2, status=JOINED))
+    sess.commit()
+
+    (block_record,) = merged_career_rows(sess, PASS_BLOCK_CAREER, ("T", "G", "C"))
+    (rush_record,) = _merge_rush(sess, player_id=2)
+
+    assert block_record["TPS Proportion %"] is None
+    assert "TPS Proportion %" not in rush_record

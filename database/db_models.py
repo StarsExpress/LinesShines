@@ -34,6 +34,7 @@ from database.columns import (
     PASS_BLOCK_DATA_COLUMNS,
     PASS_RUSH_DATA_COLUMNS,
     row_to_payload,
+    with_tps_proportion,
 )
 
 
@@ -233,7 +234,7 @@ def pass_rush_row_to_dict(row: NFLPassRushStat) -> dict:
 
 
 def pass_block_row_to_dict(row: NFLPassBlockStat) -> dict:
-    return row_to_payload(row, PASS_BLOCK_DATA_COLUMNS)
+    return with_tps_proportion(row_to_payload(row, PASS_BLOCK_DATA_COLUMNS))
 
 
 def ncaaf_pass_rush_row_to_dict(row: NCAAFPassRushStat) -> dict:
@@ -242,6 +243,6 @@ def ncaaf_pass_rush_row_to_dict(row: NCAAFPassRushStat) -> dict:
 
 def ncaaf_pass_block_row_to_dict(row: NCAAFPassBlockStat) -> dict:
     return {
-        **row_to_payload(row, PASS_BLOCK_DATA_COLUMNS),
+        **with_tps_proportion(row_to_payload(row, PASS_BLOCK_DATA_COLUMNS)),
         "conference": row.conference,
     }

@@ -94,6 +94,29 @@ NCAAF_PASS_RUSH_SNAP_COLUMNS = (
 )
 
 
+# The OL-only share of pass block snaps that were true pass sets. It is never stored: the API
+# computes it from the two snap counts, so the season and Career payloads stay in step.
+TPS_PROPORTION_API_KEY = "TPS Proportion %"
+TPS_PROPORTION_DECIMALS = 1
+
+
+def tps_proportion_pct(tps_snaps: int | None, snaps: int | None) -> float | None:
+    """TPS Non Spike PB Snaps / Non Spike PB Snaps x 100, or None when it is undefined."""
+    if tps_snaps is None or not snaps:
+        return None
+
+    return round(100.0 * tps_snaps / snaps, TPS_PROPORTION_DECIMALS)
+
+
+def with_tps_proportion(payload: dict) -> dict:
+    """The pass block payload with its TPS Proportion % added, from its two snap counts."""
+    payload[TPS_PROPORTION_API_KEY] = tps_proportion_pct(
+        payload.get("TPS Non Spike PB Snaps"), payload.get("Non Spike PB Snaps")
+    )
+
+    return payload
+
+
 def required_excel_headers(data_columns: tuple[DataColumn, ...]) -> tuple[str, ...]:
     """The headers a sheet must have: the identity columns plus every data column."""
     return IDENTITY_EXCEL_HEADERS + tuple(

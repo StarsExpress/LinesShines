@@ -24,6 +24,17 @@ exception — higher-is-better despite being in the pass-block category, same as
 pass-rush side. Any future per-category direction shortcut (frontend or backend) must special-case
 these two rather than assume category implies direction.
 
+**`TPS Proportion %` (OL only).** A pass-block Required Metric = TPS Non Spike PB Snaps / Non Spike PB Snaps x 100,
+one decimal: how large a share of an OL's snaps were true pass sets (the plays that favour the OL are left out of
+the TPS, so a high share means his other numbers carry more weight). It is never stored: `database/columns.py`'s
+`with_tps_proportion()` adds it to the pass-block payload from the two count columns (`None` when either is missing
+or the denominator is 0), and the Career merge calls the same function on the **summed** counts, so a Career value is
+a ratio of sums, never a mean of season ratios. It is the first key of `PASS_BLOCK_METRICS` (directly above
+Allowed Pressure %), so every list that follows the API order shows it there; the default axes still name their
+metrics explicitly. It is Color Coded (`higher_is_better: true`, no `neutral`), is in the Line Summary, and carries a
+text-only `formula_note` (`TPS_PROPORTION_NOTE`); because its name starts with "TPS ", the frontend appends the shared
+`TPS_NOTE` to it. The front 7 has no counterpart.
+
 **Default axis pair per category** (`filters.js`'s `populateCategoryDependentControls()`): each
 category seeds its X/Y metric selects to a distinct, curated pair rather than the first two entries
 in `PASS_RUSH_METRICS`/`PASS_BLOCK_METRICS` — pass-rush defaults to Win Rate (X) vs. TPS PRP (Y),

@@ -26,6 +26,7 @@ from database.columns import (
     PASS_BLOCK_DATA_COLUMNS,
     PASS_RUSH_DATA_COLUMNS,
     DataColumn,
+    with_tps_proportion,
 )
 from database.db_models import (
     NCAAFPassBlockCareerMember,
@@ -48,6 +49,8 @@ class CareerSpec:
     order_attr: str  # The count a record is ordered by, descending.
     # (column attr, rush snaps attr, pass play snaps attr) of each Pass Cov Percent column.
     complement_snaps: tuple[tuple[str, str, str], ...] = ()
+    # Whether the record gets TPS Proportion % (the OL only), from its summed snap counts.
+    adds_tps_proportion: bool = False
 
 
 PASS_RUSH_CAREER = CareerSpec(
@@ -72,6 +75,7 @@ PASS_BLOCK_CAREER = CareerSpec(
     tps_weight_attr="tps_non_spike_pb_snaps",
     sum_attrs=("games", "non_spike_pb_snaps", "tps_non_spike_pb_snaps"),
     order_attr="non_spike_pb_snaps",
+    adds_tps_proportion=True,
 )
 
 
@@ -220,6 +224,10 @@ def merged_career_rows(
 
             else:
                 record[api_key] = round(float(value), ROUNDING_DECIMALS)
+
+        if spec.adds_tps_proportion:
+            # A ratio of the summed counts, never the mean of the seasons' ratios.
+            with_tps_proportion(record)
 
         records.append(record)
 
