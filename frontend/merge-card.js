@@ -409,7 +409,7 @@ function mergeSortValue({ record, pool }, label, cat) {
   if (label === "Team") return String(teamLabel(record.team)).toLowerCase();
   if (label === "Status") return record.status ?? null;
   if (label === "Games") return record.games ?? null;
-  if (label === cat.threshold_field) return record[cat.threshold_field] ?? null;
+  if (label === cat.threshold_field || label === `TPS ${cat.threshold_field}`) return record[label] ?? null;
   const meta = cat.metrics[label];
   if (meta) {
     const rank = rankAndPercentile(pool, label, meta.higher_is_better, record[label]);
@@ -455,7 +455,7 @@ function makeDataCell({ player: { record, pool }, column }, cat) {
   } else if (column.kind === "games") {
     td.textContent = record.games ?? "—";
   } else if (column.kind === "snaps") {
-    td.textContent = record[cat.threshold_field] ?? "—";
+    td.textContent = record[column.key] ?? "—";
   } else {
     const key = column.key;
     const meta = cat.metrics[key];

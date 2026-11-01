@@ -142,6 +142,8 @@ export function renderScoutCardStats(cardEl, record) {
 
   addRow(metadataGrid, "Games", record.games);
   addRow(metadataGrid, cat.threshold_field, record[cat.threshold_field]);
+  // The true-pass-set share of those snaps, right under it.
+  addRow(metadataGrid, `TPS ${cat.threshold_field}`, record[`TPS ${cat.threshold_field}`]);
 
   // `bonus` metrics (Pass Cov Percent, DL only) get their own section after
   // the required ones; a category without any (pass block) gets no Bonus heading.

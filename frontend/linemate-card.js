@@ -301,7 +301,7 @@ function linemateSortValue(t, label, cat) {
   if (label === "Position") return t.position;
   if (label === "Status") return t.status ?? null;
   if (label === "Games") return t.games ?? null;
-  if (label === cat.threshold_field) return t[cat.threshold_field] ?? null;
+  if (label === cat.threshold_field || label === `TPS ${cat.threshold_field}`) return t[label] ?? null;
   const meta = cat.metrics[label];
   if (meta) {
     const pool = positionPool(t.position);
@@ -376,7 +376,7 @@ function makeRosterCell(t, column, cat) {
   } else if (column.kind === "games") {
     td.textContent = t.games ?? "—";
   } else if (column.kind === "snaps") {
-    td.textContent = t[cat.threshold_field] ?? "—";
+    td.textContent = t[column.key] ?? "—";
   } else {
     const key = column.key;
     const meta = cat.metrics[key];
@@ -493,6 +493,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
     ...(IS_CAREER ? ["Status"] : []),
     "Games",
     cat.threshold_field,
+    `TPS ${cat.threshold_field}`,
     ...metricKeys,
   ].forEach((label) => {
     // The button column has nothing to sort, so its header is plain text.
@@ -516,6 +517,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
     ...(IS_CAREER ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
     { key: cat.threshold_field, kind: "snaps" },
+    { key: `TPS ${cat.threshold_field}`, kind: "snaps" },
     ...metricKeys.map((key) => ({ key, kind: "metric" })),
   ];
   const tbody = document.createElement("tbody");

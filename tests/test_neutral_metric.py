@@ -40,6 +40,7 @@ const keys = Object.keys(cat.metrics);
 const records = [1, 2, 3, 4, 5].map((n) => ({
   player: `P${n}`, abbr_name: `P${n}`, team: 'ARI', position: 'ED', games: 17,
   [cat.threshold_field]: 300,
+  [`TPS ${cat.threshold_field}`]: 120,
   ...Object.fromEntries(keys.map((k) => [k, n * 10])),
 }));
 d.setCurrentSlice(records, 'pass_rush');
@@ -102,7 +103,7 @@ def test_the_pass_rush_player_card_has_metadata_required_and_bonus_sections(page
     rows = dict(sections)
 
     assert titles == ["Metadata", "Required Metrics", "Bonus Metrics"]
-    assert rows["Metadata"] == ["Games", "PR Opp"]
+    assert rows["Metadata"] == ["Games", "PR Opp", "TPS PR Opp"]
 
     assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
     assert rows["Required Metrics"][:2] == ["Win Rate", "TPS Win Rate"]
@@ -110,6 +111,22 @@ def test_the_pass_rush_player_card_has_metadata_required_and_bonus_sections(page
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
         rows["Required Metrics"]
     )
+
+
+def test_the_player_card_shows_the_tps_count_right_under_the_threshold_field(page):
+    out = page.evaluate("async () => {" + SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  s.renderScoutCardStats(card, records[0]);
+  const grid = card.querySelector('.scout-stat-grid');
+  const labels = [...grid.querySelectorAll('dt')].map((e) => e.textContent);
+  const values = [...grid.querySelectorAll('dd.scout-stat-value')].map((e) => e.textContent);
+  return { labels, values };
+}""")
+
+    assert out["labels"] == ["Games", "PR Opp", "TPS PR Opp"]
+    assert out["values"] == ["17", "300", "120"]
 
 
 def test_the_pass_block_player_card_has_no_bonus_section(page):

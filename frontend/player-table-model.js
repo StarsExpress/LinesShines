@@ -6,14 +6,14 @@
  * A model is { players, columns }. `players` are the card's members in the order
  * they should appear (already sorted by the card's current sort state); each
  * entry is opaque to this file. `columns` are Player, Team, Linemates, Status (Career only), Games,
- * the threshold field, then one per metric, each tagged with a `kind`.
+ * the threshold field and its TPS counterpart, then one per metric, each tagged with a `kind`.
  *
  * Both layouts hold exactly the same cells ({ player, column }), laid out as
  * { head, body }:
  *   Sort — one header row of columns, one body row per player. The original layout.
  *   Read — the same cells turned on their side: one column per player, one row
  *          per column. The player's identity cells (name, team, Linemates button)
- *          form the head block; Status, Games, the threshold field and the metrics are
+ *          form the head block; Status, Games, the threshold field, its TPS counterpart and the metrics are
  *          the body rows. Easier to read, and the default.
  */
 
@@ -44,6 +44,8 @@ export function buildPlayerTableModel(
     ...(includeStatus ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
     { key: thresholdField, kind: "snaps" },
+    // Its true-pass-set counterpart ("TPS PR Opp"), right under it.
+    { key: `TPS ${thresholdField}`, kind: "snaps" },
     ...metricKeys.map((key) => ({ key, kind: "metric", bonus: bonusKeys.includes(key) })),
   ];
   return { players, columns };
@@ -64,7 +66,7 @@ export function sortLayout(model) {
 // that column's cell for every player in the model's order.
 //
 // `body` is the flat list of rows; `sections` is the same rows grouped for display —
-// Metadata (Status on Career, Games, the threshold field), Required Metrics, and Bonus Metrics, which
+// Metadata (Status on Career, Games, the threshold field and its TPS counterpart), Required Metrics, and Bonus Metrics, which
 // is left out when the category has none (pass block).
 export function readLayout(model) {
   const row = (column) => ({ column, cells: model.players.map((player) => ({ player, column })) });
