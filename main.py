@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
@@ -152,6 +153,9 @@ PASS_RUSH_METRICS = {
         "pff_note": "Pass cov percent on true pass sets",
     },
 }
+
+# Responses smaller than this are never compressed.
+GZIP_MINIMUM_SIZE_BYTES = 1000
 
 PASS_BLOCK_METRICS = {
     "TPS Proportion %": {
@@ -527,6 +531,10 @@ app = FastAPI(
     description="PFF-derived front-7 & O-line metrics for the LinesShines dashboard.",
     lifespan=lifespan,
 )
+
+# The biggest college response is about 500 KB raw and 65 KB compressed; small bodies
+# (like /health) are not worth the CPU, so they go out as they are.
+app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE_BYTES)
 
 
 @app.get("/health")

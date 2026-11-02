@@ -147,3 +147,21 @@ def test_every_page_carries_the_navigation_with_its_own_page_marked(client):
 def test_the_season_pages_are_not_cached_and_are_not_in_the_api_schema(client):
     assert client.get("/ncaaf-season").headers["cache-control"] == "no-cache"
     assert "/ncaaf-season" not in client.get("/openapi.json").text
+
+
+def test_a_large_api_response_is_gzipped_and_decodes_to_the_same_json(
+    client, seeded_db
+):
+    plain = client.get("/api/nfl/metadata", headers={"Accept-Encoding": "identity"})
+    zipped = client.get("/api/nfl/metadata", headers={"Accept-Encoding": "gzip"})
+
+    assert "content-encoding" not in plain.headers
+    assert zipped.headers["content-encoding"] == "gzip"
+    assert zipped.json() == plain.json()
+
+
+def test_a_small_response_is_not_gzipped(client):
+    resp = client.get("/health", headers={"Accept-Encoding": "gzip"})
+
+    assert "content-encoding" not in resp.headers
+    assert resp.json() == {"status": "ok"}
