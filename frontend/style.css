@@ -1688,9 +1688,10 @@ body {
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". Fixed, not resizable — see .is-folded below for the two-state
+     Rate", then from 380px to 420px for the Volume column on Required
+     Metrics. Fixed, not resizable — see .is-folded below for the two-state
      Fold/Unfold that replaced the old free edge-resize. */
-  width: 380px;
+  width: 420px;
   min-width: 260px;
   max-width: 640px;
   /* Baseline stacking order for a freshly-opened card before it's ever been
@@ -2073,6 +2074,53 @@ body {
   row-gap: 9px;
   margin: 0;
   align-items: baseline;
+}
+/* Required Metrics add a Volume column between the label and the rate (see addRow() in
+   scout-card.js): label, volume, value, rank. The header row is four spans, one per column. */
+.scout-stat-grid--volume {
+  grid-template-columns: 1fr auto auto auto;
+}
+/* Metadata: a bordered table of one row, label and value cells side by side (see scout-card.js). */
+.scout-metadata-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.scout-metadata-table th,
+.scout-metadata-table td {
+  padding: 5px 8px;
+  border: 1px solid rgba(240, 237, 228, 0.22);
+}
+.scout-metadata-table th {
+  font-size: 12px;
+  font-weight: 400;
+  text-align: center;
+  color: var(--chalk-dim);
+}
+.scout-metadata-table td.scout-stat-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk);
+  text-align: center;
+  white-space: nowrap;
+}
+.scout-stat-grid--volume dd.scout-stat-value {
+  min-width: 48px;
+}
+.scout-stats dd.scout-stat-volume {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--chalk-dim);
+  min-width: 34px;
+}
+.scout-col-head {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  text-align: right;
 }
 .scout-stats dt {
   font-size: 12.5px;

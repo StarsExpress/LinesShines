@@ -33,6 +33,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | What happens to Pinned Players and Comparisons when filters change, and who stays eligible in the Players filter | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
 | Popup placement and closing on viewport change | `test_popup_position.py` ([doc](TEST_POPUP_POSITION.md)) | browser |
 | Card buttons (Save, Fold, Close; the gold open-a-card buttons): size, colours, contrast | `test_card_buttons.py` ([doc](TEST_CARD_BUTTONS.md)) | CSS only |
+| The Player Card's Volume column (the count beside each rate, the Volume and Rate header) | `test_volume_column.py` ([doc](TEST_VOLUME_COLUMN.md)) | browser |
 | Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
 | Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
 | Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |

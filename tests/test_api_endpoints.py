@@ -285,3 +285,55 @@ def test_tps_proportion_is_the_first_coloured_required_metric_of_the_line(
     pass_rush = client.get("/api/nfl/metadata").json()["pass_rush"]["metrics"]
 
     assert "TPS Proportion %" not in pass_rush
+
+
+def test_the_payloads_carry_the_counts_behind_the_rates(client, seeded_db):
+    rusher = client.get(
+        "/api/nfl/pass_rush", params={"season": 2025, "position": "ED"}
+    ).json()["records"][0]
+    blocker = client.get(
+        "/api/nfl/pass_block", params={"season": 2025, "position": "T"}
+    ).json()["records"][0]
+
+    assert (rusher["Wins"], rusher["TPS Wins"]) == (40, 15)
+    assert (rusher["Pressures"], rusher["TPS Pressures"]) == (60, 24)
+    assert (rusher["Havoc"], rusher["TPS Havoc"]) == (24, 9)
+    assert (blocker["Pressures"], blocker["TPS Pressures"]) == (40, 18)
+    assert (blocker["Havoc"], blocker["TPS Havoc"]) == (15, 5)
+
+
+def test_each_volume_names_a_key_the_payload_carries(client, seeded_db):
+    body = client.get("/api/nfl/metadata").json()
+
+    for category, position in (("pass_rush", "ED"), ("pass_block", "T")):
+        record = client.get(
+            f"/api/nfl/{category}", params={"season": 2025, "position": position}
+        ).json()["records"][0]
+
+        for key, meta in body[category]["metrics"].items():
+            if "volume" in meta:
+                assert meta["volume"] in record, key
+
+
+def test_the_volume_of_each_rate_is_its_count_and_composites_have_none(
+    client, seeded_db
+):
+    body = client.get("/api/nfl/metadata").json()
+    rush = body["pass_rush"]["metrics"]
+    block = body["pass_block"]["metrics"]
+
+    assert [rush[k]["volume"] for k in ("Win Rate", "TPS Win Rate")] == [
+        "Wins",
+        "TPS Wins",
+    ]
+    assert rush["Pressure Rate"]["volume"] == "Pressures"
+    assert rush["TPS Havoc Rate"]["volume"] == "TPS Havoc"
+    assert block["Allowed Pressure %"]["volume"] == "Pressures"
+    assert block["TPS Allowed Havoc %"]["volume"] == "TPS Havoc"
+    assert block["TPS Proportion %"]["volume"] == "TPS Non Spike PB Snaps"
+
+    # PRP and PBE are weighted composites, and Pass Cov Percent is no count of anything.
+    composites = ("PRP", "TPS PRP", "Pass Cov Percent", "TPS Pass Cov Percent")
+
+    assert not any("volume" in rush[k] for k in composites)
+    assert not any("volume" in block[k] for k in ("PBE", "TPS PBE"))

@@ -54,9 +54,11 @@ PLAYER_CARD_JS = "async () => {" + SETUP_JS + """
   s.renderScoutCardStats(card, records[0]);
   const labels = [...card.querySelectorAll('dt')].map((e) => e.textContent);
   const chips = {};
-  card.querySelectorAll('dd.scout-stat-rank').forEach((dd, i) => {
+  card.querySelectorAll('dd.scout-stat-rank').forEach((dd) => {
+    let row = dd.previousElementSibling;
+    while (row && row.tagName !== 'DT') row = row.previousElementSibling;
     const chip = dd.querySelector('.scout-pct-chip');
-    chips[labels[i]] = chip ? { cls: chip.className, text: chip.textContent } : null;
+    chips[row.textContent] = chip ? { cls: chip.className, text: chip.textContent } : null;
   });
   return { labels, chips };
 }"""
@@ -91,7 +93,7 @@ SECTIONS_JS = "async (category) => {" + """
   const stats = card.querySelector('.scout-stats');
   return [...stats.children].reduce((out, el) => {
     if (el.tagName === 'H4') out.push([el.textContent, []]);
-    else out[out.length - 1][1].push(...[...el.querySelectorAll('dt')].map((e) => e.textContent));
+    else out[out.length - 1][1].push(...[...el.querySelectorAll('dt, th')].map((e) => e.textContent));
     return out;
   }, []);
 }"""
@@ -106,7 +108,7 @@ def test_the_pass_rush_player_card_has_metadata_required_and_bonus_sections(page
     assert rows["Metadata"] == ["Games", "PR Opp", "TPS PR Opp"]
 
     assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
-    assert rows["Required Metrics"][:2] == ["Win Rate", "TPS Win Rate"]
+    assert rows["Required Metrics"][:2] == ["Win", "TPS Win"]
 
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
         rows["Required Metrics"]
@@ -119,9 +121,9 @@ def test_the_player_card_shows_the_tps_count_right_under_the_threshold_field(pag
   const dom = await import('/dom.js');
   const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
   s.renderScoutCardStats(card, records[0]);
-  const grid = card.querySelector('.scout-stat-grid');
-  const labels = [...grid.querySelectorAll('dt')].map((e) => e.textContent);
-  const values = [...grid.querySelectorAll('dd.scout-stat-value')].map((e) => e.textContent);
+  const grid = card.querySelector('.scout-metadata-table');
+  const labels = [...grid.querySelectorAll('th')].map((e) => e.textContent);
+  const values = [...grid.querySelectorAll('td')].map((e) => e.textContent);
   return { labels, values };
 }""")
 
@@ -161,14 +163,16 @@ def test_the_offensive_line_card_lists_the_tps_proportion_first_with_a_colour_ch
   const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
   s.renderScoutCardStats(card, records[4]);
   const labels = [...card.querySelectorAll('dt')].map((e) => e.textContent);
-  const first = [...card.querySelectorAll('dd.scout-stat-rank')][labels.indexOf('TPS Proportion %')];
+  const row = [...card.querySelectorAll('dt')].find((e) => e.textContent === 'TPS Proportion');
+  let first = row.nextElementSibling;
+  while (!first.classList.contains('scout-stat-rank')) first = first.nextElementSibling;
   const chip = first.querySelector('.scout-pct-chip');
   return { labels, cls: chip.className, text: chip.textContent };
 }""")
 
-    required = out["labels"][out["labels"].index("TPS Proportion %") :]
+    required = out["labels"][out["labels"].index("TPS Proportion") :]
 
-    assert required[:2] == ["TPS Proportion %", "Allowed Pressure %"]
+    assert required[:2] == ["TPS Proportion", "Allowed Pressure"]
     assert "scout-pct-neutral" not in out["cls"]
     assert out["text"].startswith("#1/5")
 
@@ -235,7 +239,7 @@ def test_player_card_shows_a_neutral_chip_with_rank_and_percentile(page):
     assert chips["Pass Cov Percent"]["text"].startswith("#5/5")
 
     # Every other metric keeps its Color Code.
-    assert "scout-pct-neutral" not in chips["Win Rate"]["cls"]
+    assert "scout-pct-neutral" not in chips["Win"]["cls"]
 
 
 def test_merge_card_uses_the_neutral_chip_only_for_neutral_metrics(page):

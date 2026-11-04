@@ -35,6 +35,8 @@ metrics explicitly. It is Color Coded (`higher_is_better: true`, no `neutral`), 
 text-only `formula_note` (`TPS_PROPORTION_NOTE`); because its name starts with "TPS ", the frontend appends the shared
 `TPS_NOTE` to it. The front 7 has no counterpart.
 
+**The `volume` key and the stored counts.** A metric's `volume` (in `PASS_RUSH_METRICS` / `PASS_BLOCK_METRICS`) names the payload key of the count behind it, for the Player Card's Volume column. The counts are stored columns, declared in `database/columns.py` and the model mixins: front 7 `Wins`, `TPS Wins`, `Pressures`, `TPS Pressures`, `Havoc`, `TPS Havoc`; OL `Pressures`, `TPS Pressures`, `Havoc`, `TPS Havoc` (Havoc = Sacks + Hits, Pressures = Sacks + Hits + Hurries, both checked on the real CSVs). Wins comes straight from the PFF CSV, and PFF's Win Rate is Wins / PR Opp (checked on every 2025 row of both leagues). They are summed over the seasons on Career. PRP, PBE and the neutral Pass Cov Percent have no `volume`.
+
 **Default axis pair per category** (`filters.js`'s `populateCategoryDependentControls()`): each
 category seeds its X/Y metric selects to a distinct, curated pair rather than the first two entries
 in `PASS_RUSH_METRICS`/`PASS_BLOCK_METRICS` — pass-rush defaults to Win Rate (X) vs. TPS PRP (Y),

@@ -66,6 +66,14 @@ class PassRushMetricsMixin:
     pr_opp = Column(Integer)  # PR Opp.
     tps_pr_opp = Column(Integer)  # TPS PR Opp.
 
+    # The counts behind Win Rate, Pressure Rate and Havoc Rate (shown as the Volume on the card).
+    wins = Column(Integer)  # Wins.
+    tps_wins = Column(Integer)  # TPS Wins.
+    pressures = Column(Integer)  # Pressures = Sacks + Hits + Hurries.
+    tps_pressures = Column(Integer)  # TPS Pressures.
+    havoc = Column(Integer)  # Havoc = Sacks + Hits.
+    tps_havoc = Column(Integer)  # TPS Havoc.
+
     pass_cov_percent = Column(Float)  # Pass Cov Percent = 100 - Pass Rush Percent.
     tps_pass_cov_percent = Column(Float)  # TPS Pass Cov Percent.
 
@@ -87,6 +95,12 @@ class PassBlockMetricsMixin:
 
     non_spike_pb_snaps = Column(Integer)  # Non Spike PB Snaps.
     tps_non_spike_pb_snaps = Column(Integer)  # TPS Non Spike PB Snaps.
+
+    # The counts behind Allowed Pressure % and Allowed Havoc % (shown as the Volume on the card).
+    pressures = Column(Integer)  # Pressures allowed.
+    tps_pressures = Column(Integer)  # TPS Pressures allowed.
+    havoc = Column(Integer)  # Havoc allowed = Sacks + Hits allowed.
+    tps_havoc = Column(Integer)  # TPS Havoc allowed.
 
     allowed_pressure_pct = Column(Float)  # Allowed Pressure %.
     tps_allowed_pressure_pct = Column(Float)  # TPS Allowed Pressure %.

@@ -75,29 +75,37 @@ COMMIT_SHA = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "dev")[:7]
 PASS_RUSH_POSITIONS = {"ED": "Edge", "DI": "Defensive Interior"}
 PASS_BLOCK_POSITIONS = {"T": "Offensive Tackle", "G": "Guard", "C": "Center"}
 
+# `volume` names the payload key of the count behind a rate (the numerator), which the Player
+# Card shows beside the rate. A metric without it (PRP, PBE, the neutral Pass Cov Percent) is a
+# composite or has no single count, so its Volume cell stays empty.
 PASS_RUSH_METRICS = {
     "Win Rate": {
         "unit": "%",
+        "volume": "Wins",
         "higher_is_better": True,
         "pff_note": "Pass rush win rate",
     },
     "TPS Win Rate": {
         "unit": "%",
+        "volume": "TPS Wins",
         "higher_is_better": True,
         "pff_note": "Win rate on true pass sets",
     },
     "Pressure Rate": {
         "unit": "%",
+        "volume": "Pressures",
         "higher_is_better": True,
         "pff_note": "Pressures / pass rush opportunities",
     },
     "TPS Pressure Rate": {
         "unit": "%",
+        "volume": "TPS Pressures",
         "higher_is_better": True,
         "pff_note": "Pressure rate on true pass sets",
     },
     "Havoc Rate": {
         "unit": "%",
+        "volume": "Havoc",
         "higher_is_better": True,
         "note": HAVOC_RATE_NOTE,
         "formula_svg": "/images/metric_formulas/havoc_rate.svg",
@@ -105,6 +113,7 @@ PASS_RUSH_METRICS = {
     },
     "TPS Havoc Rate": {
         "unit": "%",
+        "volume": "TPS Havoc",
         "higher_is_better": True,
         "note": HAVOC_RATE_NOTE,
         "formula_svg": "/images/metric_formulas/havoc_rate.svg",
@@ -160,22 +169,26 @@ GZIP_MINIMUM_SIZE_BYTES = 1000
 PASS_BLOCK_METRICS = {
     "TPS Proportion %": {
         "unit": "%",
+        "volume": "TPS Non Spike PB Snaps",
         "higher_is_better": True,
         "formula_note": TPS_PROPORTION_NOTE,
         "pff_note": "Share of non-spike pass block snaps that were true pass sets",
     },
     "Allowed Pressure %": {
         "unit": "%",
+        "volume": "Pressures",
         "higher_is_better": False,
         "pff_note": "Pressures allowed / non-spike pass block snaps",
     },
     "TPS Allowed Pressure %": {
         "unit": "%",
+        "volume": "TPS Pressures",
         "higher_is_better": False,
         "pff_note": "Allowed pressure rate on true pass sets",
     },
     "Allowed Havoc %": {
         "unit": "%",
+        "volume": "Havoc",
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
         "formula_svg": "/images/metric_formulas/allowed_havoc_rate.svg",
@@ -183,6 +196,7 @@ PASS_BLOCK_METRICS = {
     },
     "TPS Allowed Havoc %": {
         "unit": "%",
+        "volume": "TPS Havoc",
         "higher_is_better": False,
         "note": ALLOWED_HAVOC_RATE_NOTE,
         "formula_svg": "/images/metric_formulas/allowed_havoc_rate.svg",

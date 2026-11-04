@@ -36,6 +36,12 @@ def _write_front_7_xlsx(
             "Games": [17],
             "PR Opp": [300],
             "TPS PR Opp": [120],
+            "Wins": [24],
+            "TPS Wins": [9],
+            "Pressures": [60],
+            "TPS Pressures": [30],
+            "Havoc": [24],
+            "TPS Havoc": [12],
             "Pass Rush Percent": [92.0],
             "TPS Pass Rush Percent": [95.0],
             "Win Rate": [15.0],
@@ -66,6 +72,10 @@ def _write_ol_xlsx(
             "Games": [17],
             "Non Spike PB Snaps": [500],
             "TPS Non Spike PB Snaps": [200],
+            "Pressures": [25],
+            "TPS Pressures": [12],
+            "Havoc": [10],
+            "TPS Havoc": [6],
             "Allowed Pressure %": [5.0],
             "TPS Allowed Pressure %": [6.0],
             "Allowed Havoc %": [2.0],
@@ -456,3 +466,23 @@ def test_every_league_has_two_categories_and_a_team_upsert():
     assert set(db_ingestion.LEAGUE_CATEGORIES) == set(League)
     assert set(db_ingestion.LEAGUE_TEAM_UPSERTS) == set(League)
     assert all(len(cats) == 2 for cats in db_ingestion.LEAGUE_CATEGORIES.values())
+
+
+def test_the_counts_behind_the_rates_are_stored(tmp_path):
+    (tmp_path / "nfl" / "front_7_pass_rush").mkdir(parents=True)
+    (tmp_path / "nfl" / "ol_pass_block").mkdir(parents=True)
+    _write_front_7_xlsx(tmp_path / "nfl" / "front_7_pass_rush" / "2025.xlsx")
+    _write_ol_xlsx(tmp_path / "nfl" / "ol_pass_block" / "2025.xlsx")
+
+    sess = _fresh_session()
+    db_ingestion.ingest_pass_rush(sess, tmp_path, [2025])
+    db_ingestion.ingest_pass_block(sess, tmp_path, [2025])
+
+    rusher = sess.query(NFLPassRushStat).one()
+    blocker = sess.query(NFLPassBlockStat).one()
+
+    assert (rusher.wins, rusher.tps_wins) == (24, 9)
+    assert (rusher.pressures, rusher.tps_pressures) == (60, 30)
+    assert (rusher.havoc, rusher.tps_havoc) == (24, 12)
+    assert (blocker.pressures, blocker.tps_pressures) == (25, 12)
+    assert (blocker.havoc, blocker.tps_havoc) == (10, 6)

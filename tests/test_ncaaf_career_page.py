@@ -412,10 +412,10 @@ def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status
   const dom = await import('/dom.js');
   const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
   s.renderScoutCardStats(card, d.currentRecords.find((r) => r.player === 'Player 2'));
-  const metadata = card.querySelector('.scout-stat-grid');
+  const metadata = card.querySelector('.scout-metadata-table');
   return {
-    labels: [...metadata.querySelectorAll('dt')].map((e) => e.textContent),
-    values: [...metadata.querySelectorAll('dd.scout-stat-value')].map((e) => e.textContent),
+    labels: [...metadata.querySelectorAll('th')].map((e) => e.textContent),
+    values: [...metadata.querySelectorAll('td')].map((e) => e.textContent),
     threshold: card.querySelector('.scout-card-threshold').textContent,
     bars: d.appliedThreshold(),
   };

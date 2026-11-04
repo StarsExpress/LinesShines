@@ -30,6 +30,12 @@ PASS_RUSH_DATA_COLUMNS = (
     DataColumn("Games", "games", "games", "int"),
     DataColumn("PR Opp", "pr_opp", "PR Opp", "int"),
     DataColumn("TPS PR Opp", "tps_pr_opp", "TPS PR Opp", "int"),
+    DataColumn("Wins", "wins", "Wins", "int"),
+    DataColumn("TPS Wins", "tps_wins", "TPS Wins", "int"),
+    DataColumn("Pressures", "pressures", "Pressures", "int"),
+    DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
+    DataColumn("Havoc", "havoc", "Havoc", "int"),
+    DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
     DataColumn(
         "Pass Rush Percent", "pass_cov_percent", "Pass Cov Percent", "complement"
     ),
@@ -59,6 +65,10 @@ PASS_BLOCK_DATA_COLUMNS = (
         "TPS Non Spike PB Snaps",
         "int",
     ),
+    DataColumn("Pressures", "pressures", "Pressures", "int"),
+    DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
+    DataColumn("Havoc", "havoc", "Havoc", "int"),
+    DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
     DataColumn(
         "Allowed Pressure %", "allowed_pressure_pct", "Allowed Pressure %", "float"
     ),

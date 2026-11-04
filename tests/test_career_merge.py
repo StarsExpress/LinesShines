@@ -78,6 +78,10 @@ def _rush_row(season, player_id, position="ED", team_code=AKRON_ID, **values):
 
 def _block_row(season, player_id, position="T", **values):
     defaults = dict(
+        pressures=20,
+        tps_pressures=6,
+        havoc=8,
+        tps_havoc=2,
         games=10,
         non_spike_pb_snaps=400,
         tps_non_spike_pb_snaps=100,
@@ -398,3 +402,50 @@ def test_career_tps_proportion_is_missing_without_snaps_and_absent_for_the_front
 
     assert block_record["TPS Proportion %"] is None
     assert "TPS Proportion %" not in rush_record
+
+
+def test_career_counts_behind_the_rates_are_summed_over_the_seasons(sess):
+    sess.add(
+        _rush_row(
+            2023,
+            1,
+            wins=10,
+            tps_wins=4,
+            pressures=20,
+            tps_pressures=8,
+            havoc=6,
+            tps_havoc=2,
+        )
+    )
+    sess.add(
+        _rush_row(
+            2024,
+            1,
+            wins=15,
+            tps_wins=5,
+            pressures=30,
+            tps_pressures=9,
+            havoc=9,
+            tps_havoc=3,
+        )
+    )
+    sess.add(NCAAFPassRushCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = _merge_rush(sess)
+
+    assert (record["Wins"], record["TPS Wins"]) == (25, 9)
+    assert (record["Pressures"], record["TPS Pressures"]) == (50, 17)
+    assert (record["Havoc"], record["TPS Havoc"]) == (15, 5)
+
+
+def test_career_counts_of_the_offensive_line_are_summed_too(sess):
+    sess.add(_block_row(2023, 1, pressures=20, havoc=8, tps_pressures=5, tps_havoc=1))
+    sess.add(_block_row(2024, 1, pressures=30, havoc=4, tps_pressures=7, tps_havoc=3))
+    sess.add(NCAAFPassBlockCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = merged_career_rows(sess, PASS_BLOCK_CAREER, ("T", "G", "C"))
+
+    assert (record["Pressures"], record["TPS Pressures"]) == (50, 12)
+    assert (record["Havoc"], record["TPS Havoc"]) == (12, 4)

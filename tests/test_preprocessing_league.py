@@ -28,10 +28,12 @@ FRONT_7_RAW = {
     "position": ["ED"],
     "player_game_count": [5],
     "pass_rush_opp": [100],
+    "pass_rush_wins": [12],
     "sacks": [2],
     "hits": [3],
     "total_pressures": [10],
     "true_pass_set_pass_rush_opp": [60],
+    "true_pass_set_pass_rush_wins": [9],
     "true_pass_set_sacks": [1],
     "true_pass_set_hits": [2],
     "true_pass_set_total_pressures": [6],
@@ -306,3 +308,40 @@ def test_the_nfl_workbook_has_no_conference_column(
         season_file_path(League.NFL, category, 2025, "xlsx"), sheet_name=None
     )
     assert all("Conference" not in sheet.columns for sheet in sheets.values())
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+def test_the_workbook_keeps_the_counts_behind_the_rates(
+    league_folders, category, preprocess, raw
+):
+    pd.DataFrame(raw).to_csv(
+        season_file_path(League.NFL, category, 2025, "csv"), index=False
+    )
+
+    preprocess(League.NFL, 2025)
+
+    sheets = pd.read_excel(
+        season_file_path(League.NFL, category, 2025, "xlsx"), sheet_name=None
+    )
+    rows_df = pd.concat([sheet for sheet in sheets.values() if not sheet.empty])
+    row = rows_df.iloc[0]
+
+    # Havoc is Sacks + Hits; Pressures comes straight from the CSV.
+    assert row["Havoc"] == row["Sacks"] + row["Hits"]
+    assert row["TPS Havoc"] == row["TPS Sacks"] + row["TPS Hits"]
+    assert {"Pressures", "TPS Pressures"} <= set(rows_df.columns)
+
+
+def test_the_front_7_workbook_keeps_wins_and_tps_wins(league_folders):
+    pd.DataFrame(FRONT_7_RAW).to_csv(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "csv"), index=False
+    )
+
+    preprocess_front_7(League.NFL, 2025)
+
+    row = pd.read_excel(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "xlsx"),
+        sheet_name="ED",
+    ).iloc[0]
+
+    assert (row["Wins"], row["TPS Wins"]) == (12, 9)
