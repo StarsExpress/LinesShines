@@ -53,6 +53,7 @@ import {
   teamLabel,
   appliedThreshold,
   thresholdClauses,
+  scopeNote,
   IS_CAREER,
 } from "./data.js";
 import { meetsThreshold } from "./pinned-impact.js";
@@ -491,7 +492,7 @@ function renderSortTable(table, layout, cat, sortState, rerender) {
       th.textContent = rosterNoun().card;
       headRow.appendChild(th);
     } else {
-      headRow.appendChild(makeSortableHeader(column.key, column.key, sortState, rerender));
+      headRow.appendChild(makeSortableHeader(column.label ?? column.key, column.key, sortState, rerender));
     }
   });
   thead.appendChild(headRow);
@@ -526,7 +527,7 @@ function renderReadTable(table, layout, cat) {
   const labelCell = (column) => {
     const th = document.createElement("th");
     th.className = "merge-read-label";
-    th.textContent = column.key;
+    th.textContent = column.label ?? column.key;
     return th;
   };
 
@@ -601,6 +602,10 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
     : `Percentiles calculated among ${pools
         .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
         .join(", ")} ${thresholdClause}.`;
+
+  const scopeEl = cardEl.querySelector(".merge-card-scope");
+  scopeEl.textContent = scopeNote(cat);
+  scopeEl.hidden = !scopeEl.textContent;
 
   // Drives which scroll hint shows (CSS) and which switch button is lit.
   const isRead = mode === TABLE_MODE_READ;

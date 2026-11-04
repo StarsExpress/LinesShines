@@ -6,7 +6,8 @@
  * A model is { players, columns }. `players` are the card's members in the order
  * they should appear (already sorted by the card's current sort state); each
  * entry is opaque to this file. `columns` are Player, Team, Linemates, Status (Career only), Games,
- * the threshold field and its TPS counterpart, then one per metric, each tagged with a `kind`.
+ * the threshold field and its TPS counterpart, then one per metric, each tagged with a `kind`. A column
+ * may carry a `label` (the snap columns do, see snapsLabel()); a column without one is shown by its `key`.
  *
  * Both layouts hold exactly the same cells ({ player, column }), laid out as
  * { head, body }:
@@ -28,6 +29,13 @@ const MERGE_IDENTITY_COLUMNS = [
   { key: "Linemates", kind: "linemates" },
 ];
 
+// The OL's snap fields read "PB Snaps" and "TPS PB Snaps" on every card: the "Non Spike " prefix is
+// dropped from the label (the field's key in the data is untouched), and the threshold note says
+// that only non-spike snaps count. Any other label passes through unchanged.
+export function snapsLabel(field) {
+  return field.replace(/^(TPS )?Non Spike /, "$1");
+}
+
 // `bonusKeys` are the metrics flagged `bonus` in the metadata (Pass Cov Percent,
 // DL only): Read shows them in their own section after the required ones.
 export function buildPlayerTableModel(
@@ -43,9 +51,9 @@ export function buildPlayerTableModel(
     // Career only: whether the player is a Joined NFL or a Prospect.
     ...(includeStatus ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
-    { key: thresholdField, kind: "snaps" },
+    { key: thresholdField, label: snapsLabel(thresholdField), kind: "snaps" },
     // Its true-pass-set counterpart ("TPS PR Opp"), right under it.
-    { key: `TPS ${thresholdField}`, kind: "snaps" },
+    { key: `TPS ${thresholdField}`, label: snapsLabel(`TPS ${thresholdField}`), kind: "snaps" },
     ...metricKeys.map((key) => ({ key, kind: "metric", bonus: bonusKeys.includes(key) })),
   ];
   return { players, columns };

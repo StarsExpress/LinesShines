@@ -15,6 +15,7 @@ import {
   metadata,
   appliedThreshold,
   thresholdClauses,
+  scopeNote,
   IS_CAREER,
 } from "./data.js";
 import {
@@ -33,6 +34,7 @@ import { toggleLinemateCard, setPlayerCardOpener, rosterNoun } from "./linemate-
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { DISPLAY_DECIMALS } from "./config.js";
+import { snapsLabel } from "./player-table-model.js";
 
 // Live floating Player Cards, one per currently-open card, keyed by the same
 // full "player" string selectedPlayers/prunePlayerSelections use elsewhere —
@@ -102,6 +104,12 @@ export function renderScoutCardStats(cardEl, record) {
   // One line per status on Career (the note's CSS keeps the line break), one line otherwise.
   const thresholdLines = thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).map((clause) => `${clause}.`);
   thresholdEl.textContent = `Threshold: ${thresholdLines.join("\n")}`;
+
+  // The OL's snaps are the non-spike ones, said once under the threshold; the Metadata table then
+  // calls them "PB Snaps". The front 7 has no such note.
+  const scopeEl = cardEl.querySelector(".scout-card-scope");
+  scopeEl.textContent = scopeNote(cat);
+  scopeEl.hidden = !scopeEl.textContent;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
@@ -178,9 +186,9 @@ export function renderScoutCardStats(cardEl, record) {
   };
   const metadataFacts = [
     ["Games", record.games],
-    [cat.threshold_field, record[cat.threshold_field]],
+    [snapsLabel(cat.threshold_field), record[cat.threshold_field]],
     // The true-pass-set share of those snaps, next to it.
-    [`TPS ${cat.threshold_field}`, record[`TPS ${cat.threshold_field}`]],
+    [snapsLabel(`TPS ${cat.threshold_field}`), record[`TPS ${cat.threshold_field}`]],
   ];
   if (IS_CAREER) {
     addMetadataCells(metadataBody.insertRow(), "Status", record.status, metadataFacts.length * 2 - 1);

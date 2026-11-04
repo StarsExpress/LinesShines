@@ -76,7 +76,7 @@ async ([sort, mode, rows]) => {
   };
   const card = el('scout-card scout-card--merge', 'aside');
   const table = el('merge-table', 'table');
-  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), table);
+  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
 
   const sortState = { key: sort.key, dir: sort.dir };
   if (mode == null) m.renderMergeCardBody(card, records, sortState);
@@ -160,6 +160,39 @@ def test_sort_layout_is_one_head_row_of_columns_and_one_row_per_player(page):
     ]
     assert [row["player"] for row in out["sortBody"]] == ["B", "A", "C"]
     assert all(len(row["cells"]) == 9 for row in out["sortBody"])
+
+
+def test_ol_snap_columns_are_labelled_pb_snaps_but_keep_their_full_keys(page):
+    labels = page.evaluate("""
+async () => {
+  const m = await import('/player-table-model.js');
+  const model = m.buildPlayerTableModel(['A'], 'Non Spike PB Snaps', ['M1'], []);
+  return {
+    snaps: model.columns.filter((c) => c.kind === 'snaps').map((c) => [c.key, c.label]),
+    plain: [m.snapsLabel('PR Opp'), m.snapsLabel('TPS PR Opp')],
+  };
+}
+""")
+
+    assert labels["snaps"] == [
+        ["Non Spike PB Snaps", "PB Snaps"],
+        ["TPS Non Spike PB Snaps", "TPS PB Snaps"],
+    ]
+    assert labels["plain"] == ["PR Opp", "TPS PR Opp"]
+
+
+def test_scope_note_is_for_the_ol_only(page):
+    notes = page.evaluate("""
+async () => {
+  const d = await import('/data.js');
+  return [
+    d.scopeNote({ threshold_field: 'PR Opp' }),
+    d.scopeNote({ threshold_field: 'Non Spike PB Snaps' }),
+  ];
+}
+""")
+
+    assert notes == ["", "For OL, only non-spike pass block snaps are considered."]
 
 
 def test_read_layout_heads_each_player_with_name_team_and_linemates(page):

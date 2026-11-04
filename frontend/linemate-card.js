@@ -25,6 +25,7 @@ import {
   metadata,
   appliedThreshold,
   thresholdClauses,
+  scopeNote,
 } from "./data.js";
 import { meetsThreshold, JOINED_NFL } from "./pinned-impact.js";
 import { LINEMATE_POSITIONS, LINEMATE_SIZE_REMINDER_AT } from "./config.js";
@@ -43,7 +44,7 @@ import {
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
-import { TABLE_MODE_READ, buildPlayerTableModel, readLayout } from "./player-table-model.js";
+import { TABLE_MODE_READ, buildPlayerTableModel, readLayout, snapsLabel } from "./player-table-model.js";
 import { placePopup } from "./popup-position.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
@@ -427,7 +428,7 @@ function renderLinemateReadTable(tableEl, players, cat) {
   const labelCell = (column) => {
     const th = document.createElement("th");
     th.className = "linemate-read-label";
-    th.textContent = column.key;
+    th.textContent = column.label ?? column.key;
     return th;
   };
 
@@ -505,7 +506,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       return;
     }
     headRow.appendChild(
-      makeSortableHeader(label, label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
+      makeSortableHeader(snapsLabel(label), label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
     );
   });
   thead.appendChild(headRow);
@@ -605,6 +606,10 @@ export function renderLinemateCardBody(entry) {
     IS_CAREER ? JOINED_NFL : null
   ).join(" / ");
   rosterNoteEl.textContent = `${roster.length} ${roster.length === 1 ? noun.one : noun.many} with ${rosterThreshold}.`;
+
+  const scopeEl = cardEl.querySelector(".linemate-card-scope");
+  scopeEl.textContent = scopeNote(cat);
+  scopeEl.hidden = !scopeEl.textContent;
 
   // With no roster cap, a very low threshold puts many players on the card;
   // past the old cap's size the card says a higher threshold keeps it compact.

@@ -266,6 +266,12 @@ export function thresholdFieldLabel(cat) {
   return cat.threshold_field === "PR Opp" ? "pass rush opportunities" : "non-spike pass block snaps";
 }
 
+// The sentence under the threshold line on every OL card (Player, Comparison, Linemate/NFL
+// Alumni): the OL's snap count is the non-spike one. The front 7 has none ("").
+export function scopeNote(cat) {
+  return cat.threshold_field === "PR Opp" ? "" : "For OL, only non-spike pass block snaps are considered.";
+}
+
 // Rank (1 = best) and percentile (100 = best) for `value` on metric `key`
 // among `pool`, respecting the metric's higher/lower-is-better direction
 // (see PASS_RUSH_METRICS / PASS_BLOCK_METRICS in main.py). Ties share a

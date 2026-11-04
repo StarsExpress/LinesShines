@@ -68,7 +68,7 @@ MERGE_CARD_JS = "async () => {" + SETUP_JS + """
   const el = (cls, tag = 'div') => { const e = document.createElement(tag); e.className = cls; return e; };
   const card = el('scout-card scout-card--merge', 'aside');
   const table = el('merge-table', 'table');
-  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), table);
+  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
   m.renderMergeCardBody(card, records, { key: null, dir: 'asc' });
   return [...table.querySelectorAll('.merge-pct-chip')].map((c) => c.className);
 }"""
@@ -215,7 +215,7 @@ def test_the_metric_order_puts_the_bonus_metrics_after_the_required_ones(page):
     assert metrics[-2:] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
 
 
-def test_player_card_has_only_the_pool_and_threshold_bullets(page):
+def test_the_front_7_player_card_has_only_the_pool_and_threshold_bullets(page):
     notes = page.evaluate("async () => {" + SETUP_JS + """
   const s = await import('/scout-card.js');
   const dom = await import('/dom.js');
@@ -224,7 +224,9 @@ def test_player_card_has_only_the_pool_and_threshold_bullets(page):
   return [...card.querySelectorAll('.scout-card-note')].map((e) => e.textContent);
 }""")
 
-    assert len(notes) == 2
+    # The third note is the OL's scope note, empty (and hidden) on the front 7 card.
+    assert len(notes) == 3
+    assert notes[2] == ""
     assert notes[1].startswith("Threshold: ≥ 100")
 
 
