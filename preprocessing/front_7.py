@@ -24,6 +24,8 @@ REQUIRED_COLUMNS = [
     "TPS Sacks",
     "TPS Hits",
     "TPS Pressures",
+    "Batted Passes",
+    "TPS Batted Passes",
 ]
 
 
@@ -63,6 +65,14 @@ def preprocess_front_7(league: League, season: int) -> None:
 
         positional_df["TPS Pressure Rate"] = percent_of(
             positional_df["TPS Pressures"], positional_df["TPS PR Opp"]
+        )
+
+        positional_df["Batted Pass Rate"] = percent_of(
+            positional_df["Batted Passes"], positional_df["PR Opp"]
+        )
+
+        positional_df["TPS Batted Pass Rate"] = percent_of(
+            positional_df["TPS Batted Passes"], positional_df["TPS PR Opp"]
         )
 
         positional_sheets.update({position: positional_df})

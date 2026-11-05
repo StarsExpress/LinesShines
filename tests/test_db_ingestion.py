@@ -42,6 +42,8 @@ def _write_front_7_xlsx(
             "TPS Pressures": [30],
             "Havoc": [24],
             "TPS Havoc": [12],
+            "Batted Passes": [6],
+            "TPS Batted Passes": [2],
             "Pass Rush Percent": [92.0],
             "TPS Pass Rush Percent": [95.0],
             "Win Rate": [15.0],
@@ -52,6 +54,8 @@ def _write_front_7_xlsx(
             "TPS Havoc Rate": [10.0],
             "PRP": [6.0],
             "TPS PRP": [7.5],
+            "Batted Pass Rate": [2.0],
+            "TPS Batted Pass Rate": [1.667],
             **(extra or {}),
         }
     ).drop(columns=list(drop))
@@ -484,5 +488,7 @@ def test_the_counts_behind_the_rates_are_stored(tmp_path):
     assert (rusher.wins, rusher.tps_wins) == (24, 9)
     assert (rusher.pressures, rusher.tps_pressures) == (60, 30)
     assert (rusher.havoc, rusher.tps_havoc) == (24, 12)
+    assert (rusher.batted_passes, rusher.tps_batted_passes) == (6, 2)
+    assert (rusher.batted_pass_rate, rusher.tps_batted_pass_rate) == (2.0, 1.667)
     assert (blocker.pressures, blocker.tps_pressures) == (25, 12)
     assert (blocker.havoc, blocker.tps_havoc) == (10, 6)

@@ -62,7 +62,7 @@ snap count descending. On the **Career page the same card is renamed "NFL Alumni
 gate, and every qualifying linemate is on the card. When the roster reaches
 `LINEMATE_SIZE_REMINDER_AT` (OL 6, DL 8 players; the old cap numbers, used only as the trigger), a
 reminder bullet says a higher threshold keeps the card compact (left out of the PNG). The
-summary block (Min/Median/RSWA/Max per metric, in that column order; metrics flagged `line_summary: false` — Pass Cov Percent and its TPS twin, whose ED and DI ranges differ too much for one line-wide number — are left out) is always computed over the
+summary block (Min/Median/RSWA/Max per metric, in that column order; metrics flagged `line_summary: false` — Pass Cov Percent, Batted Pass Rate and their TPS twins, whose ED and DI ranges differ too much for one line-wide number — are left out) is always computed over the
 **full roster on the card** — RSWA (Relative Snaps Weighted Average)
 weights each linemate's percentile by his own share of the roster's total snaps
 (`weight[t] = snaps[t] / sum(snaps)`), so a linemate who played more counts

@@ -36,6 +36,8 @@ PASS_RUSH_DATA_COLUMNS = (
     DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
     DataColumn("Havoc", "havoc", "Havoc", "int"),
     DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
+    DataColumn("Batted Passes", "batted_passes", "Batted Passes", "int"),
+    DataColumn("TPS Batted Passes", "tps_batted_passes", "TPS Batted Passes", "int"),
     DataColumn(
         "Pass Rush Percent", "pass_cov_percent", "Pass Cov Percent", "complement"
     ),
@@ -53,6 +55,13 @@ PASS_RUSH_DATA_COLUMNS = (
     DataColumn("TPS Havoc Rate", "tps_havoc_rate", "TPS Havoc Rate", "float"),
     DataColumn("PRP", "prp", "PRP", "float"),
     DataColumn("TPS PRP", "tps_prp", "TPS PRP", "float"),
+    DataColumn("Batted Pass Rate", "batted_pass_rate", "Batted Pass Rate", "float"),
+    DataColumn(
+        "TPS Batted Pass Rate",
+        "tps_batted_pass_rate",
+        "TPS Batted Pass Rate",
+        "float",
+    ),
 )
 
 

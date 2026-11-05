@@ -69,6 +69,8 @@ PASS_RUSH_CAREER = CareerSpec(
         "tps_pressures",
         "havoc",
         "tps_havoc",
+        "batted_passes",
+        "tps_batted_passes",
     ),
     order_attr="pr_opp",
     complement_snaps=(

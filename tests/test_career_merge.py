@@ -55,6 +55,8 @@ def _rush_row(season, player_id, position="ED", team_code=AKRON_ID, **values):
         tps_havoc_rate=10.0,
         prp=10.0,
         tps_prp=10.0,
+        batted_pass_rate=1.0,
+        tps_batted_pass_rate=1.0,
         pass_rush_snaps=90,
         pass_play_snaps=100,
         tps_pass_rush_snaps=36,
@@ -449,3 +451,34 @@ def test_career_counts_of_the_offensive_line_are_summed_too(sess):
 
     assert (record["Pressures"], record["TPS Pressures"]) == (50, 12)
     assert (record["Havoc"], record["TPS Havoc"]) == (12, 4)
+
+
+def test_career_batted_passes_are_summed_and_their_rate_is_weighted_by_pr_opp(sess):
+    sess.add(
+        _rush_row(
+            2023,
+            1,
+            pr_opp=100,
+            batted_passes=2,
+            batted_pass_rate=2.0,
+            tps_batted_passes=1,
+        )
+    )
+    sess.add(
+        _rush_row(
+            2024,
+            1,
+            pr_opp=300,
+            batted_passes=3,
+            batted_pass_rate=1.0,
+            tps_batted_passes=2,
+        )
+    )
+    sess.add(NCAAFPassRushCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = _merge_rush(sess)
+
+    assert (record["Batted Passes"], record["TPS Batted Passes"]) == (5, 3)
+    # (2.0 x 100 + 1.0 x 300) / 400, which is also 5 / 400.
+    assert record["Batted Pass Rate"] == 1.25

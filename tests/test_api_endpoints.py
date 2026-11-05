@@ -108,7 +108,13 @@ def test_pass_cov_percent_metrics_are_higher_is_better_neutral_and_listed_last(
 
     # Axis pickers and the Comparison and Linemate cards follow this order: the
     # bonus metrics come after every required one.
-    assert keys[-3:] == ["TPS PRP", "Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert keys[-5:] == [
+        "TPS PRP",
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
 
     for key in ("Pass Cov Percent", "TPS Pass Cov Percent"):
         assert metrics[key]["higher_is_better"] is True
@@ -125,11 +131,16 @@ def test_pass_cov_percent_metrics_are_higher_is_better_neutral_and_listed_last(
     )
 
 
-def test_only_the_two_pass_cov_metrics_are_bonus(client, seeded_db):
+def test_only_the_pass_cov_and_batted_pass_metrics_are_bonus(client, seeded_db):
     meta = client.get("/api/nfl/metadata").json()
     bonus = [k for k, m in meta["pass_rush"]["metrics"].items() if m.get("bonus")]
 
-    assert bonus == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert bonus == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
     assert not any(m.get("bonus") for m in meta["pass_block"]["metrics"].values())
 
 
@@ -328,6 +339,8 @@ def test_the_volume_of_each_rate_is_its_count_and_composites_have_none(
     ]
     assert rush["Pressure Rate"]["volume"] == "Pressures"
     assert rush["TPS Havoc Rate"]["volume"] == "TPS Havoc"
+    assert rush["Batted Pass Rate"]["volume"] == "Batted Passes"
+    assert rush["TPS Batted Pass Rate"]["volume"] == "TPS Batted Passes"
     assert block["Allowed Pressure %"]["volume"] == "Pressures"
     assert block["TPS Allowed Havoc %"]["volume"] == "TPS Havoc"
     assert block["TPS Proportion %"]["volume"] == "TPS Non Spike PB Snaps"
@@ -337,3 +350,35 @@ def test_the_volume_of_each_rate_is_its_count_and_composites_have_none(
 
     assert not any("volume" in rush[k] for k in composites)
     assert not any("volume" in block[k] for k in ("PBE", "TPS PBE"))
+
+
+def test_batted_pass_rate_is_a_ranked_bonus_metric_that_is_never_charted(
+    client, seeded_db
+):
+    metrics = client.get("/api/nfl/metadata").json()["pass_rush"]["metrics"]
+
+    for key in ("Batted Pass Rate", "TPS Batted Pass Rate"):
+        assert metrics[key]["bonus"] is True
+        assert metrics[key]["higher_is_better"] is True
+        assert metrics[key]["chartable"] is False
+        assert metrics[key]["line_summary"] is False
+        assert metrics[key]["decimals"] == 2
+        assert "neutral" not in metrics[key]
+
+    # Every other metric stays chartable.
+    assert all(
+        meta.get("chartable", True)
+        for key, meta in metrics.items()
+        if "Batted" not in key
+    )
+
+
+def test_a_front_7_record_carries_the_batted_pass_counts_and_rates(client, seeded_db):
+    records = client.get(
+        "/api/nfl/pass_rush", params={"season": 2025, "position": "ED"}
+    ).json()["records"]
+
+    (rusher,) = [r for r in records if r["player"] == "T. Test"]
+
+    assert (rusher["Batted Passes"], rusher["TPS Batted Passes"]) == (6, 2)
+    assert (rusher["Batted Pass Rate"], rusher["TPS Batted Pass Rate"]) == (2.0, 1.667)

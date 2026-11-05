@@ -32,11 +32,13 @@ FRONT_7_RAW = {
     "sacks": [2],
     "hits": [3],
     "total_pressures": [10],
+    "batted_passes": [4],
     "true_pass_set_pass_rush_opp": [60],
     "true_pass_set_pass_rush_wins": [9],
     "true_pass_set_sacks": [1],
     "true_pass_set_hits": [2],
     "true_pass_set_total_pressures": [6],
+    "true_pass_set_batted_passes": [3],
 }
 
 OL_RAW = {
@@ -345,3 +347,20 @@ def test_the_front_7_workbook_keeps_wins_and_tps_wins(league_folders):
     ).iloc[0]
 
     assert (row["Wins"], row["TPS Wins"]) == (12, 9)
+
+
+def test_the_front_7_workbook_has_the_batted_pass_counts_and_rates(league_folders):
+    pd.DataFrame(FRONT_7_RAW).to_csv(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "csv"), index=False
+    )
+
+    preprocess_front_7(League.NFL, 2025)
+
+    row = pd.read_excel(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "xlsx"),
+        sheet_name="ED",
+    ).iloc[0]
+
+    assert (row["Batted Passes"], row["TPS Batted Passes"]) == (4, 3)
+    # 4 / 100 and 3 / 60, as percentages.
+    assert (row["Batted Pass Rate"], row["TPS Batted Pass Rate"]) == (4.0, 5.0)

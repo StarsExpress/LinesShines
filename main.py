@@ -161,6 +161,29 @@ PASS_RUSH_METRICS = {
         "note": PASS_COV_PERCENT_NOTE,
         "pff_note": "Pass cov percent on true pass sets",
     },
+    # Bonus, ranked on the rate like any other, but `chartable: False` keeps both out of the axis
+    # menus (they are never plotted) and `line_summary: False` out of the Line Summary (a line mixes
+    # ED and DI). A batted pass is rare, so the rate is shown to `decimals` places, not the usual one.
+    "Batted Pass Rate": {
+        "unit": "%",
+        "volume": "Batted Passes",
+        "higher_is_better": True,
+        "bonus": True,
+        "chartable": False,
+        "line_summary": False,
+        "decimals": 2,
+        "pff_note": "Batted passes / pass rush opportunities",
+    },
+    "TPS Batted Pass Rate": {
+        "unit": "%",
+        "volume": "TPS Batted Passes",
+        "higher_is_better": True,
+        "bonus": True,
+        "chartable": False,
+        "line_summary": False,
+        "decimals": 2,
+        "pff_note": "Batted pass rate on true pass sets",
+    },
 }
 
 # Responses smaller than this are never compressed.

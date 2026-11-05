@@ -74,6 +74,10 @@ class PassRushMetricsMixin:
     havoc = Column(Integer)  # Havoc = Sacks + Hits.
     tps_havoc = Column(Integer)  # TPS Havoc.
 
+    # The passes a rusher knocked down at the line, and their rate per PR Opp.
+    batted_passes = Column(Integer)  # Batted Passes.
+    tps_batted_passes = Column(Integer)  # TPS Batted Passes.
+
     pass_cov_percent = Column(Float)  # Pass Cov Percent = 100 - Pass Rush Percent.
     tps_pass_cov_percent = Column(Float)  # TPS Pass Cov Percent.
 
@@ -88,6 +92,9 @@ class PassRushMetricsMixin:
 
     prp = Column(Float)  # PRP.
     tps_prp = Column(Float)  # TPS PRP.
+
+    batted_pass_rate = Column(Float)  # Batted Pass Rate.
+    tps_batted_pass_rate = Column(Float)  # TPS Batted Pass Rate.
 
 
 class PassBlockMetricsMixin:

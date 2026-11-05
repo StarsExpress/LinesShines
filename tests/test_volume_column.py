@@ -112,8 +112,8 @@ def test_the_required_section_has_a_volume_and_rate_header_and_no_other_section_
     assert sections["Metadata"]["volumes"] == []
     assert sections["Bonus Metrics"]["heads"] == []
 
-    # The Bonus rows have no count either, so they carry the dash.
-    assert sections["Bonus Metrics"]["volumes"] == ["–", "–"]
+    # Pass Cov Percent has no count, so it carries the dash; the Batted Pass rows show theirs.
+    assert sections["Bonus Metrics"]["volumes"] == ["–", "–", "106", "107"]
 
 
 def test_the_volume_is_never_a_ranked_chip_and_the_row_labels_stay_the_metrics(page):

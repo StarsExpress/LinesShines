@@ -77,6 +77,8 @@ def seeded_db():
                 tps_pressures=24,
                 havoc=24,
                 tps_havoc=9,
+                batted_passes=6,
+                tps_batted_passes=2,
                 pass_cov_percent=8.0,
                 tps_pass_cov_percent=5.0,
                 win_rate=15.0,
@@ -87,6 +89,8 @@ def seeded_db():
                 tps_havoc_rate=10.0,
                 prp=6.0,
                 tps_prp=7.5,
+                batted_pass_rate=2.0,
+                tps_batted_pass_rate=1.667,
             )
         )
 

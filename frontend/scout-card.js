@@ -47,11 +47,13 @@ import { snapsLabel } from "./player-table-model.js";
 export const scoutCards = new Map();
 
 // Rounds to DISPLAY_DECIMALS for display only — the underlying record (and
-// everything plotted from it) keeps its full DB precision untouched.
+// everything plotted from it) keeps its full DB precision untouched. A metric whose rates are
+// small (Batted Pass Rate) names its own `decimals` in the metadata.
 export function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
-  const rounded = typeof value === "number" ? value.toFixed(DISPLAY_DECIMALS) : value;
+  const decimals = meta && meta.decimals != null ? meta.decimals : DISPLAY_DECIMALS;
+  const rounded = typeof value === "number" ? value.toFixed(decimals) : value;
   return `${rounded}${unit}`;
 }
 

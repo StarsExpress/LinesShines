@@ -107,7 +107,12 @@ def test_the_pass_rush_player_card_has_metadata_required_and_bonus_sections(page
     assert titles == ["Metadata", "Required Metrics", "Bonus Metrics"]
     assert rows["Metadata"] == ["Games", "PR Opp", "TPS PR Opp"]
 
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass",
+        "TPS Batted Pass",
+    ]
     assert rows["Required Metrics"][:2] == ["Win", "TPS Win"]
 
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
@@ -212,7 +217,12 @@ def test_the_metric_order_puts_the_bonus_metrics_after_the_required_ones(page):
     )
 
     assert metrics[0] == "Win Rate"
-    assert metrics[-2:] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert metrics[-4:] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
 
 
 def test_the_front_7_player_card_has_only_the_pool_and_threshold_bullets(page):
@@ -285,3 +295,41 @@ def test_the_neutral_chip_text_is_readable(cls):
     hi, lo = sorted((luminance(background), luminance(colour)), reverse=True)
 
     assert (hi + 0.05) / (lo + 0.05) >= 4.5
+
+
+def test_batted_pass_rate_is_left_out_of_the_line_summary_and_the_axis_menus(page):
+    summary_keys = page.evaluate("async () => {" + SETUP_JS + """
+  const l = await import('/linemate-card.js');
+  return Object.keys(l.computeThreeMRSWA(records, cat));
+}""")
+    axis_options = page.evaluate(
+        "() => [...document.querySelectorAll('#x-metric-select option')].map((o) => o.value)"
+    )
+
+    assert "Win Rate" in summary_keys
+    assert not {"Batted Pass Rate", "TPS Batted Pass Rate"} & set(summary_keys)
+    assert "Win Rate" in axis_options
+    assert not {"Batted Pass Rate", "TPS Batted Pass Rate"} & set(axis_options)
+
+
+def test_batted_pass_rate_is_ranked_on_the_player_card_to_two_decimals(page):
+    out = page.evaluate("async () => {" + SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  // The record stays in the pool, so it gets a real rank.
+  const record = records[0];
+  record['Batted Pass Rate'] = 1.2345;
+  record['Batted Passes'] = 7;
+  s.renderScoutCardStats(card, record);
+  const label = [...card.querySelectorAll('dt')].find((e) => e.textContent === 'Batted Pass');
+  const cells = [];
+  for (let e = label.nextElementSibling; e && e.tagName === 'DD' && cells.length < 3; e = e.nextElementSibling) {
+    cells.push(e.textContent);
+  }
+  return cells;
+}""")
+
+    assert out[0] == "7"
+    assert out[1] == "1.23%"
+    assert re.fullmatch(r"#\d+/\d+ · \d+(st|nd|rd|th) pct", out[2])

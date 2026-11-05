@@ -908,7 +908,8 @@ export function populateCategoryDependentControls() {
   if (cat.seasons.map(String).includes(previousSeason)) els.season.value = previousSeason;
 
   // Metrics
-  const metricKeys = Object.keys(cat.metrics);
+  // A metric flagged `chartable: false` (Batted Pass Rate) is ranked on the cards but never plotted.
+  const metricKeys = Object.keys(cat.metrics).filter((key) => cat.metrics[key].chartable !== false);
   [els.xMetric, els.yMetric].forEach((select) => {
     select.innerHTML = "";
     metricKeys.forEach((m) => {

@@ -258,7 +258,12 @@ def test_read_groups_the_dl_rows_and_leaves_the_ol_without_a_bonus_section(page)
         dl["thresholdField"],
         f"TPS {dl['thresholdField']}",
     ]
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
     assert "Win Rate" in rows["Required Metrics"]
     assert all(span == 4 for _, span, _ in dl["sections"])  # Label column + 3 players.
 

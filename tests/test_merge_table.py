@@ -382,7 +382,12 @@ def test_read_shows_a_heading_row_for_each_section_with_the_bonus_metrics_last(p
         out["thresholdField"],
         f"TPS {out['thresholdField']}",
     ]
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
     assert "Win Rate" in rows["Required Metrics"]
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
         rows["Required Metrics"]
