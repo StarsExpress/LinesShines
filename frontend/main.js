@@ -448,10 +448,16 @@ function attachEvents() {
   // was slamming the whole panel shut on every single pick. composedPath()
   // is captured at dispatch time, before that mutation, so it still
   // includes playersControl.
+  //
+  // The Below Threshold popup belongs to this panel too: its Set Threshold and Close buttons sit
+  // outside playersControl, but a click there must not shut the panel, or the user lands on a
+  // closed panel and has to reopen it to see the player the threshold just let in.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     if (els.playersPanel.hidden) return;
-    if (!e.composedPath().includes(els.playersControl)) closePlayersPanel();
+    const path = e.composedPath();
+    if (path.includes(els.belowThresholdOverlay)) return;
+    if (!path.includes(els.playersControl)) closePlayersPanel();
   });
 
   // Dragging the slider or typing a number only updates these two controls'

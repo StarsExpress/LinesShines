@@ -68,7 +68,7 @@ clicked player — and possibly others — no longer belong in "below threshold"
 dropdown; the query text in `els.playersInput` is deliberately left untouched through this whole
 flow (nothing writes to it) so the re-run picks up exactly where the user was, same convention as
 picking a normal candidate (see `renderPlayersDropdown()`'s own comment on why it doesn't
-clear/close on pick). Setting a lower threshold this way can surface *other* players whose values
+clear/close on pick). The popup counts as part of the Players control for the outside-click rule in `main.js` (a click inside `#below-threshold-overlay`, on Set Threshold or Close, never closes the Players panel), so the panel is still open, with the re-run's dropdown showing the newly qualified player, once the popup is gone (before this, that click closed the panel and the user had to reopen it). Setting a lower threshold this way can surface *other* players whose values
 also now clear the new bar, not just the one clicked — this is the same global threshold filter
 every other control shares, and is intentional, not a bug to special-case around. The popup itself
 follows the app's existing single-static-overlay convention verbatim (`#merge-edit-overlay`'s
