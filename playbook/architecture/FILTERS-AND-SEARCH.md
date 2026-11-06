@@ -19,6 +19,14 @@ The Teams header's ⓘ carries the complementary half: Teams only *highlights* (
 `render.js`'s `isDimmed`), never shrinks the percentile pool — which is determined by position and
 snap threshold alone. If Teams ever starts filtering the pool, that popover's text is wrong.
 
+**Career: the Status Filter only dims.** On `/ncaaf-career` the Status Filter (Joined NFL, Prospects; only Prospects is lit by default, Joined NFL stays in the pool as the dimmed yardstick) behaves like Teams: it is Apply-gated and joins the same union in `render()`'s `isDimmed`: a player is lit when his
+status is lit, or his team is chosen, or his name is selected (a status that is off lights nobody by itself). Because a full
+Teams selection already lights everyone, the Career page starts with **No Teams** (`main.js`'s `setUpCareerControls()`), so
+the lit status shows at first. The Status Filter never changes the percentile pool. A switch under the Status button, "Enable Status" (on at first), takes Status out of the union when it is off (Apply-gated; `litStatusesText()` then returns an empty string and the ticks are kept), so Teams and Players can work alone. The two bars do not follow the Status Filter:
+both are always usable, and a bar of a status that is off still counts. The pool is the union of the Joined
+NFL players above the first bar and the Prospects above the second, so toggling a status never moves a percentile.
+The ⓘ of the Status Filter says so; keep its text in sync.
+
 **The Players search pool has its own live, non-Apply-gated data track, deliberately separate from
 the chart's Apply-gated one** (`data.js`'s `playerPoolRecords`/`playerPoolCategory`, kept current by
 `updatePlayerPool()`): every other piece of chart state (`currentRecords`/`currentSliceCategory`/
@@ -60,7 +68,7 @@ clicked player — and possibly others — no longer belong in "below threshold"
 dropdown; the query text in `els.playersInput` is deliberately left untouched through this whole
 flow (nothing writes to it) so the re-run picks up exactly where the user was, same convention as
 picking a normal candidate (see `renderPlayersDropdown()`'s own comment on why it doesn't
-clear/close on pick). Setting a lower threshold this way can surface *other* players whose values
+clear/close on pick). The popup counts as part of the Players control for the outside-click rule in `main.js` (a click inside `#below-threshold-overlay`, on Set Threshold or Close, never closes the Players panel), so the panel is still open, with the re-run's dropdown showing the newly qualified player, once the popup is gone (before this, that click closed the panel and the user had to reopen it). Setting a lower threshold this way can surface *other* players whose values
 also now clear the new bar, not just the one clicked — this is the same global threshold filter
 every other control shares, and is intentional, not a bug to special-case around. The popup itself
 follows the app's existing single-static-overlay convention verbatim (`#merge-edit-overlay`'s

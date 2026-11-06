@@ -34,6 +34,7 @@ from database.columns import (
     PASS_BLOCK_DATA_COLUMNS,
     PASS_RUSH_DATA_COLUMNS,
     row_to_payload,
+    with_tps_proportion,
 )
 
 
@@ -65,6 +66,18 @@ class PassRushMetricsMixin:
     pr_opp = Column(Integer)  # PR Opp.
     tps_pr_opp = Column(Integer)  # TPS PR Opp.
 
+    # The counts behind Win Rate, Pressure Rate and Havoc Rate (shown as the Volume on the card).
+    wins = Column(Integer)  # Wins.
+    tps_wins = Column(Integer)  # TPS Wins.
+    pressures = Column(Integer)  # Pressures = Sacks + Hits + Hurries.
+    tps_pressures = Column(Integer)  # TPS Pressures.
+    havoc = Column(Integer)  # Havoc = Sacks + Hits.
+    tps_havoc = Column(Integer)  # TPS Havoc.
+
+    # The passes a rusher knocked down at the line, and their rate per PR Opp.
+    batted_passes = Column(Integer)  # Batted Passes.
+    tps_batted_passes = Column(Integer)  # TPS Batted Passes.
+
     pass_cov_percent = Column(Float)  # Pass Cov Percent = 100 - Pass Rush Percent.
     tps_pass_cov_percent = Column(Float)  # TPS Pass Cov Percent.
 
@@ -80,12 +93,21 @@ class PassRushMetricsMixin:
     prp = Column(Float)  # PRP.
     tps_prp = Column(Float)  # TPS PRP.
 
+    batted_pass_rate = Column(Float)  # Batted Pass Rate.
+    tps_batted_pass_rate = Column(Float)  # TPS Batted Pass Rate.
+
 
 class PassBlockMetricsMixin:
     """The offensive-line pass-block metric columns (see `PASS_BLOCK_DATA_COLUMNS`)."""
 
     non_spike_pb_snaps = Column(Integer)  # Non Spike PB Snaps.
     tps_non_spike_pb_snaps = Column(Integer)  # TPS Non Spike PB Snaps.
+
+    # The counts behind Allowed Pressure % and Allowed Havoc % (shown as the Volume on the card).
+    pressures = Column(Integer)  # Pressures allowed.
+    tps_pressures = Column(Integer)  # TPS Pressures allowed.
+    havoc = Column(Integer)  # Havoc allowed = Sacks + Hits allowed.
+    tps_havoc = Column(Integer)  # TPS Havoc allowed.
 
     allowed_pressure_pct = Column(Float)  # Allowed Pressure %.
     tps_allowed_pressure_pct = Column(Float)  # TPS Allowed Pressure %.
@@ -146,6 +168,82 @@ class NFLPassBlockStat(StatIdentityMixin, PassBlockMetricsMixin, Base):
     )
 
 
+class NCAAFTeam(Base):
+    __tablename__ = "ncaaf_teams"
+
+    franchise_id = Column(Integer, primary_key=True)  # PFF's stable school id.
+    full_name = Column(String, nullable=False)
+    primary_color = Column(String(7))  # Hex like "#0085CA"; may be unset for now.
+
+    pass_rush_stats = relationship("NCAAFPassRushStat", back_populates="team")
+    pass_block_stats = relationship("NCAAFPassBlockStat", back_populates="team")
+
+
+class NCAAFPassRushStat(StatIdentityMixin, PassRushMetricsMixin, Base):
+    __tablename__ = "ncaaf_pass_rush_stats"
+
+    # College team key is franchise_id, not a short code.
+    team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
+    conference = Column(String, nullable=False)  # Attached at conversion; in scope.
+
+    # Behind Pass Cov Percent, for Career merge only; never in API payload.
+    pass_rush_snaps = Column(Integer)  # PR Snaps.
+    pass_play_snaps = Column(Integer)  # Snap Counts Pass Play.
+    tps_pass_rush_snaps = Column(Integer)  # TPS PR Snaps.
+    tps_pass_play_snaps = Column(Integer)  # TPS Snap Counts Pass Play.
+
+    team = relationship("NCAAFTeam", back_populates="pass_rush_stats")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "position",
+            "player_id",
+            name="uq_ncaaf_pr_season_position_player_id",
+        ),
+        Index("idx_ncaaf_pr_filter", "season", "position"),
+        Index("idx_ncaaf_pr_player_id", "player_id"),
+    )
+
+
+class NCAAFPassBlockStat(StatIdentityMixin, PassBlockMetricsMixin, Base):
+    __tablename__ = "ncaaf_pass_block_stats"
+
+    team_code = Column(Integer, ForeignKey("ncaaf_teams.franchise_id"), nullable=False)
+    conference = Column(String, nullable=False)
+
+    team = relationship("NCAAFTeam", back_populates="pass_block_stats")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "position",
+            "player_id",
+            name="uq_ncaaf_pb_season_position_player_id",
+        ),
+        Index("idx_ncaaf_pb_filter", "season", "position"),
+        Index("idx_ncaaf_pb_player_id", "player_id"),
+    )
+
+
+class NCAAFPassRushCareerMember(Base):
+    """Who is on the college Career page for the front 7 (see `database/career.py`)."""
+
+    __tablename__ = "ncaaf_pass_rush_career_members"
+
+    player_id = Column(Integer, primary_key=True, autoincrement=False)
+    status = Column(String, nullable=False)  # A `CareerStatus` value.
+
+
+class NCAAFPassBlockCareerMember(Base):
+    """Who is on the college Career page for the OL (see `database/career.py`)."""
+
+    __tablename__ = "ncaaf_pass_block_career_members"
+
+    player_id = Column(Integer, primary_key=True, autoincrement=False)
+    status = Column(String, nullable=False)  # A `CareerStatus` value.
+
+
 # Serialization helpers used by main.py to keep API payload shape
 # identical to what frontend already expects (space-and-mixed-case keys
 # preserved so no client-side renaming is needed). Both read the one
@@ -157,4 +255,15 @@ def pass_rush_row_to_dict(row: NFLPassRushStat) -> dict:
 
 
 def pass_block_row_to_dict(row: NFLPassBlockStat) -> dict:
-    return row_to_payload(row, PASS_BLOCK_DATA_COLUMNS)
+    return with_tps_proportion(row_to_payload(row, PASS_BLOCK_DATA_COLUMNS))
+
+
+def ncaaf_pass_rush_row_to_dict(row: NCAAFPassRushStat) -> dict:
+    return {**row_to_payload(row, PASS_RUSH_DATA_COLUMNS), "conference": row.conference}
+
+
+def ncaaf_pass_block_row_to_dict(row: NCAAFPassBlockStat) -> dict:
+    return {
+        **with_tps_proportion(row_to_payload(row, PASS_BLOCK_DATA_COLUMNS)),
+        "conference": row.conference,
+    }

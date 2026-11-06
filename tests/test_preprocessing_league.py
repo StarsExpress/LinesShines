@@ -8,28 +8,43 @@ from config import League
 from preprocessing.front_7 import preprocess_front_7
 from preprocessing.offensive_line import preprocess_offensive_line
 from preprocessing.preprocess import (
+    apply_league_scope,
     main,
     parse_arguments,
     percent_of,
     season_file_path,
 )
 
+AKRON_ID = 102  # MAC in every season.
+ALABAMA_ID = 103  # SEC in every season.
+BYU_ID = 128  # Independent until 2022, Big 12 from 2023.
+FCS_ID = 101  # Out of scope.
+UNKNOWN_ID = 999999
+
 FRONT_7_RAW = {
     "player": ["Alex Edge"],
+    "team_name": ["AKRON"],
+    "franchise_id": [AKRON_ID],
     "position": ["ED"],
     "player_game_count": [5],
     "pass_rush_opp": [100],
+    "pass_rush_wins": [12],
     "sacks": [2],
     "hits": [3],
     "total_pressures": [10],
+    "batted_passes": [4],
     "true_pass_set_pass_rush_opp": [60],
+    "true_pass_set_pass_rush_wins": [9],
     "true_pass_set_sacks": [1],
     "true_pass_set_hits": [2],
     "true_pass_set_total_pressures": [6],
+    "true_pass_set_batted_passes": [3],
 }
 
 OL_RAW = {
     "player": ["Taylor Tackle"],
+    "team_name": ["AKRON"],
+    "franchise_id": [AKRON_ID],
     "position": ["T"],
     "player_game_count": [5],
     "non_spike_pass_block": [200],
@@ -52,7 +67,7 @@ CASES = [
 def league_folders(tmp_path, monkeypatch):
     """Point both leagues at empty temporary folders."""
     paths = {League.NFL: str(tmp_path / "nfl"), League.NCAAF: str(tmp_path / "ncaaf")}
-    monkeypatch.setattr(config, "LEAGUE_DATA_PATHS", paths)
+    monkeypatch.setattr(config.leagues, "LEAGUE_DATA_PATHS", paths)
     monkeypatch.setattr("preprocessing.preprocess.LEAGUE_DATA_PATHS", paths)
 
     for folder in paths.values():
@@ -201,3 +216,151 @@ def test_percent_of_rounds_to_the_configured_decimals():
     result = percent_of(pd.Series([1.0]), pd.Series([3.0]))
 
     assert list(result) == [round(100.0 / 3.0, config.ROUNDING_DECIMALS)]
+
+
+def _schools_df(*franchise_ids: int) -> pd.DataFrame:
+    """One renamed-CSV row per franchise id, as apply_league_scope sees it."""
+    return pd.DataFrame(
+        {
+            "Team": [f"SCHOOL {franchise_id}" for franchise_id in franchise_ids],
+            "Franchise Id": list(franchise_ids),
+        }
+    )
+
+
+def test_the_nfl_keeps_every_row_and_gets_no_conference():
+    schools_df = _schools_df(AKRON_ID, UNKNOWN_ID)
+
+    scoped_df = apply_league_scope(schools_df, League.NFL, 2025)
+
+    assert len(scoped_df) == 2
+    assert "Conference" not in scoped_df.columns
+
+
+def test_ncaaf_rows_get_the_conference_of_their_school_and_season():
+    scoped_df = apply_league_scope(
+        _schools_df(AKRON_ID, ALABAMA_ID), League.NCAAF, 2025
+    )
+
+    assert dict(zip(scoped_df["Franchise Id"], scoped_df["Conference"])) == {
+        AKRON_ID: "MAC",
+        ALABAMA_ID: "SEC",
+    }
+
+
+def test_ncaaf_schools_outside_the_scope_are_dropped():
+    scoped_df = apply_league_scope(_schools_df(AKRON_ID, FCS_ID), League.NCAAF, 2025)
+
+    assert list(scoped_df["Franchise Id"]) == [AKRON_ID]
+
+
+def test_a_school_is_dropped_in_the_seasons_before_it_joined_the_scope():
+    schools_df = _schools_df(BYU_ID)
+
+    assert apply_league_scope(schools_df, League.NCAAF, 2022).empty
+    assert list(apply_league_scope(schools_df, League.NCAAF, 2023)["Conference"]) == [
+        "Big 12"
+    ]
+
+
+def test_an_unknown_school_raises_naming_the_school_and_the_season():
+    with pytest.raises(ValueError, match=rf"ncaaf 2025.*SCHOOL {UNKNOWN_ID}"):
+        apply_league_scope(_schools_df(AKRON_ID, UNKNOWN_ID), League.NCAAF, 2025)
+
+
+def test_ncaaf_needs_the_franchise_id_column():
+    schools_df = _schools_df(AKRON_ID).drop(columns=["Franchise Id"])
+
+    with pytest.raises(ValueError, match=r"ncaaf 2025.*Franchise Id"):
+        apply_league_scope(schools_df, League.NCAAF, 2025)
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+def test_the_ncaaf_workbook_carries_the_conference_and_only_scoped_schools(
+    league_folders, category, preprocess, raw
+):
+    # Two rows per column: one scoped school and one out of scope.
+    scoped_and_out = {key: value + value for key, value in raw.items()}
+    scoped_and_out["franchise_id"] = [AKRON_ID, FCS_ID]
+    pd.DataFrame(scoped_and_out).to_csv(
+        season_file_path(League.NCAAF, category, 2025, "csv"), index=False
+    )
+
+    preprocess(League.NCAAF, 2025)
+
+    sheets = pd.read_excel(
+        season_file_path(League.NCAAF, category, 2025, "xlsx"), sheet_name=None
+    )
+    rows_df = pd.concat([sheet for sheet in sheets.values() if not sheet.empty])
+    assert list(rows_df["Conference"]) == ["MAC"]
+    assert list(rows_df["Franchise Id"]) == [AKRON_ID]
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+def test_the_nfl_workbook_has_no_conference_column(
+    league_folders, category, preprocess, raw
+):
+    pd.DataFrame(raw).to_csv(
+        season_file_path(League.NFL, category, 2025, "csv"), index=False
+    )
+
+    preprocess(League.NFL, 2025)
+
+    sheets = pd.read_excel(
+        season_file_path(League.NFL, category, 2025, "xlsx"), sheet_name=None
+    )
+    assert all("Conference" not in sheet.columns for sheet in sheets.values())
+
+
+@pytest.mark.parametrize("category, preprocess, raw", CASES)
+def test_the_workbook_keeps_the_counts_behind_the_rates(
+    league_folders, category, preprocess, raw
+):
+    pd.DataFrame(raw).to_csv(
+        season_file_path(League.NFL, category, 2025, "csv"), index=False
+    )
+
+    preprocess(League.NFL, 2025)
+
+    sheets = pd.read_excel(
+        season_file_path(League.NFL, category, 2025, "xlsx"), sheet_name=None
+    )
+    rows_df = pd.concat([sheet for sheet in sheets.values() if not sheet.empty])
+    row = rows_df.iloc[0]
+
+    # Havoc is Sacks + Hits; Pressures comes straight from the CSV.
+    assert row["Havoc"] == row["Sacks"] + row["Hits"]
+    assert row["TPS Havoc"] == row["TPS Sacks"] + row["TPS Hits"]
+    assert {"Pressures", "TPS Pressures"} <= set(rows_df.columns)
+
+
+def test_the_front_7_workbook_keeps_wins_and_tps_wins(league_folders):
+    pd.DataFrame(FRONT_7_RAW).to_csv(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "csv"), index=False
+    )
+
+    preprocess_front_7(League.NFL, 2025)
+
+    row = pd.read_excel(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "xlsx"),
+        sheet_name="ED",
+    ).iloc[0]
+
+    assert (row["Wins"], row["TPS Wins"]) == (12, 9)
+
+
+def test_the_front_7_workbook_has_the_batted_pass_counts_and_rates(league_folders):
+    pd.DataFrame(FRONT_7_RAW).to_csv(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "csv"), index=False
+    )
+
+    preprocess_front_7(League.NFL, 2025)
+
+    row = pd.read_excel(
+        season_file_path(League.NFL, "front_7_pass_rush", 2025, "xlsx"),
+        sheet_name="ED",
+    ).iloc[0]
+
+    assert (row["Batted Passes"], row["TPS Batted Passes"]) == (4, 3)
+    # 4 / 100 and 3 / 60, as percentages.
+    assert (row["Batted Pass Rate"], row["TPS Batted Pass Rate"]) == (4.0, 5.0)

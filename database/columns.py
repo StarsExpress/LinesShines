@@ -30,6 +30,14 @@ PASS_RUSH_DATA_COLUMNS = (
     DataColumn("Games", "games", "games", "int"),
     DataColumn("PR Opp", "pr_opp", "PR Opp", "int"),
     DataColumn("TPS PR Opp", "tps_pr_opp", "TPS PR Opp", "int"),
+    DataColumn("Wins", "wins", "Wins", "int"),
+    DataColumn("TPS Wins", "tps_wins", "TPS Wins", "int"),
+    DataColumn("Pressures", "pressures", "Pressures", "int"),
+    DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
+    DataColumn("Havoc", "havoc", "Havoc", "int"),
+    DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
+    DataColumn("Batted Passes", "batted_passes", "Batted Passes", "int"),
+    DataColumn("TPS Batted Passes", "tps_batted_passes", "TPS Batted Passes", "int"),
     DataColumn(
         "Pass Rush Percent", "pass_cov_percent", "Pass Cov Percent", "complement"
     ),
@@ -47,6 +55,13 @@ PASS_RUSH_DATA_COLUMNS = (
     DataColumn("TPS Havoc Rate", "tps_havoc_rate", "TPS Havoc Rate", "float"),
     DataColumn("PRP", "prp", "PRP", "float"),
     DataColumn("TPS PRP", "tps_prp", "TPS PRP", "float"),
+    DataColumn("Batted Pass Rate", "batted_pass_rate", "Batted Pass Rate", "float"),
+    DataColumn(
+        "TPS Batted Pass Rate",
+        "tps_batted_pass_rate",
+        "TPS Batted Pass Rate",
+        "float",
+    ),
 )
 
 
@@ -59,6 +74,10 @@ PASS_BLOCK_DATA_COLUMNS = (
         "TPS Non Spike PB Snaps",
         "int",
     ),
+    DataColumn("Pressures", "pressures", "Pressures", "int"),
+    DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
+    DataColumn("Havoc", "havoc", "Havoc", "int"),
+    DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
     DataColumn(
         "Allowed Pressure %", "allowed_pressure_pct", "Allowed Pressure %", "float"
     ),
@@ -75,6 +94,46 @@ PASS_BLOCK_DATA_COLUMNS = (
     DataColumn("PBE", "pbe", "PBE", "float"),
     DataColumn("TPS PBE", "tps_pbe", "TPS PBE", "float"),
 )
+
+
+# The four snap counts behind Pass Cov Percent, kept only for the college Career merge
+# (Career Pass Cov Percent = 100 - the sum of the rush snaps over the sum of the pass plays,
+# which the stored percentage alone cannot rebuild). They are never part of the /api payload,
+# so they are not in PASS_RUSH_DATA_COLUMNS; the ingestion reads them as extra columns.
+NCAAF_PASS_RUSH_SNAP_COLUMNS = (
+    DataColumn("PR Snaps", "pass_rush_snaps", "PR Snaps", "int"),
+    DataColumn("Snap Counts Pass Play", "pass_play_snaps", "Pass Play Snaps", "int"),
+    DataColumn("TPS PR Snaps", "tps_pass_rush_snaps", "TPS PR Snaps", "int"),
+    DataColumn(
+        "TPS Snap Counts Pass Play",
+        "tps_pass_play_snaps",
+        "TPS Pass Play Snaps",
+        "int",
+    ),
+)
+
+
+# The OL-only share of pass block snaps that were true pass sets. It is never stored: the API
+# computes it from the two snap counts, so the season and Career payloads stay in step.
+TPS_PROPORTION_API_KEY = "TPS Proportion %"
+TPS_PROPORTION_DECIMALS = 1
+
+
+def tps_proportion_pct(tps_snaps: int | None, snaps: int | None) -> float | None:
+    """TPS Non Spike PB Snaps / Non Spike PB Snaps x 100, or None when it is undefined."""
+    if tps_snaps is None or not snaps:
+        return None
+
+    return round(100.0 * tps_snaps / snaps, TPS_PROPORTION_DECIMALS)
+
+
+def with_tps_proportion(payload: dict) -> dict:
+    """The pass block payload with its TPS Proportion % added, from its two snap counts."""
+    payload[TPS_PROPORTION_API_KEY] = tps_proportion_pct(
+        payload.get("TPS Non Spike PB Snaps"), payload.get("Non Spike PB Snaps")
+    )
+
+    return payload
 
 
 def required_excel_headers(data_columns: tuple[DataColumn, ...]) -> tuple[str, ...]:
