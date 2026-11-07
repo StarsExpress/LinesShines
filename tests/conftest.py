@@ -19,7 +19,15 @@ os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
 import pytest
 import uvicorn
 from fastapi.testclient import TestClient
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
+)
 from main import app, engine, SessionLocal
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +71,14 @@ def seeded_db():
                 games=17,
                 pr_opp=300,
                 tps_pr_opp=120,
+                wins=40,
+                tps_wins=15,
+                pressures=60,
+                tps_pressures=24,
+                havoc=24,
+                tps_havoc=9,
+                batted_passes=6,
+                tps_batted_passes=2,
                 pass_cov_percent=8.0,
                 tps_pass_cov_percent=5.0,
                 win_rate=15.0,
@@ -73,6 +89,8 @@ def seeded_db():
                 tps_havoc_rate=10.0,
                 prp=6.0,
                 tps_prp=7.5,
+                batted_pass_rate=2.0,
+                tps_batted_pass_rate=1.667,
             )
         )
 
@@ -114,6 +132,10 @@ def seeded_db():
                 games=17,
                 non_spike_pb_snaps=500,
                 tps_non_spike_pb_snaps=200,
+                pressures=40,
+                tps_pressures=18,
+                havoc=15,
+                tps_havoc=5,
                 allowed_pressure_pct=5.0,
                 tps_allowed_pressure_pct=6.0,
                 allowed_havoc_pct=2.0,
@@ -144,6 +166,83 @@ def seeded_db():
             )
         )
 
+        sess.commit()
+
+    yield
+
+
+@pytest.fixture()
+def seeded_ncaaf_db():
+    """Wipe and load a small college dataset: Akron (2024-2025) and Alabama (2025
+    only) are the main pair; Ball State plays in 2024 only, so it is absent from
+    2025, the latest season the page loads on -- a school the Teams checklist
+    first sees on a switch to an earlier season."""
+    with SessionLocal() as sess:
+        sess.query(NCAAFPassRushStat).delete()
+        sess.query(NCAAFPassBlockStat).delete()
+        sess.query(NCAAFTeam).delete()
+        sess.commit()
+
+        sess.add(NCAAFTeam(franchise_id=102, full_name="Akron"))
+        sess.add(NCAAFTeam(franchise_id=103, full_name="Alabama"))
+        # Ball State plays in 2024 only, so it is absent from the latest season
+        # (2025) the page loads on -- a school first seen only on a season switch.
+        sess.add(NCAAFTeam(franchise_id=109, full_name="Ball State"))
+
+        metric_values = dict(
+            games=12,
+            pr_opp=200,
+            tps_pr_opp=80,
+            pass_cov_percent=8.0,
+            tps_pass_cov_percent=5.0,
+            win_rate=15.0,
+            tps_win_rate=18.0,
+            pressure_rate=20.0,
+            tps_pressure_rate=25.0,
+            havoc_rate=8.0,
+            tps_havoc_rate=10.0,
+            prp=6.0,
+            tps_prp=7.5,
+        )
+        for season, team_code, conference, player_id, player in (
+            (2024, 102, "MAC", 5001, "A. Akron"),
+            (2024, 109, "MAC", 5004, "D. Cardinal"),
+            (2025, 102, "MAC", 5001, "A. Akron"),
+            (2025, 103, "SEC", 5002, "B. Bama"),
+        ):
+            sess.add(
+                NCAAFPassRushStat(
+                    season=season,
+                    position="ED",
+                    team_code=team_code,
+                    conference=conference,
+                    player_id=player_id,
+                    player=player,
+                    abbr_name=player,
+                    **metric_values,
+                )
+            )
+
+        sess.add(
+            NCAAFPassBlockStat(
+                season=2025,
+                position="T",
+                team_code=103,
+                conference="SEC",
+                player_id=5003,
+                player="C. Tackle",
+                abbr_name="C. Tackle",
+                games=12,
+                non_spike_pb_snaps=400,
+                tps_non_spike_pb_snaps=150,
+                allowed_pressure_pct=5.0,
+                tps_allowed_pressure_pct=6.0,
+                allowed_havoc_pct=2.0,
+                tps_allowed_havoc_pct=3.0,
+                pbe=95.0,
+                tps_pbe=92.0,
+            )
+        )
         sess.commit()
 
     yield

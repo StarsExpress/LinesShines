@@ -13,6 +13,7 @@ import {
   appliedCategoryMeta,
   appliedFilters,
   currentRecords,
+  IS_CAREER,
   positionPool,
   rankAndPercentile,
   median,
@@ -20,8 +21,13 @@ import {
   logoSrc,
   teamColor,
   teamName,
+  teamLabel,
   metadata,
+  appliedThreshold,
+  thresholdClauses,
+  scopeNote,
 } from "./data.js";
+import { meetsThreshold, JOINED_NFL } from "./pinned-impact.js";
 import { LINEMATE_POSITIONS, LINEMATE_SIZE_REMINDER_AT } from "./config.js";
 import {
   ordinal,
@@ -38,7 +44,7 @@ import {
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { createInfoPopover } from "./info-popover.js";
-import { TABLE_MODE_READ, buildPlayerTableModel, readLayout } from "./player-table-model.js";
+import { TABLE_MODE_READ, buildPlayerTableModel, readLayout, snapsLabel } from "./player-table-model.js";
 import { placePopup } from "./popup-position.js";
 import { sortRows, makeSortableHeader } from "./table-sort.js";
 
@@ -114,17 +120,30 @@ export function attachAppTooltip(el, text) {
 // then sorts by snap count (the category's threshold_field, the only volume
 // stat available per player) descending. No size limit: the threshold is the
 // only gate, and every qualifying player is on the card.
+// The card is "Linemates" on a Season page and "NFL Alumni" on the Career page. Its name and
+// who its roster is are the only two things that differ between the two (see
+// DECISIONS.md, 2026-10-31); everything else is shared. Read at call time so it never depends
+// on the order data.js is evaluated in.
+export function rosterNoun() {
+  return IS_CAREER
+    ? { card: "NFL Alumni", one: "NFL alumnus", many: "NFL alumni", file: "NFL_Alumni" }
+    : { card: "Linemates", one: "linemate", many: "linemates", file: "Linemates" };
+}
+
 export function computeLinemateRoster(anchorRecord) {
   const cat = appliedCategoryMeta();
   const positions = LINEMATE_POSITIONS[appliedFilters.category];
-  const threshold = Number(appliedFilters.threshold);
+  const threshold = appliedThreshold();
 
   const qualifying = currentRecords.filter(
     (r) =>
       positions.includes(r.position) &&
       r.team === anchorRecord.team &&
       r.player !== anchorRecord.player &&
-      r[cat.threshold_field] >= threshold
+      // Career: the roster is "NFL Alumni", so only same-school, same-line members who
+      // reached the NFL. On a Season page there is no status and this is always true.
+      (!IS_CAREER || r.status === JOINED_NFL) &&
+      meetsThreshold(r, cat.threshold_field, threshold)
   );
 
   return qualifying.slice().sort((a, b) => b[cat.threshold_field] - a[cat.threshold_field]);
@@ -281,8 +300,9 @@ function applyStickyLinemateColumns(table) {
 function linemateSortValue(t, label, cat) {
   if (label === "Player") return (t.abbr_name || t.player).toLowerCase();
   if (label === "Position") return t.position;
+  if (label === "Status") return t.status ?? null;
   if (label === "Games") return t.games ?? null;
-  if (label === cat.threshold_field) return t[cat.threshold_field] ?? null;
+  if (label === cat.threshold_field || label === `TPS ${cat.threshold_field}`) return t[label] ?? null;
   const meta = cat.metrics[label];
   if (meta) {
     const pool = positionPool(t.position);
@@ -352,10 +372,12 @@ function makeRosterCell(t, column, cat) {
       if (openPlayerCard) openPlayerCard(t);
     });
     td.appendChild(cardBtn);
+  } else if (column.kind === "status") {
+    td.textContent = t.status ?? "—";
   } else if (column.kind === "games") {
     td.textContent = t.games ?? "—";
   } else if (column.kind === "snaps") {
-    td.textContent = t[cat.threshold_field] ?? "—";
+    td.textContent = t[column.key] ?? "—";
   } else {
     const key = column.key;
     const meta = cat.metrics[key];
@@ -393,13 +415,20 @@ const READ_IDENTITY_COLUMNS = [
 function renderLinemateReadTable(tableEl, players, cat) {
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
-  const model = buildPlayerTableModel(players, cat.threshold_field, metricKeys, bonusKeys, READ_IDENTITY_COLUMNS);
+  const model = buildPlayerTableModel(
+    players,
+    cat.threshold_field,
+    metricKeys,
+    bonusKeys,
+    READ_IDENTITY_COLUMNS,
+    IS_CAREER
+  );
   const layout = readLayout(model);
 
   const labelCell = (column) => {
     const th = document.createElement("th");
     th.className = "linemate-read-label";
-    th.textContent = column.key;
+    th.textContent = column.label ?? column.key;
     return th;
   };
 
@@ -458,7 +487,16 @@ export function renderLinemateRoster(entry, roster, tableEl) {
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Player", PLAYER_CARD_COLUMN, "Position", "Games", cat.threshold_field, ...metricKeys].forEach((label) => {
+  [
+    "Player",
+    PLAYER_CARD_COLUMN,
+    "Position",
+    ...(IS_CAREER ? ["Status"] : []),
+    "Games",
+    cat.threshold_field,
+    `TPS ${cat.threshold_field}`,
+    ...metricKeys,
+  ].forEach((label) => {
     // The button column has nothing to sort, so its header is plain text.
     if (label === PLAYER_CARD_COLUMN) {
       const th = document.createElement("th");
@@ -468,7 +506,7 @@ export function renderLinemateRoster(entry, roster, tableEl) {
       return;
     }
     headRow.appendChild(
-      makeSortableHeader(label, label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
+      makeSortableHeader(snapsLabel(label), label, entry.rosterSort, () => renderLinemateRoster(entry, roster, tableEl))
     );
   });
   thead.appendChild(headRow);
@@ -477,8 +515,10 @@ export function renderLinemateRoster(entry, roster, tableEl) {
     { key: "Player", kind: "name" },
     { key: PLAYER_CARD_COLUMN, kind: "card" },
     { key: "Position", kind: "position" },
+    ...(IS_CAREER ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
     { key: cat.threshold_field, kind: "snaps" },
+    { key: `TPS ${cat.threshold_field}`, kind: "snaps" },
     ...metricKeys.map((key) => ({ key, kind: "metric" })),
   ];
   const tbody = document.createElement("tbody");
@@ -549,21 +589,32 @@ export function renderLinemateCardBody(entry) {
   // comment for why roster (threshold-relevant) and this stay separate.
   const displayRoster = linemateDisplayRoster(entry);
 
+  const noun = rosterNoun();
   titleEl.textContent = entry.includeAnchor
-    ? `${entry.anchorRecord.player} & His Linemates`
-    : `${entry.anchorRecord.player} Linemates`; // season now lives on .linemate-card-meta, set once at open
+    ? `${entry.anchorRecord.player} & His ${noun.card}`
+    : `${entry.anchorRecord.player} ${noun.card}`; // season/Career lives on .linemate-card-meta, set once at open
   // The roster-size/threshold sentence sits on its own line above the "All
   // numbers are..." disclaimer, rather than behind a hover-only info icon.
   // Always describes the teammates-only pool (roster, not displayRoster)
   // regardless of the anchor toggle — this is the threshold talking, not a
   // literal count of the table's current rows.
   const rosterNoteEl = cardEl.querySelector(".linemate-card-roster-note");
-  rosterNoteEl.textContent = `${roster.length} linemate${roster.length === 1 ? "" : "s"} with ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
+  // Every NFL alumnus is Joined NFL, so only that status's bar applies to the roster.
+  const rosterThreshold = thresholdClauses(
+    appliedThreshold(),
+    thresholdFieldLabel(cat),
+    IS_CAREER ? JOINED_NFL : null
+  ).join(" / ");
+  rosterNoteEl.textContent = `${roster.length} ${roster.length === 1 ? noun.one : noun.many} with ${rosterThreshold}.`;
+
+  const scopeEl = cardEl.querySelector(".linemate-card-scope");
+  scopeEl.textContent = scopeNote(cat);
+  scopeEl.hidden = !scopeEl.textContent;
 
   // With no roster cap, a very low threshold puts many players on the card;
   // past the old cap's size the card says a higher threshold keeps it compact.
   const reminderEl = cardEl.querySelector(".linemate-card-size-reminder");
-  reminderEl.textContent = `${roster.length} linemates qualify at this threshold. A higher threshold keeps the card compact.`;
+  reminderEl.textContent = `${roster.length} ${noun.many} qualify at this threshold. A higher threshold keeps the card compact.`;
   reminderEl.hidden = roster.length <= LINEMATE_SIZE_REMINDER_AT[appliedFilters.category];
   const isRead = entry.mode === TABLE_MODE_READ;
   cardEl.classList.toggle("is-read", isRead);
@@ -577,8 +628,10 @@ export function renderLinemateCardBody(entry) {
   updateLinemateReadOverflow(cardEl);
 
   // 3M + RSWA summary, computed over every qualifying linemate — plus the
-  // anchor himself when the toggle is on.
-  renderLinemateSummary(entry, displayRoster, summaryTable);
+  // anchor himself when the toggle is on. The NFL Alumni card has none: alumni never
+  // played together, so a line summary of them would describe a line that never existed.
+  cardEl.querySelector(".linemate-summary-wrap").hidden = IS_CAREER;
+  if (!IS_CAREER) renderLinemateSummary(entry, displayRoster, summaryTable);
 }
 
 // Value a Line Summary row sorts by for a given column label — "Metric"
@@ -674,13 +727,13 @@ function setLinemateCardIdentity(cardEl, anchorRecord) {
   const badge = cardEl.querySelector(".scout-badge");
   const color = teamColor(anchorRecord.team);
   logoImg.src = logoSrc(anchorRecord.team);
-  logoImg.alt = `${anchorRecord.team} logo`;
+  logoImg.alt = `${teamLabel(anchorRecord.team)} logo`;
   logoImg.hidden = false;
   badge.hidden = true;
   logoImg.onerror = () => {
     logoImg.hidden = true;
     badge.hidden = false;
-    badge.textContent = anchorRecord.team;
+    badge.textContent = teamLabel(anchorRecord.team);
     badge.style.background = color;
   };
   cardEl.querySelector(".linemate-card-meta").textContent = `${teamName(anchorRecord.team)} · ${appliedFilters.season}`;
@@ -695,11 +748,15 @@ export function retargetLinemateCard(entry, anchorRecord) {
   setLinemateCardIdentity(entry.el, anchorRecord);
 }
 
-const MODE_SWITCH_HELP = [
-  "Read: players as columns and metrics as rows. No sorting in this mode.",
-  "Sort: players as rows and metrics as columns. Click a column header to order players by that metric.",
-  "Only the Individual table switches; the Line Summary stays as it is.",
-];
+// The third line is about the Line Summary, which the NFL Alumni card does not have.
+function modeSwitchHelp() {
+  const help = [
+    "Read: players as columns and metrics as rows. No sorting in this mode.",
+    "Sort: players as rows and metrics as columns. Click a column header to order players by that metric.",
+  ];
+  if (!IS_CAREER) help.push("Only the Individual table switches; the Line Summary stays as it is.");
+  return help;
+}
 
 export function openLinemateCard(anchorRecord) {
   const cardEl = els.linemateCardTemplate.content.firstElementChild.cloneNode(true);
@@ -750,11 +807,13 @@ export function openLinemateCard(anchorRecord) {
 
   // The Read | Sort switch on the "Individual" heading, and the (i) saying what it covers.
   const modeSwitch = cardEl.querySelector(".merge-mode-switch");
+  const modeHelp = modeSwitchHelp();
   modeSwitch
     .querySelector(".merge-mode-info")
-    .appendChild(
-      createInfoPopover({ bullets: MODE_SWITCH_HELP }, { ariaLabel: MODE_SWITCH_HELP.join(" "), label: "ⓘ" })
-    );
+    .appendChild(createInfoPopover({ bullets: modeHelp }, { ariaLabel: modeHelp.join(" "), label: "ⓘ" }));
+
+  // Without a Line Summary to tell it apart from, "Individual" has nothing to be individual to.
+  if (IS_CAREER) cardEl.querySelector(".linemate-table-title > span").textContent = "Players";
   modeSwitch.querySelectorAll(".merge-mode-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       if (entry.mode === btn.dataset.mode) return;
@@ -794,7 +853,7 @@ export function openLinemateCard(anchorRecord) {
     // intact (e.g. "D. Hall") — same convention already shown on the card's
     // own title, just applied to the downloaded filename too.
     () =>
-      `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_Linemates_${appliedFilters.season}`,
+      `LinesShines_${sanitizeForFilename(anchorRecord.abbr_name || anchorRecord.player)}_${rosterNoun().file}_${appliedFilters.season}`,
     // The export is always the Read layout, whichever mode is on screen: the Sort layout is too
     // wide to share. Re-renders the off-screen CLONE only (the card on screen is never touched),
     // carries the card's current sort order along, and returns true so the export re-fits the clone

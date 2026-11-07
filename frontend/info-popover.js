@@ -68,7 +68,8 @@ function openInfoPopover(triggerEl, content, { formula, alignRight } = {}) {
   // than concatenated into `text`/`imgAlt` so it renders as its own visually
   // separated paragraph instead of a run-on sentence.
   // A `bullets` array (short strings) renders as a bulleted list, one point per item, with
-  // a gap between points, for popups that explain several things side by side.
+  // a gap between points, for popups that explain several things side by side. A bare "OR"
+  // item renders as a separator without a bullet.
   const resolved = typeof content === "function" ? content() : content;
   const parts = typeof resolved === "string" ? { text: resolved } : resolved || {};
   if (parts.imgSrc) {
@@ -100,6 +101,10 @@ function openInfoPopover(triggerEl, content, { formula, alignRight } = {}) {
     for (const text of parts.bullets) {
       const item = document.createElement("li");
       item.textContent = text;
+
+      // A bare "OR" is a separator between two points, not a point of its own.
+      if (text === "OR") item.className = "info-popover-bullets-or";
+
       list.appendChild(item);
     }
     popup.appendChild(list);
