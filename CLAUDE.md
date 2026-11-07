@@ -49,3 +49,4 @@ Start at `playbook/ROSTER.md`. It maps each kind of task to the file that holds 
 | Filter changes that remove pinned players | `playbook/architecture/PINNED-INVALIDATION.md` |
 | Metrics, info popovers, metric notes | `playbook/architecture/METRICS-AND-NOTES.md` |
 | Thresholds and the threshold input | `playbook/architecture/THRESHOLDS.md` |
+| Claude Code hooks and the CI gate | `playbook/architecture/CLAUDE-HOOKS.md` |

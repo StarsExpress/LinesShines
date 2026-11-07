@@ -32,6 +32,16 @@ from main import app, engine, SessionLocal
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# A test that uses one of these fixtures drives a real browser; the Claude Code CI gate skips them.
+BROWSER_FIXTURE_NAMES = {"page", "live_server_url"}
+
+
+def pytest_collection_modifyitems(items):
+    """Mark every browser test, so `pytest -m "not browser"` skips them without editing each file."""
+    for item in items:
+        if BROWSER_FIXTURE_NAMES & set(item.fixturenames):
+            item.add_marker(pytest.mark.browser)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _create_tables():

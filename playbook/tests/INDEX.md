@@ -43,6 +43,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The NCAAF Teams checklist: per-season schools and what stays checked across seasons | `test_ncaaf_teams_checklist.py` ([doc](TEST_NCAAF_TEAMS_CHECKLIST.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
+| The Claude Code hooks in `tools/claude_hooks/` and their installer | `test_hooks.py` ([doc](TEST_HOOKS.md)) | pure Python |
 | Anything else | a new `tests/test_*.py` plus its own `TEST_*.md` here, in the same change | |
 
 ## Test kinds
@@ -52,6 +53,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 - **Browser**: Playwright with Chromium. The `live_server_url` fixture starts the real app on a free port with the seeded database, and the test drives the real frontend.
   Frontend pure functions are tested by importing the ES module inside the page (`page.evaluate`, for example `import('/popup-position.js')`).
   These tests skip themselves when Playwright or Chromium is missing, so run `pytest -rs` and check that they were not skipped.
+  `conftest.py` marks every test that uses the `page` or `live_server_url` fixture with `browser`, so `pytest -m "not browser"` runs everything else (the Claude Code CI gate does exactly that).
 
 ## Rules
 

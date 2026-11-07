@@ -70,6 +70,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | `PERCENTILES.md` | any percentile or rank computation |
 | `PINNED-INVALIDATION.md` | filter changes that remove Pinned Players, the confirm dialog, Comparison shrink/dissolve |
 | `METRICS-AND-NOTES.md` | adding or renaming a metric, info popovers, metric notes, export appendix |
+| `CLAUDE-HOOKS.md` | `tools/claude_hooks/`, the hook installer, the `browser` test marker |
 | `THRESHOLDS.md` | `config/thresholds.py` thresholds, `resolve_default_threshold`, the threshold input clamp |
 
 These files began as a verbatim split of the old `CLAUDE.md` "Architecture" section. Since then they have gained a few small edits and appended sections marked
