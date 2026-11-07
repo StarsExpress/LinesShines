@@ -11,21 +11,8 @@ FIELD = "PR Opp"
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url)
 
 
 def _state(season=2025, position="ED", threshold=230, category="pass_rush"):
@@ -556,24 +543,14 @@ def test_warning_notice_colours_meet_contrast():
     assert _contrast(colour("color"), colour("background")) >= 4.5
 
 
-def test_app_boots_without_module_errors(live_server_url):
+def test_app_boots_without_module_errors(live_server_url, chromium_browser):
     """The new imports (filters.js <-> card modules) must not break module loading."""
-    sync_api = pytest.importorskip("playwright.sync_api")
+    pg = chromium_browser.new_page()
+    errors = []
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        errors = []
-
-        pg.on("pageerror", lambda e: errors.append(str(e)))
-        pg.goto(live_server_url)
-        pg.wait_for_load_state("networkidle")
-        browser.close()
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(live_server_url)
+    pg.wait_for_load_state("networkidle")
 
     assert errors == []
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 
 import pytest
+from conftest import RECORDS_READY_JS
 
 FRAME = [240, 237, 228]  # #f0ede4.
 BACKGROUND = [22, 48, 31]  # #16301f.
@@ -12,26 +13,12 @@ GOLD = [211, 167, 61]  # #d3a73d.
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": 1280, "height": 900})
-        pg.goto(live_server_url)
-
-        # App has finished loading once it holds its metadata, its applied filters and a slice of records.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters && d.currentRecords.length); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(
+        live_server_url,
+        viewport={"width": 1280, "height": 900},
+        ready_js=RECORDS_READY_JS,
+    )
 
 
 # Pixels on the four edges (first and last pixel of the middle of each side, to stay clear of

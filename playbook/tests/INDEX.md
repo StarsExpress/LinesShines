@@ -52,7 +52,8 @@ grep -H "Add tests here when" playbook/tests/*.md
 - **Pure Python**: imports the module directly; builds whatever data it needs in `tmp_path` or an in-test sqlite engine.
 - **Browser**: Playwright with Chromium. The `live_server_url` fixture starts the real app on a free port with the seeded database, and the test drives the real frontend.
   Frontend pure functions are tested by importing the ES module inside the page (`page.evaluate`, for example `import('/popup-position.js')`).
-  These tests skip themselves when Playwright or Chromium is missing, so run `pytest -rs` and check that they were not skipped.
+  These tests skip themselves when Playwright or Chromium is missing, so run `pytest -rs` and check that they were not skipped. With `REQUIRE_CHROMIUM=1` a missing browser fails instead (the CI `browser` job sets it).
+  Every file gets its page from the `open_page` fixture of `conftest.py` and waits with `wait_until` (see [CONFTEST.md](CONFTEST.md)); do not copy the launch code or use `page.wait_for_function` with an `async` function, which never waits.
   `conftest.py` marks every test that uses the `page` or `live_server_url` fixture with `browser`, so `pytest -m "not browser"` runs everything else (the Claude Code CI gate does exactly that).
 
 ## Rules

@@ -26,7 +26,7 @@ The working rules of `INVARIANTS.md` are enforced by Claude Code hooks on the ow
 
 - Runs only when the session marker exists, i.e. `post_write.py` saw a write under the repo. A session that only answered questions runs nothing. The marker is a file in the system temp folder keyed by session id.
 - Checks, run in parallel: `black -S --check .`, `npm run lint:js`, `npm run format:js:check`, `pytest -m "not browser"`.
-- **The browser tests are not run.** `tests/conftest.py` adds the marker `browser` (registered in `pytest.ini`) to every test whose fixtures include `page` or `live_server_url`, directly or through another fixture, so a new browser test is marked on its own. The full `pytest -v` takes about ten minutes and stays the owner's local run.
+- **The browser tests are not run.** `tests/conftest.py` adds the marker `browser` (registered in `pytest.ini`) to every test whose fixtures include `page`, `live_server_url`, `chromium_browser` or `open_page`, directly or through another fixture, so a new browser test is marked on its own. The full `pytest -v` takes about ten minutes and stays the owner's local run.
 - On failure it answers `{"decision": "block", "reason": ...}` with each failed step and the tail of its output, and Claude carries on. When Claude Code sends `stop_hook_active`, the gate has already blocked this turn: it runs the checks again but only warns (`systemMessage`) and lets Claude stop, so a check that cannot pass cannot loop. The marker stays while the repo is red and is deleted when every check passes.
 - A program that is missing counts as a failed step.
 

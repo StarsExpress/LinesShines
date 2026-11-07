@@ -62,22 +62,11 @@ RUN_FETCH_LISTENER = """
 
 
 @pytest.fixture()
-def intercepted(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def intercepted(live_server_url, open_page):
+    page = open_page(live_server_url)
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        page = browser.new_page()
-        page.goto(live_server_url)
-
-        sw_text = page.evaluate("async () => (await fetch('/sw.js')).text()")
-        results = page.evaluate(RUN_FETCH_LISTENER, [sw_text, BYPASSED + CACHED])
-        browser.close()
+    sw_text = page.evaluate("async () => (await fetch('/sw.js')).text()")
+    results = page.evaluate(RUN_FETCH_LISTENER, [sw_text, BYPASSED + CACHED])
 
     return dict(results)
 
@@ -150,25 +139,14 @@ async ([swText, scenario]) => {
 
 
 @pytest.fixture()
-def run_network_first(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def run_network_first(live_server_url, open_page):
+    page = open_page(live_server_url)
+    sw_text = page.evaluate("async () => (await fetch('/sw.js')).text()")
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
+    def run(**scenario):
+        return page.evaluate(RUN_NETWORK_FIRST, [sw_text, scenario])
 
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        page = browser.new_page()
-        page.goto(live_server_url)
-        sw_text = page.evaluate("async () => (await fetch('/sw.js')).text()")
-
-        def run(**scenario):
-            return page.evaluate(RUN_NETWORK_FIRST, [sw_text, scenario])
-
-        yield run
-        browser.close()
+    return run
 
 
 def test_network_answer_wins_and_refreshes_the_cache(run_network_first):

@@ -9,22 +9,15 @@ LAYOUT_W, LAYOUT_H = 1024, 768
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def page(live_server_url, open_page):
+    app_page = open_page(
+        live_server_url, viewport={"width": LAYOUT_W, "height": LAYOUT_H}
+    )
+    app_page.locator("#hero-install-slot .info-popover-trigger").wait_for(
+        state="visible"
+    )
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": LAYOUT_W, "height": LAYOUT_H})
-        pg.goto(live_server_url)
-        pg.locator("#hero-install-slot .info-popover-trigger").wait_for(state="visible")
-
-        yield pg
-        browser.close()
+    return app_page
 
 
 def _place(page, **kwargs):
