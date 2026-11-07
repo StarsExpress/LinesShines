@@ -405,6 +405,32 @@ def test_the_career_cards_are_named_nfl_alumni(page):
     assert "Linemate" not in out["title"]
 
 
+def test_the_comparison_card_names_its_roster_column_nfl_alumni_in_both_layouts(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const m = await import('/merge-card.js');
+  const records = ['Player 1', 'Player 2'].map((name) => d.currentRecords.find((r) => r.player === name));
+  const el = (cls, tag = 'div') => {
+    const e = document.createElement(tag);
+    e.className = cls;
+    return e;
+  };
+  const render = (mode) => {
+    const card = el('scout-card scout-card--merge', 'aside');
+    const table = el('merge-table', 'table');
+    card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
+    m.renderMergeCardBody(card, records, { key: null, dir: 'asc' }, mode);
+    return { text: table.textContent, label: table.querySelector('button.merge-row-linemate-toggle').getAttribute('aria-label') };
+  };
+  return { read: render('read'), sort: render('sort') };
+}""")
+
+    for layout in ("read", "sort"):
+        assert "NFL Alumni" in out[layout]["text"], layout
+        assert "Linemates" not in out[layout]["text"], layout
+        assert out[layout]["label"].startswith("NFL Alumni for "), layout
+
+
 def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status(page):
     out = page.evaluate("""async () => {
   const d = await import('/data.js');

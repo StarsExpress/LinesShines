@@ -527,7 +527,8 @@ function renderReadTable(table, layout, cat) {
   const labelCell = (column) => {
     const th = document.createElement("th");
     th.className = "merge-read-label";
-    th.textContent = column.label ?? column.key;
+    // The Linemates column is the NFL Alumni one on the Career page, so its name comes from rosterNoun().
+    th.textContent = column.kind === "linemates" ? rosterNoun().card : (column.label ?? column.key);
     return th;
   };
 
