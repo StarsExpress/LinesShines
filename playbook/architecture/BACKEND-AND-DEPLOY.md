@@ -10,7 +10,7 @@
 1. `data/nfl/front_7_pass_rush/{season}.csv` and `data/nfl/ol_pass_block/{season}.csv` are raw PFF exports
    (one row per player-season).
 
-2. `preprocessing/preprocess.py --league nfl --seasons {season ...}` (both required) calls
+2. `preprocessing/preprocess.py --league nfl [--seasons {season ...}]` (the league is required; without `--seasons` every `{season}.csv` of the league is processed) calls
    `preprocessing/front_7.py` and `preprocessing/offensive_line.py`, which each read the season CSV,
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
    metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants) through the shared

@@ -230,14 +230,14 @@ SCHOOL_NAMES: dict[int, str] = {
     258: "Notre Dame",
 }
 
-# Every other franchise_id found in the PFF exports of 2022 to 2026: deliberately.
+# Every other franchise_id found in the PFF exports of 2014 to 2026: deliberately.
 # out of scope, dropped without a message. An id in neither dict is an error.
 OUT_OF_SCOPE_FRANCHISE_IDS = frozenset(
     {
-        101, 108, 113, 114, 136, 141, 146, 151, 156, 165, 166, 174, 175, 180, 196,
-        197, 200, 206, 207, 208, 209, 214, 218, 224, 230, 237, 239, 241, 242, 250,
-        251, 263, 275, 281, 285, 288, 296, 306, 318, 319, 320, 321, 325, 327, 330,
-        331, 346, 351, 1177,
+        101, 108, 113, 114, 136, 141, 146, 151, 156, 165, 166, 174, 175, 180, 185,
+        196, 197, 200, 206, 207, 208, 209, 214, 218, 224, 230, 237, 239, 241, 242,
+        250, 251, 263, 275, 281, 285, 288, 296, 306, 318, 319, 320, 321, 325, 327,
+        330, 331, 346, 351, 1177,
     }
 )  # fmt: skip
 

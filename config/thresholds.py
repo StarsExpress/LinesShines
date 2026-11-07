@@ -23,8 +23,8 @@ DEFAULT_THRESHOLDS: dict[str, int] = {
 # Key, which means current season, must be "renamed" when a new season comes.
 DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 95,  # Min PR Opp for pass rush filter.
-        "pass_block": 105,  # Min Non Spike PB Snaps for pass block filter.
+        "pass_rush": 110,  # Min PR Opp for pass rush filter.
+        "pass_block": 130,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
 
@@ -33,7 +33,7 @@ DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
 # the college chart: the front 7 uses the same 230 as the NFL, the OL a stricter 360.
 # Set by the owner after trying the real page; change them if they feel wrong.
 NCAAF_DEFAULT_THRESHOLDS: dict[str, int] = {
-    "pass_rush": 230,  # Min PR Opp for pass rush filter.
+    "pass_rush": 220,  # Min PR Opp for pass rush filter.
     "pass_block": 360,  # Min Non Spike PB Snaps for pass block filter.
 }
 
@@ -54,12 +54,12 @@ NCAAF_DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
 # is still a starting point.
 NCAAF_CAREER_DEFAULT_THRESHOLDS: dict[str, dict[str, int]] = {
     "pass_rush": {
-        CareerStatus.JOINED_NFL.value: 400,
-        CareerStatus.PROSPECTS.value: 300,
+        CareerStatus.JOINED_NFL.value: 440,
+        CareerStatus.PROSPECTS.value: 320,
     },
     "pass_block": {
-        CareerStatus.JOINED_NFL.value: 650,
-        CareerStatus.PROSPECTS.value: 500,
+        CareerStatus.JOINED_NFL.value: 680,
+        CareerStatus.PROSPECTS.value: 560,
     },
 }
 

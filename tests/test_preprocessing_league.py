@@ -1,6 +1,8 @@
 """The preprocessing scripts take a league: where files live, the column check, the command line."""
 
 from __future__ import annotations
+import os
+import shutil
 import pandas as pd
 import pytest
 import config
@@ -10,6 +12,7 @@ from preprocessing.offensive_line import preprocess_offensive_line
 from preprocessing.preprocess import (
     apply_league_scope,
     main,
+    discover_csv_seasons,
     parse_arguments,
     percent_of,
     season_file_path,
@@ -127,12 +130,15 @@ def test_a_missing_column_names_the_league_the_season_and_the_column(
     )
 
 
-def test_the_command_line_needs_a_league_and_a_season():
+def test_the_command_line_needs_a_league():
     with pytest.raises(SystemExit):
         parse_arguments(["--seasons", "2026"])
 
-    with pytest.raises(SystemExit):
-        parse_arguments(["--league", "nfl"])
+
+def test_the_command_line_without_seasons_leaves_them_unset():
+    arguments = parse_arguments(["--league", "nfl"])
+
+    assert arguments.seasons is None
 
 
 def test_the_command_line_refuses_an_unknown_league():
@@ -364,3 +370,83 @@ def test_the_front_7_workbook_has_the_batted_pass_counts_and_rates(league_folder
     assert (row["Batted Passes"], row["TPS Batted Passes"]) == (4, 3)
     # 4 / 100 and 3 / 60, as percentages.
     assert (row["Batted Pass Rate"], row["TPS Batted Pass Rate"]) == (4.0, 5.0)
+
+
+def _touch(league_folders, league, category, file_name):
+    open(os.path.join(league_folders[league], category, file_name), "w").close()
+
+
+def test_csv_seasons_are_found_in_a_category_folder_oldest_first(league_folders):
+    for file_name in ("2025.csv", "2023.csv", "2024.xlsx", "notes.csv", "20245.csv"):
+        _touch(league_folders, League.NFL, "front_7_pass_rush", file_name)
+
+    assert discover_csv_seasons(League.NFL, "front_7_pass_rush") == [2023, 2025]
+    assert discover_csv_seasons(League.NFL, "ol_pass_block") == []
+    assert discover_csv_seasons(League.NCAAF, "front_7_pass_rush") == []
+
+
+def test_a_missing_category_folder_has_no_csv_seasons(league_folders, tmp_path):
+    shutil.rmtree(os.path.join(league_folders[League.NFL], "ol_pass_block"))
+
+    assert discover_csv_seasons(League.NFL, "ol_pass_block") == []
+
+
+def test_without_seasons_every_csv_of_the_league_is_processed(
+    league_folders, monkeypatch
+):
+    done = []
+    monkeypatch.setattr(
+        "preprocessing.front_7.preprocess_front_7",
+        lambda league, season: done.append(("front_7", league, season)),
+    )
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line",
+        lambda league, season: done.append(("ol", league, season)),
+    )
+    _touch(league_folders, League.NFL, "front_7_pass_rush", "2024.csv")
+    _touch(league_folders, League.NFL, "front_7_pass_rush", "2025.csv")
+    _touch(league_folders, League.NFL, "ol_pass_block", "2025.csv")
+    _touch(league_folders, League.NCAAF, "ol_pass_block", "2022.csv")
+
+    failures = main(["--league", "nfl"])
+
+    assert failures == []
+    assert done == [
+        ("front_7", League.NFL, 2024),
+        ("front_7", League.NFL, 2025),
+        ("ol", League.NFL, 2025),
+    ]
+
+
+def test_without_seasons_and_without_any_csv_it_reports_a_failure(
+    league_folders, capsys
+):
+    failures = main(["--league", "nfl"])
+
+    assert len(failures) == 1
+    assert failures[0].startswith("nfl: no CSV found")
+    assert "FAILED nfl: no CSV found" in capsys.readouterr().err
+
+
+def test_without_seasons_an_error_in_one_csv_does_not_stop_the_rest(
+    league_folders, monkeypatch
+):
+    done = []
+
+    def front_7(league, season):
+        if season == 2024:
+            raise ValueError("bad csv")
+        done.append(season)
+
+    monkeypatch.setattr("preprocessing.front_7.preprocess_front_7", front_7)
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line", lambda *_: None
+    )
+    _touch(league_folders, League.NFL, "front_7_pass_rush", "2024.csv")
+    _touch(league_folders, League.NFL, "front_7_pass_rush", "2025.csv")
+
+    failures = main(["--league", "nfl"])
+
+    assert done == [2025]
+    assert len(failures) == 1
+    assert failures[0].startswith("nfl 2024 front_7_pass_rush:")

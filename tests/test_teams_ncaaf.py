@@ -60,6 +60,11 @@ def test_a_school_outside_its_stints_is_out_of_scope_for_that_season():
     assert conference_of(314, 2026) == PAC_12
 
 
+def test_idaho_of_the_2014_to_2017_exports_is_out_of_scope_not_unknown():
+    for season in range(2014, 2018):
+        assert conference_of(185, season) is None  # Idaho, Sun Belt.
+
+
 def test_umass_has_two_separate_mac_stints():
     assert conference_of(216, 2015) == MAC
     assert conference_of(216, 2016) is None

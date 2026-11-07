@@ -2,14 +2,16 @@
 
     python -m preprocessing.preprocess --league nfl --seasons 2026
 
-Both arguments are required, so the wrong league is never processed by accident.
-Several seasons go after one flag: --seasons 2022 2023 2024.
+The league is required, so the wrong league is never processed by accident.
+Several seasons go after one flag: --seasons 2022 2023 2024. Without --seasons every
+CSV of the league is processed (a `{season}.csv` with a four-digit season, in either category folder).
 Also holds the helpers both category scripts share: file paths, the column check
 and the league scope (the NCAAF conference column and its out-of-scope filter).
 """
 
 import argparse
 import os
+import re
 import sys
 import pandas as pd
 from config import LEAGUE_DATA_PATHS, ROUNDING_DECIMALS, League
@@ -19,6 +21,24 @@ from teams.ncaaf import conference_of
 def season_file_path(league: League, category: str, season: int, extension: str) -> str:
     """data/{league}/{category}/{season}.{extension}."""
     return os.path.join(LEAGUE_DATA_PATHS[league], category, f"{season}.{extension}")
+
+
+def discover_csv_seasons(league: League, category: str) -> list[int]:
+    """The seasons that have a `{season}.csv` in the league's category folder, oldest first.
+
+    Only a four-digit stem counts; any other file name is skipped, and a missing folder yields none.
+    """
+    category_path = os.path.join(LEAGUE_DATA_PATHS[league], category)
+    if not os.path.isdir(category_path):
+        return []
+
+    seasons = []
+    for file_name in os.listdir(category_path):
+        stem, extension = os.path.splitext(file_name)
+        if extension == ".csv" and re.fullmatch(r"\d{4}", stem):
+            seasons.append(int(stem))
+
+    return sorted(seasons)
 
 
 def require_columns(
@@ -90,7 +110,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--league", required=True, choices=[league.value for league in League]
     )
-    parser.add_argument("--seasons", required=True, type=int, nargs="+")
+    parser.add_argument("--seasons", type=int, nargs="+")
     return parser.parse_args(argv)
 
 
@@ -110,16 +130,38 @@ def main(argv: list[str] | None = None) -> list[str]:
         "ol_pass_block": preprocess_offensive_line,
     }
 
-    failures = []
-    for season in arguments.seasons:
-        for category, preprocess in categories.items():
-            try:
-                preprocess(league, season)
+    if arguments.seasons:
+        # Every requested season runs both categories; a CSV that is missing is reported as a failure.
+        jobs = [
+            (season, category)
+            for season in arguments.seasons
+            for category in categories
+        ]
 
-            except Exception as error:
-                failure = f"{league.value} {season} {category}: {type(error).__name__}: {error}"
-                print(f"FAILED {failure}", file=sys.stderr)
-                failures.append(failure)
+    else:
+        jobs = sorted(
+            (season, category)
+            for category in categories
+            for season in discover_csv_seasons(league, category)
+        )
+        print(f"Found {len(jobs)} {league.value} CSV(s) to preprocess.")
+
+    failures = []
+    if not jobs:
+        failure = f"{league.value}: no CSV found under {LEAGUE_DATA_PATHS[league]}"
+        print(f"FAILED {failure}", file=sys.stderr)
+        failures.append(failure)
+
+    for season, category in jobs:
+        try:
+            categories[category](league, season)
+
+        except Exception as error:
+            failure = (
+                f"{league.value} {season} {category}: {type(error).__name__}: {error}"
+            )
+            print(f"FAILED {failure}", file=sys.stderr)
+            failures.append(failure)
 
     if failures:
         print(f"{len(failures)} CSV(s) failed:", file=sys.stderr)
