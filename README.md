@@ -1,75 +1,22 @@
-<p align="center">
-  <img src="frontend/images/lines_shines_logo.png" width="200">
-</p>
+# 🧸Expansion Time
+### 🍁v1 Era LinesShines
 
-# 🏈LinesShines · 鋒光
+![Mac UI.png](memories/Mac%20UI.png)
 
-[![Installation Guide](https://img.shields.io/badge/📲%20Installation-Guide%20📖-0d1f17?style=for-the-badge)](./PWA.md)
+In v1, a complete NFL OL/DL stats platform is born:
+- Unit strength analysis — embedded teammates tables into player cards.
+- Players comparison — pinnable & mergeable player stats cards.
+- Highlighted selections — multi-team & player union filters.
+- Smart name search by fuzzy matching — including suffixes.
+- Draggable, detailed & dynamic ranking stats — reflect w.r.t. filtered pool.
+- Exportable high-resolution PNGs — big plots, individual & team cards.
 
-[![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://www.lines-shines.com)
-[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.lines-shines.com)
+### 📲Mobile Available
+Started as a website, LinesShines grew to become iOS & Android installable:
 
-[![macOS](https://img.shields.io/badge/macOS-A2AAAD?style=for-the-badge&logo=apple&logoColor=black)](https://www.lines-shines.com)
-[![Windows](https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.lines-shines.com)
+![iPhone UI.jpeg](memories/iPhone%20UI.jpg)
 
----
+### 🏫Prospects➡️Professionals
+So v1 LinesShines brings out a [new need for v2: incorporate college stats.](https://github.com/StarsExpress/LinesShines/tree/v2-college)
 
-### ⛑️ Health Report
-
-[![Latest Release](https://img.shields.io/github/v/release/StarsExpress/LinesShines)](https://github.com/StarsExpress/LinesShines/releases)
-[![main CI](https://github.com/StarsExpress/LinesShines/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
-
-[![main JavaScript Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/javascript-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
-[![main Black Lint](https://github.com/StarsExpress/LinesShines/actions/workflows/black-lint.yml/badge.svg?branch=main)](https://github.com/StarsExpress/LinesShines/actions)
-
-![Latest](https://img.shields.io/badge/Latest-Data-violet?labelColor=violet&style=flat)
-![Season](https://img.shields.io/badge/Season-2026-crimson)
-![Week](https://img.shields.io/badge/Week-7-gold)
-
-![Oldest](https://img.shields.io/badge/Oldest-Data-brown?labelColor=brown&style=flat)
-![Season](https://img.shields.io/badge/Season-2022-crimson)
-![Week](https://img.shields.io/badge/Week-18-gold)
-
----
-
-### [🔷 Blue 80 Blue 80 🏟](https://www.lines-shines.com)
-
-### [📗 Background Stories ➡️️](https://starsexpress.github.io/Faraway-s-Way/linesshines/)
-
----
-
-### 🏅 Heroes In Trenches
-#### ① Backend
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/postgresql-4169e1?style=for-the-badge&logo=postgresql&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-
-- Python + PostgreSQL — ingest processed data into database.
-- Python + FastAPI — API endpoints for database query, plotly designs, PNG download, and output to frontend.
-
-#### ② Frontend
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![Plotly](https://img.shields.io/badge/Plotly-0d1117?style=for-the-badge&logo=plotly&logoColor=3F4F75)
-![CSS](https://img.shields.io/badge/CSS-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-![HTML](https://img.shields.io/badge/HTML-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-
-- JavaScript + Plotly + CSS + HTML — visualize plotly graphs and interactive components.
-
-#### ③ CI/CD
-![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
-![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
-![Railway](https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)
-
-- Pytest — unit & API tests.
-- GitHub — CI/CD pipeline triggers.
-- Railway — exploration platform deployment.
-
-#### [④ Special Image Exporter: html2canvas](https://html2canvas.hertzen.com)
-
-Is the card-export engine since [LinesShines v1.3.0](https://github.com/StarsExpress/LinesShines/releases/tag/v1.3.0)~~
-
-I truly recommend [html2canvas](https://github.com/niklasvh/html2canvas) for:
-
-- DOM-to-image conversion without needing a server-side rendering step.
-- ignoreElements support — let UI controls (close buttons, resize handles) stay out of exported images.
-- MIT-licensed, which is cleanly preserved in vendored files.
+Farewell, v1. Thanks for such foundations 🙏
