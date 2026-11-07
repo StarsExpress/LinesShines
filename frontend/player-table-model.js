@@ -5,15 +5,16 @@
  *
  * A model is { players, columns }. `players` are the card's members in the order
  * they should appear (already sorted by the card's current sort state); each
- * entry is opaque to this file. `columns` are Player, Team, Linemates, Games,
- * the threshold field, then one per metric, each tagged with a `kind`.
+ * entry is opaque to this file. `columns` are Player, Team, Linemates, Status (Career only), Games,
+ * the threshold field and its TPS counterpart, then one per metric, each tagged with a `kind`. A column
+ * may carry a `label` (the snap columns do, see snapsLabel()); a column without one is shown by its `key`.
  *
  * Both layouts hold exactly the same cells ({ player, column }), laid out as
  * { head, body }:
  *   Sort — one header row of columns, one body row per player. The original layout.
  *   Read — the same cells turned on their side: one column per player, one row
  *          per column. The player's identity cells (name, team, Linemates button)
- *          form the head block; Games, the threshold field and the metrics are
+ *          form the head block; Status, Games, the threshold field, its TPS counterpart and the metrics are
  *          the body rows. Easier to read, and the default.
  */
 
@@ -28,6 +29,13 @@ const MERGE_IDENTITY_COLUMNS = [
   { key: "Linemates", kind: "linemates" },
 ];
 
+// The OL's snap fields read "PB Snaps" and "TPS PB Snaps" on every card: the "Non Spike " prefix is
+// dropped from the label (the field's key in the data is untouched), and the threshold note says
+// that only non-spike snaps count. Any other label passes through unchanged.
+export function snapsLabel(field) {
+  return field.replace(/^(TPS )?Non Spike /, "$1");
+}
+
 // `bonusKeys` are the metrics flagged `bonus` in the metadata (Pass Cov Percent,
 // DL only): Read shows them in their own section after the required ones.
 export function buildPlayerTableModel(
@@ -35,12 +43,17 @@ export function buildPlayerTableModel(
   thresholdField,
   metricKeys,
   bonusKeys = [],
-  identityColumns = MERGE_IDENTITY_COLUMNS
+  identityColumns = MERGE_IDENTITY_COLUMNS,
+  includeStatus = false
 ) {
   const columns = [
     ...identityColumns.map((column) => ({ ...column, identity: true })),
+    // Career only: whether the player is a Joined NFL or a Prospect.
+    ...(includeStatus ? [{ key: "Status", kind: "status" }] : []),
     { key: "Games", kind: "games" },
-    { key: thresholdField, kind: "snaps" },
+    { key: thresholdField, label: snapsLabel(thresholdField), kind: "snaps" },
+    // Its true-pass-set counterpart ("TPS PR Opp"), right under it.
+    { key: `TPS ${thresholdField}`, label: snapsLabel(`TPS ${thresholdField}`), kind: "snaps" },
     ...metricKeys.map((key) => ({ key, kind: "metric", bonus: bonusKeys.includes(key) })),
   ];
   return { players, columns };
@@ -61,14 +74,14 @@ export function sortLayout(model) {
 // that column's cell for every player in the model's order.
 //
 // `body` is the flat list of rows; `sections` is the same rows grouped for display —
-// Metadata (Games, the threshold field), Required Metrics, and Bonus Metrics, which
+// Metadata (Status on Career, Games, the threshold field and its TPS counterpart), Required Metrics, and Bonus Metrics, which
 // is left out when the category has none (pass block).
 export function readLayout(model) {
   const row = (column) => ({ column, cells: model.players.map((player) => ({ player, column })) });
   const body = model.columns.filter((column) => !column.identity).map(row);
   const section = (title, keep) => ({ title, rows: body.filter((r) => keep(r.column)) });
   const sections = [
-    section("Metadata", (c) => c.kind === "games" || c.kind === "snaps"),
+    section("Metadata", (c) => c.kind === "status" || c.kind === "games" || c.kind === "snaps"),
     section("Required Metrics", (c) => c.kind === "metric" && !c.bonus),
     section("Bonus Metrics", (c) => c.kind === "metric" && c.bonus),
   ].filter((s) => s.rows.length > 0);

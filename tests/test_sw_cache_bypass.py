@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 BYPASSED = [
-    "/api/metadata",
-    "/api/pass_rush",
-    "/api/pass_block",
+    "/api/nfl/metadata",
+    "/api/nfl/pass_rush",
+    "/api/nfl/pass_block",
     "/health",
     "/health/ready",  # Anything under /health/ is covered too.
-    "/api/ncaaf/anything",  # A route that does not exist yet must be covered too.
+    "/api/ncaaf/anything",  # A route under any league prefix is covered too.
 ]
 CACHED = [
     "/",

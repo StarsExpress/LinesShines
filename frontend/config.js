@@ -55,7 +55,7 @@ export const MERGE_QUOTA = 8;
 export const LINEMATE_POSITIONS = { pass_block: ["T", "G", "C"], pass_rush: ["ED", "DI"] };
 export const LINEMATE_SIZE_REMINDER_AT = { pass_block: 5, pass_rush: 7 };
 
-// Mirrors config.py's DISPLAY_DECIMALS — keep in sync. UI-display rounding
+// Mirrors config/metrics.py's DISPLAY_DECIMALS — keep in sync. UI-display rounding
 // only: plots (render.js's xVals/yVals, drawn straight from record[key])
 // stay full-precision, since rounding coordinates would visibly shift point
 // positions. This only governs formatValue()'s rendered stat-table text.

@@ -5,7 +5,7 @@
 > appended sections marked "carried over from the retired `BLUEPRINT.md`".
 > Cross-references like "see X above/below" point to another file in this folder — look them up in `INDEX.md`.
 
-**Metric semantics** (defined once, referenced from both `main.py` and `config.py` — keep in sync
+**Metric semantics** (defined once, referenced from both `main.py` and `config/metrics.py` — keep in sync
 if adding a metric): Havoc Rate = (Sacks + QB Hits) / Pass Rush Opportunities; Allowed Havoc Rate is
 the pass-block equivalent over Non Spike PB Snaps. PRP (Pass Rush Productivity, pass-rush category)
 and PBE (Pass Block Efficiency, pass-block category) are PFF's own composite 0-100 scores, passed
@@ -23,6 +23,21 @@ Comparison and Linemate cards, and the plot axis is not reversed; pass-block "Al
 exception — higher-is-better despite being in the pass-block category, same as PRP/TPS PRP on the
 pass-rush side. Any future per-category direction shortcut (frontend or backend) must special-case
 these two rather than assume category implies direction.
+
+**`TPS Proportion %` (OL only).** A pass-block Required Metric = TPS Non Spike PB Snaps / Non Spike PB Snaps x 100,
+one decimal: how large a share of an OL's snaps were true pass sets (the plays that favour the OL are left out of
+the TPS, so a high share means his other numbers carry more weight). It is never stored: `database/columns.py`'s
+`with_tps_proportion()` adds it to the pass-block payload from the two count columns (`None` when either is missing
+or the denominator is 0), and the Career merge calls the same function on the **summed** counts, so a Career value is
+a ratio of sums, never a mean of season ratios. It is the first key of `PASS_BLOCK_METRICS` (directly above
+Allowed Pressure %), so every list that follows the API order shows it there; the default axes still name their
+metrics explicitly. It is Color Coded (`higher_is_better: true`, no `neutral`), is in the Line Summary, and carries a
+text-only `formula_note` (`TPS_PROPORTION_NOTE`); because its name starts with "TPS ", the frontend appends the shared
+`TPS_NOTE` to it. The front 7 has no counterpart.
+
+**Batted Pass Rate (front 7 only, Bonus, never charted).** `Batted Pass Rate` = Batted Passes / PR Opp x 100 and `TPS Batted Pass Rate` = TPS Batted Passes / TPS PR Opp x 100, computed in `preprocessing/front_7.py` (as Win Rate is) from the CSV's `batted_passes` and `true_pass_set_batted_passes`, stored with the two counts (`batted_passes`, `tps_batted_passes`) and summed or PR Opp weighted on Career. They are `bonus: True`, higher is better, Color Coded like any rate, and ranked on the rate, not the count; the count is their `volume`. Three flags in `main.py` set them apart: `chartable: False` keeps both out of the axis menus (`populateCategoryDependentControls()` skips such a metric; the cards still show it), `line_summary: False` keeps them out of the Line Summary (a line mixes ED and DI), and `decimals: 2` makes the Player Card show the rate to two places (`formatValue()`), since the rate is small. They carry no note: the name says it. See `DECISIONS.md` (2026-11-05).
+
+**The `volume` key and the stored counts.** A metric's `volume` (in `PASS_RUSH_METRICS` / `PASS_BLOCK_METRICS`) names the payload key of the count behind it, for the Player Card's Volume column. The counts are stored columns, declared in `database/columns.py` and the model mixins: front 7 `Wins`, `TPS Wins`, `Pressures`, `TPS Pressures`, `Havoc`, `TPS Havoc`; OL `Pressures`, `TPS Pressures`, `Havoc`, `TPS Havoc` (Havoc = Sacks + Hits, Pressures = Sacks + Hits + Hurries, both checked on the real CSVs). Wins comes straight from the PFF CSV, and PFF's Win Rate is Wins / PR Opp (checked on every 2025 row of both leagues). They are summed over the seasons on Career. PRP, PBE and the neutral Pass Cov Percent have no `volume`.
 
 **Default axis pair per category** (`filters.js`'s `populateCategoryDependentControls()`): each
 category seeds its X/Y metric selects to a distinct, curated pair rather than the first two entries
@@ -51,7 +66,7 @@ notes wouldn't silently turn that annotation on for them too; both fields still 
 path (e.g. `/images/metric_formulas/prp.svg`) when a rendered formula exists; metrics with neither
 (Win Rate, Pressure Rate, Allowed Pressure %, ...) fall back to their short `pff_note` so the trigger
 is never a dead end. Every "TPS "-prefixed metric's
-popup additionally appends `metadata.tps_note` (config.py's `TPS_NOTE`, exposed once at
+popup additionally appends `metadata.tps_note` (`config/metrics.py`'s `TPS_NOTE`, exposed once at
 `/api/metadata`'s top level, never duplicated per metric) as a second, visually distinct paragraph —
 `key.startsWith("TPS ")` is the only check, so this never needs updating per new metric.
 `info-popover.js`'s `createInfoPopover()`/`openInfoPopover()` were extended to support this: `content`
