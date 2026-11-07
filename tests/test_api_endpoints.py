@@ -208,7 +208,7 @@ def test_ncaaf_default_thresholds_are_the_college_ones(client, seeded_ncaaf_db):
     assert (
         body["pass_rush"]["default_thresholds"]["2024"]
         == NCAAF_DEFAULT_THRESHOLDS["pass_rush"]
-        == 230
+        == 220
     )
     assert (
         body["pass_block"]["default_thresholds"]["2025"]
