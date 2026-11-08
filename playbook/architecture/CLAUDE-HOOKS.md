@@ -6,6 +6,7 @@ The working rules of `INVARIANTS.md` are enforced by Claude Code hooks on the ow
 
 ## Where they live
 
+- **Scope of `tools/`:** it holds helpers for Claude Code only; `download_ncaaf_logos.py` lives in `utils/`.
 - **Scripts:** `tools/claude_hooks/`, plain Python with the standard library only. They are tracked in git (`.claude/` is local only, so it cannot hold them).
 - **Registration:** `python -m tools.install_claude_hooks` writes pointers (the Python that ran it plus an absolute script path) into the user-level `~/.claude/settings.json`, so the hooks fire in every directory, not only in the repo. `--remove` takes them out; both touch only their own entries and are idempotent. Run it with the Python that has `black` and `pytest`, because the hooks reuse that interpreter. Commands are in `COMMANDS.md`.
 - **Which project:** a script finds the repo root from its own location, never from the working directory. It first decides whether the action concerns LinesShines: a file tool when the path is under the repo; a Bash call when its working directory is under the repo or the command contains the repo path or the repo folder name. Anything else passes untouched.

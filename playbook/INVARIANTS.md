@@ -23,7 +23,7 @@ These apply to every task. Read them before starting.
 - **Several sessions at once**: if another Claude session may be working on the repo, read `next_steps/` and re-read every file you are about to edit first, and say which files you touched. Another session's changes in a file are not yours to overwrite.
 - **Plan files stay current**: when a decision replaces earlier text in a `next_steps/` file, rewrite or delete the old text in place; do not stack "revision" notes on top of it.
 - **Odd-looking code**: check `DECISIONS.md` before "fixing" it.
-- **Record decisions** in `DECISIONS.md` (dated), not in `CLAUDE.md`.
+- **Record decisions** in the matching section of `DECISIONS.md` (a short line with the reason; detail goes to `architecture/`; a date only when a decision replaces an earlier one), not in `CLAUDE.md`.
 - **Versioning**: `vSEASON.MINOR.PATCH`; features = MINOR, weekly data refresh = PATCH. MAJOR is reserved for a change of product identity; new-season data alone does not bump MAJOR.
 
 ## Invariants

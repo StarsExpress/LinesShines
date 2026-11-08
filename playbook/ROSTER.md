@@ -78,7 +78,7 @@ These files began as a verbatim split of the old `CLAUDE.md` "Architecture" sect
 
 ## Keeping this folder healthy
 
-- New significant decision: append it to `DECISIONS.md` with a date. Not to `CLAUDE.md`.
+- New significant decision: put it in the matching section of `DECISIONS.md` (reason only; implementation detail goes to `architecture/`; date it only when it replaces an earlier decision). Not in `CLAUDE.md`.
 - New must-not-break rule: add a row to `INVARIANTS.md` and say what enforces it.
 - Changed behavior described in an `architecture/` file: update that file in the same change.
 - Keep `CLAUDE.md` short. If a paragraph is only needed for one kind of task, it belongs here.

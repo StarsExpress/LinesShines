@@ -61,7 +61,7 @@
    *optional* query param — omitted, it returns every position in the category in one response. The college
    metadata adds `conference_order` and `team_conferences` (`{season: {franchise_id: conference}}`, read from
    the loaded rows), and its `teams` are keyed by franchise id with no colour (the frontend falls back to a
-   neutral grey). College thresholds are their own (`NCAAF_DEFAULT_THRESHOLDS` 230 / 360 and
+   neutral grey). College thresholds are their own (`NCAAF_DEFAULT_THRESHOLDS` 220 / 360 and
    `NCAAF_DYNAMIC_THRESHOLDS` in `config/thresholds.py`). Measured on the real data (2025/2026): the biggest college
    response (pass rush) is about 500 KB raw against about 150 KB for the NFL (the app compresses every
    response of 1,000 bytes or more with `GZipMiddleware`, about 65 KB for that one). `/health` stays a plain route.
@@ -82,6 +82,10 @@ owner sets by hand each week are in `config/thresholds.py`.
 **Team codes** follow PFF's spellings (e.g. `ARZ`, `BLT`, `CLV`, `HST`, not the more common
 `ARI`/`BAL`/`CLE`/`HOU`), defined once in `teams/nfl.py` and used by both ingestion (team
 upsert) and `/api/nfl/metadata` (colors, full names) — the frontend never hardcodes team data.
+
+**College scope and conference.** The scope (SEC, B1G, ACC, Big 12, Pac-12, MAC, Notre Dame; 90 schools) is applied at conversion by `apply_league_scope()`, not at load, and a team is keyed by `franchise_id`. The conference comes from `teams/ncaaf.py`: a stint table per scoped `franchise_id` (`conference_of(franchise_id, season)`), because membership changes with realignment; the Pac-12 label follows each season's actual members (two schools in 2024 and 2025, eight in 2026). A school deliberately out of scope (FCS teams, Group of Five schools outside the MAC, Idaho with franchise id 185 in the 2014 to 2017 exports) returns `None` and its rows are dropped silently; a `franchise_id` the table does not know at all raises an error naming the school and season. Widening the scope means extending that file and converting again. Liberty and New Mexico State are absent from the 2022 files (both out of scope) and are not chased. Tests: `tests/test_teams_ncaaf.py`.
+
+**Midseason trades.** `database/midseason_trades.py` moves a traded player to his new team between the weekly ingests (PFF's next-week CSV reflects the trade anyway). `update_traded_player_team(player_name, new_team)` updates the current season only (the season is the calendar year, since the trade deadline is early November, so there is no season argument), across both stat tables, with the same `DATABASE_URL` rule as the ingestion. `new_team` is a PFF team code; an unknown code, a wrong name or a season not ingested yet prints a message and changes nothing. `update_traded_players(*trades)` applies several `(player, team)` pairs and skips a bad entry while the rest run. Tests: `test_midseason_trades.py`. Command: `COMMANDS.md`.
 
 **Deploy**: Railway, per `Procfile` (`uvicorn main:app`). `RAILWAY_GIT_COMMIT_SHA` env var drives
 frontend cache-busting; `DATABASE_URL` (Postgres, `postgres://` scheme) is rewritten in
