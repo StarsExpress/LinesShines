@@ -70,6 +70,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | `PERCENTILES.md` | any percentile or rank computation |
 | `PINNED-INVALIDATION.md` | filter changes that remove Pinned Players, the confirm dialog, Comparison shrink/dissolve |
 | `METRICS-AND-NOTES.md` | adding or renaming a metric, info popovers, metric notes, export appendix |
+| `CLAUDE-HOOKS.md` | `tools/claude_hooks/`, the hook installer, the `browser` test marker |
 | `THRESHOLDS.md` | `config/thresholds.py` thresholds, `resolve_default_threshold`, the threshold input clamp |
 
 These files began as a verbatim split of the old `CLAUDE.md` "Architecture" section. Since then they have gained a few small edits and appended sections marked
@@ -77,7 +78,7 @@ These files began as a verbatim split of the old `CLAUDE.md` "Architecture" sect
 
 ## Keeping this folder healthy
 
-- New significant decision: append it to `DECISIONS.md` with a date. Not to `CLAUDE.md`.
+- New significant decision: put it in the matching section of `DECISIONS.md` (reason only; implementation detail goes to `architecture/`; date it only when it replaces an earlier decision). Not in `CLAUDE.md`.
 - New must-not-break rule: add a row to `INVARIANTS.md` and say what enforces it.
 - Changed behavior described in an `architecture/` file: update that file in the same change.
 - Keep `CLAUDE.md` short. If a paragraph is only needed for one kind of task, it belongs here.

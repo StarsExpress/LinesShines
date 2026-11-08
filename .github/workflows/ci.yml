@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Everything except browser tests: seconds, and the only job a push to `main` runs.
+  # Railway's "Wait for CI" waits for every job, so the slow browser job is skipped on push;
+  # `main` accepts only commits from a pull request, which has already run it.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -22,4 +25,40 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest -v
+        run: pytest -m "not browser" -v
+
+  # Playwright tests (tests marked `browser` by tests/conftest.py), on pull requests only.
+  browser:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    env:
+      # A missing Chromium fails the job instead of skipping every test.
+      REQUIRE_CHROMIUM: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Cache Chromium
+        id: chromium-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-${{ runner.os }}-${{ hashFiles('requirements-dev.txt') }}
+
+      - name: Install Chromium
+        if: steps.chromium-cache.outputs.cache-hit != 'true'
+        run: playwright install --with-deps chromium
+
+      - name: Install Chromium system libraries
+        if: steps.chromium-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
+
+      - name: Run browser tests
+        run: pytest -m browser -v

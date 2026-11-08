@@ -79,7 +79,7 @@ default thresholds already come from `/api/{league}/metadata`, so the config hol
   variant (readable on the dark chart), except 11 schools whose `dark` variant came out too bright and use the original
   (`default`) one: Alabama 103, Kentucky 202, Tennessee 307, Vanderbilt 333, Indiana 190, Clemson 140, Duke 154,
   North Carolina 245, Texas 311, Utah 328, Buffalo 126 (franchise ids). When re-downloading with
-  `tools/download_ncaaf_logos.py`, skip these ids (or run them with `--variant default`), or the originals are
+  `utils/download_ncaaf_logos.py`, skip these ids (or run them with `--variant default`), or the originals are
   overwritten.
 - **Teams checklist.** `populateTeamsChecklist(season)` builds it from `teamGroups(season)`: `static` is the NFL's
   fixed AFC/NFC divisions in `config.js`; `by_season` is the college's conferences taken from the metadata's

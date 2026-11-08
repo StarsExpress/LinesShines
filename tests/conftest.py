@@ -32,6 +32,16 @@ from main import app, engine, SessionLocal
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# A test that uses one of these fixtures drives a real browser; the Claude Code CI gate skips them.
+BROWSER_FIXTURE_NAMES = {"page", "live_server_url", "chromium_browser", "open_page"}
+
+
+def pytest_collection_modifyitems(items):
+    """Mark every browser test, so `pytest -m "not browser"` skips them without editing each file."""
+    for item in items:
+        if BROWSER_FIXTURE_NAMES & set(item.fixturenames):
+            item.add_marker(pytest.mark.browser)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _create_tables():
@@ -269,3 +279,97 @@ def live_server_url(seeded_db):
     yield f"http://127.0.0.1:{port}"
     server.should_exit = True
     thread.join(timeout=5)
+
+
+# What every browser test file waited for before it drove the page: the app holds its metadata and
+# its applied filters (and, for some files, a slice of records).
+APP_READY_JS = "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
+RECORDS_READY_JS = "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters && d.currentRecords.length); }"
+
+WAIT_TIMEOUT_SECONDS = 30.0
+WAIT_POLL_MILLISECONDS = 50
+
+
+def wait_until(
+    page, expression: str, arg=None, timeout_seconds: float = WAIT_TIMEOUT_SECONDS
+) -> None:
+    """Poll the expression in the page until it is truthy; unlike `page.wait_for_function`, it waits for an async one.
+
+    Playwright treats the Promise an `async` function returns as truthy and returns at once,
+    so a wait written that way never waited and only passed when the page happened to be ready.
+    """
+    sync_api = pytest.importorskip("playwright.sync_api")
+    deadline = time.monotonic() + timeout_seconds
+    last_error = None
+
+    while True:
+        try:
+            if page.evaluate(expression, arg):
+                return
+
+        except sync_api.Error as exc:
+            # The page is still loading its modules or navigating, so look again.
+            last_error = exc
+
+        if time.monotonic() > deadline:
+            raise AssertionError(
+                f"Timed out after {timeout_seconds} s waiting for: {expression} (last error: {last_error})"
+            )
+
+        page.wait_for_timeout(WAIT_POLL_MILLISECONDS)
+
+
+@pytest.fixture()
+def chromium_browser():
+    """Headless Chromium. A missing browser skips the test, unless REQUIRE_CHROMIUM is set (CI does)."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+
+    with sync_api.sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch()
+
+        except Exception as exc:  # Browser binary not installed.
+            message = f"chromium unavailable: {exc}"
+
+            if os.environ.get("REQUIRE_CHROMIUM"):
+                pytest.fail(message)
+
+            pytest.skip(message)
+
+        yield browser
+        browser.close()
+
+
+@pytest.fixture()
+def open_page(chromium_browser):
+    """A function that opens a page at a URL, waits until the app is ready and returns it.
+
+    `viewport` is {"width", "height"} or None for Playwright's default. `ready_js` is a
+    JavaScript function the page must make truthy (None waits for nothing). `settle` waits for the
+    network to go quiet and then checks `ready_js` again, for a page that redraws once its logos load.
+    The page closes with the browser at the end of the test.
+    """
+
+    def _open(
+        url: str,
+        viewport: dict | None = None,
+        ready_js: str | None = None,
+        settle: bool = False,
+    ):
+        page = (
+            chromium_browser.new_page(viewport=viewport)
+            if viewport
+            else chromium_browser.new_page()
+        )
+        page.goto(url)
+
+        if ready_js:
+            wait_until(page, ready_js)
+
+        if settle:
+            page.wait_for_load_state("networkidle")
+            wait_until(page, ready_js)
+
+        return page
+
+    return _open

@@ -10,33 +10,19 @@ TEAMS_INFO_TEXT = (
 )
 
 
-def test_teams_info_button_opens_popup_with_copy(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def test_teams_info_button_opens_popup_with_copy(live_server_url, open_page):
+    page = open_page(live_server_url)
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
+    trigger = page.locator("#teams-info-slot .info-popover-trigger")
+    trigger.wait_for(state="visible")
 
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
+    assert trigger.text_content().strip() == "ⓘ"
+    assert page.locator(".info-popover-content").count() == 0
 
-        try:
-            page = browser.new_page()
-            page.goto(live_server_url)
+    trigger.click()
+    popup = page.locator(".info-popover-content")
+    popup.wait_for(state="visible")
+    assert TEAMS_INFO_TEXT in popup.inner_text()
 
-            trigger = page.locator("#teams-info-slot .info-popover-trigger")
-            trigger.wait_for(state="visible")
-
-            assert trigger.text_content().strip() == "ⓘ"
-            assert page.locator(".info-popover-content").count() == 0
-
-            trigger.click()
-            popup = page.locator(".info-popover-content")
-            popup.wait_for(state="visible")
-            assert TEAMS_INFO_TEXT in popup.inner_text()
-
-            trigger.click()  # Click again toggles it closed (no hover-only behavior).
-            assert page.locator(".info-popover-content").count() == 0
-
-        finally:
-            browser.close()
+    trigger.click()  # Click again toggles it closed (no hover-only behavior).
+    assert page.locator(".info-popover-content").count() == 0

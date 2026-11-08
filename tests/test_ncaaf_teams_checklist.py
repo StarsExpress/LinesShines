@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from conftest import APP_READY_JS
 
 # Akron (102) plays in 2024 and 2025; Alabama (103) only appears in 2025.
 AKRON = "102"
@@ -13,26 +14,12 @@ BALL_STATE = "109"
 
 
 @pytest.fixture()
-def page(live_server_url, seeded_ncaaf_db):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": 1280, "height": 900})
-        pg.goto(f"{live_server_url}/ncaaf-season")
-
-        # The app has finished loading once it holds its metadata and its applied filters.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, seeded_ncaaf_db, open_page):
+    return open_page(
+        f"{live_server_url}/ncaaf-season",
+        viewport={"width": 1280, "height": 900},
+        ready_js=APP_READY_JS,
+    )
 
 
 def _switch_season(page, season):
@@ -145,3 +132,18 @@ def test_select_all_carries_a_first_seen_school_on(page):
     _switch_season(page, "2024")
 
     assert sorted(_checked_teams(page)) == [AKRON, BALL_STATE]
+
+
+def test_a_conference_header_selects_then_clears_just_that_conference(page):
+    # 2025 lists Akron (MAC) and Alabama (SEC).
+    _clear_all_teams(page)
+    page.click("#teams-toggle-btn")
+
+    page.click("#teams-checklist .teams-column-header >> text='MAC'")
+    assert _checked_teams(page) == [AKRON]
+
+    page.click("#teams-checklist .teams-column-header >> text='SEC'")
+    assert sorted(_checked_teams(page)) == [AKRON, ALABAMA]
+
+    page.click("#teams-checklist .teams-column-header >> text='MAC'")
+    assert _checked_teams(page) == [ALABAMA]

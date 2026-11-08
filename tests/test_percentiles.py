@@ -3,29 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from conftest import APP_READY_JS
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        # The app has finished loading once it holds its metadata and its applied filters.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url, ready_js=APP_READY_JS)
 
 
 RANK_JS = """

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from conftest import APP_READY_JS, wait_until
 from config import NCAAF_CAREER_DEFAULT_THRESHOLDS, CareerStatus
 from database.db_models import (
     NCAAFPassBlockCareerMember,
@@ -83,33 +84,21 @@ def seeded_career_page_db():
     yield
 
 
+# The page is ready once it has its metadata and applied filters, a slice and a drawn chart.
+CHART_READY_JS = "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters) && d.currentFiltered.length > 0 && !!document.querySelector('#chart').layout; }"
+
+
 @pytest.fixture()
-def page(live_server_url, seeded_career_page_db):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": 1280, "height": 900})
-        pg.goto(f"{live_server_url}/ncaaf-career")
-
-        # The app has finished loading once it has drawn the chart: the metadata and the
-        # applied filters come first, then the logos preload, then the first render.
-        ready_js = "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters) && d.currentFiltered.length > 0 && !!document.querySelector('#chart').layout; }"
-        pg.wait_for_function(ready_js)
-
-        # The first render can be redone once the page's last requests land (the logo
-        # preload), which empties the chart for a moment; wait for the network to go quiet
-        # and for the chart to be drawn again, so no test reads it mid-redraw.
-        pg.wait_for_load_state("networkidle")
-        pg.wait_for_function(ready_js)
-
-        yield pg
-        browser.close()
+def page(live_server_url, seeded_career_page_db, open_page):
+    # The first render can be redone once the page's last requests land (the logo preload),
+    # which empties the chart for a moment, so open_page waits for the network to go quiet
+    # and for the chart to be drawn again before a test reads it.
+    return open_page(
+        f"{live_server_url}/ncaaf-career",
+        viewport={"width": 1280, "height": 900},
+        ready_js=CHART_READY_JS,
+        settle=True,
+    )
 
 
 def _pool_ids(page) -> list[int]:
@@ -139,9 +128,10 @@ def _toggle_status(page, checkbox_id):
 
 def _apply_and_wait(page, key, value):
     page.click("#apply-filters")
-    page.wait_for_function(
+    wait_until(
+        page,
         "args => import('/data.js').then(d => String(d.appliedFilters[args.key]) === args.value)",
-        arg=dict(key=key, value=str(value)),
+        dict(key=key, value=str(value)),
     )
 
 
@@ -348,8 +338,9 @@ def test_with_enable_status_off_only_teams_and_players_light_players(page):
     page.click("#players-dropdown .player-option")
     page.click("#apply-filters")
 
-    page.wait_for_function(
-        "() => import('/data.js').then(d => d.appliedFilters.players === 'Player 1')"
+    wait_until(
+        page,
+        "() => import('/data.js').then(d => d.appliedFilters.players === 'Player 1')",
     )
 
     assert _lit_players(page) == [1]
@@ -403,6 +394,32 @@ def test_the_career_cards_are_named_nfl_alumni(page):
     assert out["button"] == "NFL Alumni"
     assert "NFL Alumni" in out["title"]
     assert "Linemate" not in out["title"]
+
+
+def test_the_comparison_card_names_its_roster_column_nfl_alumni_in_both_layouts(page):
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const m = await import('/merge-card.js');
+  const records = ['Player 1', 'Player 2'].map((name) => d.currentRecords.find((r) => r.player === name));
+  const el = (cls, tag = 'div') => {
+    const e = document.createElement(tag);
+    e.className = cls;
+    return e;
+  };
+  const render = (mode) => {
+    const card = el('scout-card scout-card--merge', 'aside');
+    const table = el('merge-table', 'table');
+    card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
+    m.renderMergeCardBody(card, records, { key: null, dir: 'asc' }, mode);
+    return { text: table.textContent, label: table.querySelector('button.merge-row-linemate-toggle').getAttribute('aria-label') };
+  };
+  return { read: render('read'), sort: render('sort') };
+}""")
+
+    for layout in ("read", "sort"):
+        assert "NFL Alumni" in out[layout]["text"], layout
+        assert "Linemates" not in out[layout]["text"], layout
+        assert out[layout]["label"].startswith("NFL Alumni for "), layout
 
 
 def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status(page):
@@ -493,30 +510,19 @@ def test_a_career_comparison_card_marks_each_status_and_writes_both_bars(page):
 
 
 def test_the_season_pages_keep_one_bar_and_no_status_filter(
-    live_server_url, seeded_ncaaf_db
+    live_server_url, seeded_ncaaf_db, open_page
 ):
-    sync_api = pytest.importorskip("playwright.sync_api")
+    pg = open_page(
+        f"{live_server_url}/ncaaf-season",
+        viewport={"width": 1280, "height": 900},
+        ready_js=APP_READY_JS,
+    )
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
+    assert pg.is_visible(".control-season")
+    assert pg.is_hidden("#status-control")
+    assert pg.is_hidden("#prospect-threshold-control")
 
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
+    applied = pg.evaluate("async () => (await import('/data.js')).appliedFilters")
 
-        pg = browser.new_page(viewport={"width": 1280, "height": 900})
-        pg.goto(f"{live_server_url}/ncaaf-season")
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        assert pg.is_visible(".control-season")
-        assert pg.is_hidden("#status-control")
-        assert pg.is_hidden("#prospect-threshold-control")
-
-        applied = pg.evaluate("async () => (await import('/data.js')).appliedFilters")
-
-        assert "prospectThreshold" not in applied
-        assert "statuses" not in applied
-
-        browser.close()
+    assert "prospectThreshold" not in applied
+    assert "statuses" not in applied

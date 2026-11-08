@@ -318,6 +318,51 @@ export function markAllTeamsSelected() {
   uncheckedTeams.clear();
 }
 
+// A header for a group of teams in the checklist: a small box in the same gold
+// as the team ticks (ticked, half-ticked or empty to match the group), then the
+// group's name. It is a role="checkbox" button, not an <input>, so the code that
+// reads the team ticks never counts it.
+const groupToggleBoxes = new WeakMap();
+
+function createGroupToggle(className, text, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `teams-group-toggle ${className}`;
+  button.setAttribute("role", "checkbox");
+  button.setAttribute("aria-checked", "false");
+  button.setAttribute("aria-label", label);
+
+  const box = document.createElement("span");
+  box.className = "teams-group-box";
+  box.setAttribute("aria-hidden", "true");
+
+  const name = document.createElement("span");
+  name.textContent = text;
+
+  button.append(box, name);
+  return button;
+}
+
+function syncGroupToggle(button) {
+  const boxes = groupToggleBoxes.get(button) || [];
+  const ticked = boxes.filter((cb) => cb.checked).length;
+  const state = ticked === 0 ? "false" : ticked === boxes.length ? "true" : "mixed";
+  button.setAttribute("aria-checked", state);
+}
+
+// Clicking selects every box of the group, or clears them when all are ticked.
+// Other groups are left alone.
+function bindGroupToggle(button, boxes) {
+  groupToggleBoxes.set(button, boxes);
+  syncGroupToggle(button);
+  button.addEventListener("click", () => {
+    const allChecked = boxes.every((cb) => cb.checked);
+    boxes.forEach((cb) => (cb.checked = !allChecked));
+    updateTeamsSummary();
+    updatePendingState();
+  });
+}
+
 export function populateTeamsChecklist(season) {
   // Capture the individual ticks the user made on the outgoing season's boxes
   // (those fire no event the sets listen to). An explicit all/none action has
@@ -336,22 +381,24 @@ export function populateTeamsChecklist(season) {
     const column = document.createElement("div");
     column.className = "teams-column";
 
-    // A college conference header is a button that selects or clears its whole
-    // conference; the NFL's headers stay plain text.
-    const columnHeader = document.createElement(bySeason ? "button" : "div");
-    columnHeader.className = "teams-column-header";
-    columnHeader.textContent = title;
+    // The conference header (and the NFL's division headers) are buttons that
+    // select a whole group, or clear it when every team in it is already ticked.
+    const columnHeader = createGroupToggle("teams-column-header", title, `Toggle all of ${title}`);
     column.appendChild(columnHeader);
 
     const groupBoxes = [];
     sections.forEach((section) => {
       const group = document.createElement("div");
       group.className = "teams-division";
+      const sectionBoxes = [];
 
+      let divisionHeader = null;
       if (section.title) {
-        const divisionHeader = document.createElement("div");
-        divisionHeader.className = "teams-division-header";
-        divisionHeader.textContent = section.title;
+        divisionHeader = createGroupToggle(
+          "teams-division-header",
+          section.title,
+          `Toggle all of ${title} ${section.title}`
+        );
         group.appendChild(divisionHeader);
       }
 
@@ -360,22 +407,16 @@ export function populateTeamsChecklist(season) {
         const key = String(code);
         const checked = knownTeams.has(key) ? !uncheckedTeams.has(key) : selectNewByDefault;
         const row = teamOptionRow(code, checked);
-        groupBoxes.push(row.querySelector("input"));
+        const box = row.querySelector("input");
+        sectionBoxes.push(box);
+        groupBoxes.push(box);
         group.appendChild(row);
       });
+      if (divisionHeader) bindGroupToggle(divisionHeader, sectionBoxes);
       column.appendChild(group);
     });
 
-    if (bySeason) {
-      columnHeader.type = "button";
-      columnHeader.addEventListener("click", () => {
-        const allChecked = groupBoxes.every((cb) => cb.checked);
-        groupBoxes.forEach((cb) => (cb.checked = !allChecked));
-        updateTeamsSummary();
-        updatePendingState();
-      });
-    }
-
+    bindGroupToggle(columnHeader, groupBoxes);
     els.teamsChecklist.appendChild(column);
   });
 
@@ -383,6 +424,7 @@ export function populateTeamsChecklist(season) {
 }
 
 export function updateTeamsSummary() {
+  els.teamsChecklist.querySelectorAll(".teams-group-toggle").forEach(syncGroupToggle);
   const selected = selectedTeamCodes();
   const total = allTeamCodes().length;
   if (selected.length === total) els.teamsSummary.textContent = "All Teams";
