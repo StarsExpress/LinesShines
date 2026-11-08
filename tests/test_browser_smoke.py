@@ -493,3 +493,253 @@ def test_the_quota_is_checked_once_at_submit_not_while_picking(page):
     assert page.locator("#merge-create-overlay").is_visible()
     assert page.locator(MERGE_CARDS).count() == 0
     assert "5 / 8" in quota_text(page)
+
+
+# --- Invariant 16: axes, display toggles, folding and dragging never touch a card. -------------
+
+PLAYER_CARDS = (
+    "#scout-cards .scout-card:not(.scout-card--merge):not(.scout-card--linemate)"
+)
+LINEMATE_CARDS = "#scout-cards .scout-card--linemate"
+
+# What the Workspace holds: the pinned rows, the Comparison rows, and every open floating card by
+# kind and title. The state classes are left out, so folding and dragging can be compared too.
+WORKSPACE_SNAPSHOT_JS = """() => ({
+    singles: [...document.querySelectorAll('#pcs-singles-list .pcs-row')].map(r => r.dataset.player),
+    merged: [...document.querySelectorAll('#pcs-merged-list .pcs-row-name')].map(n => n.textContent),
+    quota: document.querySelector('#pcs-quota-label').textContent,
+    cards: [...document.querySelectorAll('#scout-cards .scout-card')]
+        .map(card => {
+            const kind = card.classList.contains('scout-card--merge') ? 'merge'
+                : card.classList.contains('scout-card--linemate') ? 'linemate' : 'player';
+            const title = card.querySelector('.scout-name, .linemate-card-title');
+            return kind + ': ' + (title ? title.textContent : '');
+        })
+        .sort(),
+})"""
+
+
+def workspace_snapshot(page) -> dict:
+    return page.evaluate(WORKSPACE_SNAPSHOT_JS)
+
+
+def open_player_card(page, full_name: str) -> None:
+    """Pin the player and open his card from his Single Cards row, as a user does."""
+    if full_name not in pinned_names(page):
+        pin_player(page, full_name)
+
+    page.locator(f'{SINGLES_ROWS}[data-player="{full_name}"] .pcs-row-name').click()
+    page.locator(PLAYER_CARDS, has_text=full_name).first.wait_for(state="visible")
+
+
+def open_linemate_card(page, full_name: str) -> None:
+    open_player_card(page, full_name)
+    page.locator(PLAYER_CARDS, has_text=full_name).first.locator(
+        ".card-linemate-toggle"
+    ).click()
+    page.locator(LINEMATE_CARDS).first.wait_for(state="visible")
+
+
+def build_busy_workspace(page) -> dict:
+    """A Comparison, a Player Card and a Linemate Card open together; returns the snapshot."""
+    create_comparison(page, ["Aaron Able", "Brian Baker"])
+    open_linemate_card(page, "Carl Cole")
+
+    snapshot = workspace_snapshot(page)
+    assert snapshot["merged"] and len(snapshot["cards"]) == 3, snapshot
+
+    return snapshot
+
+
+def other_option_value(page, selector: str, taken: set[str]) -> str:
+    values = page.locator(f"{selector} option").evaluate_all(
+        "options => options.map(option => option.value)"
+    )
+    current = page.locator(selector).input_value()
+
+    return next(value for value in values if value != current and value not in taken)
+
+
+def test_changing_an_axis_and_applying_leaves_every_card_alone(page):
+    before = build_busy_workspace(page)
+
+    x_value = other_option_value(page, "#x-metric-select", set())
+    page.select_option("#x-metric-select", x_value)
+    y_value = other_option_value(page, "#y-metric-select", {x_value})
+    page.select_option("#y-metric-select", y_value)
+
+    assert workspace_snapshot(page) == before, "an axis change reached the cards"
+
+    page.click("#apply-filters")
+    wait_until(
+        page, "!document.querySelector('#apply-filters').classList.contains('pending')"
+    )
+
+    assert page.locator(CONFIRM_OVERLAY).is_hidden()
+    assert applied_state(page)["position"] == "ED"
+    assert workspace_snapshot(page) == before, "Apply with new axes reached the cards"
+
+
+def test_the_display_toggles_leave_every_card_alone(page):
+    before = build_busy_workspace(page)
+
+    for toggle in ("#labels-toggle", "#logos-toggle"):
+        page.uncheck(toggle)
+        assert workspace_snapshot(page) == before, toggle
+
+    page.check("#metric-notes-toggle")
+    assert workspace_snapshot(page) == before, "#metric-notes-toggle"
+
+    page.check("#labels-toggle")
+    page.check("#logos-toggle")
+    page.uncheck("#metric-notes-toggle")
+    assert workspace_snapshot(page) == before
+
+
+def test_folding_a_card_leaves_the_workspace_alone(page):
+    before = build_busy_workspace(page)
+    linemate_card = page.locator(LINEMATE_CARDS).first
+
+    linemate_card.locator(".scout-fold").click()
+    assert "is-folded" in linemate_card.get_attribute("class")
+    assert workspace_snapshot(page) == before
+
+    linemate_card.locator(".scout-fold").click()
+    assert "is-folded" not in linemate_card.get_attribute("class")
+    assert workspace_snapshot(page) == before
+
+
+def test_dragging_a_card_leaves_the_workspace_alone(page):
+    before = build_busy_workspace(page)
+    linemate_card = page.locator(LINEMATE_CARDS).first
+    handle = linemate_card.locator(".scout-drag-handle")
+    start = linemate_card.bounding_box()
+    handle_box = handle.bounding_box()
+    grab_x = handle_box["x"] + 24
+    grab_y = handle_box["y"] + handle_box["height"] / 2
+
+    page.mouse.move(grab_x, grab_y)
+    page.mouse.down()
+    page.mouse.move(grab_x - 120, grab_y + 60, steps=8)
+    page.mouse.up()
+
+    assert linemate_card.bounding_box() != start, "the drag did not move the card"
+    assert workspace_snapshot(page) == before
+
+
+# --- Invariant 11: the Linemate roster leaves the anchor out unless asked; RSWA uses raw snaps. ---
+
+ANCHOR = "Hank Hale"
+
+
+def teammates_of(anchor_full_name: str) -> list[tuple]:
+    """The anchor's same-team players from the seed, by snaps descending (the card's own order)."""
+    team = next(
+        player[2]
+        for player in EDGE_PLAYERS + INTERIOR_PLAYERS
+        if player[0] == anchor_full_name
+    )
+    players = [
+        player
+        for player in EDGE_PLAYERS + INTERIOR_PLAYERS
+        if player[2] == team and player[0] != anchor_full_name
+    ]
+
+    return sorted(players, key=lambda player: -player[3])
+
+
+def win_rate_percentile(full_name: str) -> int:
+    """Percentile of the seeded Win Rate (10 + the player's index at his position), by hand."""
+    for players in (EDGE_PLAYERS, INTERIOR_PLAYERS):
+        names = [player[0] for player in players]
+
+        if full_name in names:
+            value = names.index(full_name)
+            rank = 1 + sum(1 for index in range(len(names)) if index > value)
+
+            return int((len(names) - rank) / (len(names) - 1) * 100 + 0.5)
+
+    raise ValueError(full_name)
+
+
+def ordinal_text(number: int) -> str:
+    if 11 <= number % 100 <= 13:
+        return f"{number}th"
+
+    return f"{number}{({1: 'st', 2: 'nd', 3: 'rd'}).get(number % 10, 'th')}"
+
+
+def expected_win_rate_rswa(players: list[tuple]) -> str:
+    """Snap-weighted mean of the players' percentiles, rounded to a tenth and then to a whole number."""
+    total_snaps = sum(player[3] for player in players)
+    weighted = sum(
+        win_rate_percentile(player[0]) * player[3] / total_snaps for player in players
+    )
+    one_decimal = int(weighted * 10 + 0.5) / 10
+
+    return ordinal_text(int(one_decimal + 0.5))
+
+
+def roster_names(page) -> list[str]:
+    """The roster in the Sort layout, where each player is a row."""
+    page.locator(f"{LINEMATE_CARDS} .merge-mode-btn[data-mode='sort']").click()
+
+    return page.locator(
+        f"{LINEMATE_CARDS} .linemate-table tbody td.linemate-table-name"
+    ).all_text_contents()
+
+
+def win_rate_rswa(page) -> str:
+    return page.evaluate("""() => {
+            const rows = [...document.querySelectorAll('#scout-cards .scout-card--linemate .linemate-summary-table tbody tr')];
+            const row = rows.find(r => r.children[0].textContent === 'Win Rate');
+            return row.children[3].textContent;
+        }""")
+
+
+def test_the_roster_leaves_the_anchor_out_and_orders_by_snaps(page):
+    open_linemate_card(page, ANCHOR)
+
+    expected = [short for full, short, *_ in teammates_of(ANCHOR)]
+
+    assert roster_names(page) == expected
+    assert "H. Hale" not in expected
+    assert page.locator(f"{LINEMATE_CARDS} .linemate-card-title").text_content() == (
+        "Hank Hale Linemates"
+    )
+
+
+def test_including_the_anchor_puts_him_in_snap_order_behind_a_tie(page):
+    open_linemate_card(page, ANCHOR)
+    teammate_names = roster_names(page)
+
+    page.locator(f"{LINEMATE_CARDS} .linemate-anchor-checkbox").check()
+
+    # Hale and Lane both have 260 snaps; the teammate stays ahead and Jones (235) follows.
+    assert roster_names(page) == [
+        "B. Baker",
+        "D. Drake",
+        "F. Frost",
+        "L. Lane",
+        "H. Hale",
+        "J. Jones",
+    ]
+    assert page.locator(f"{LINEMATE_CARDS} .linemate-card-title").text_content() == (
+        "Hank Hale & His Linemates"
+    )
+
+    page.locator(f"{LINEMATE_CARDS} .linemate-anchor-checkbox").uncheck()
+
+    assert roster_names(page) == teammate_names
+
+
+def test_rswa_weights_each_percentile_by_raw_snaps(page):
+    open_linemate_card(page, ANCHOR)
+    teammates = teammates_of(ANCHOR)
+
+    assert win_rate_rswa(page) == expected_win_rate_rswa(teammates)
+
+    page.locator(f"{LINEMATE_CARDS} .linemate-anchor-checkbox").check()
+    anchor = next(player for player in EDGE_PLAYERS if player[0] == ANCHOR)
+
+    assert win_rate_rswa(page) == expected_win_rate_rswa(teammates + [anchor])

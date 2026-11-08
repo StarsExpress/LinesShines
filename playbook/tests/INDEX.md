@@ -36,7 +36,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The Player Card's Volume column (the count beside each rate, the Volume and Rate header) | `test_volume_column.py` ([doc](TEST_VOLUME_COLUMN.md)) | browser |
 | Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
 | Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
-| How the controls are wired to the Apply gate, the Pinned Players invalidation and confirm, the Merge Card cap and quota, and the commit points that re-check selected Players (INVARIANTS 4, 9, 10, 17) | `test_browser_smoke.py` ([doc](TEST_BROWSER_SMOKE.md)) | browser |
+| How the controls are wired to the Apply gate, the Pinned Players invalidation and confirm, the Merge Card cap and quota, the commit points that re-check selected Players, the Linemate roster and RSWA, and axes, toggles, folding and dragging leaving cards alone (INVARIANTS 4, 9, 10, 11, 16, 17) | `test_browser_smoke.py` ([doc](TEST_BROWSER_SMOKE.md)) | browser |
 | Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
@@ -67,8 +67,6 @@ grep -H "Add tests here when" playbook/tests/*.md
 
 These invariants (see `INVARIANTS.md`) have no test today, or only part of one. If you change one of them, create a new test file and its document. For client-side logic, a browser test in the style of `test_percentiles.py` or `test_pinned_impact.py` fits.
 
-- Invariant 11: the Linemate roster excludes the anchor by default; RSWA uses uncapped raw snaps.
-- Invariant 16: axis controls, display toggles, fold state and dragging never reset cards (the handler wiring).
 - Invariant 18 (wiring only): the Merge Card's Read | Sort switch, the scroll hint, the frozen head block and the always-Read PNG export. The model, both layouts and the order are tested; the event wiring and the export are not.
 - Invariant 17 (Set Threshold lane only): the lane only lowers the bar, so a test could not tell it from doing nothing; the other commit points are in `test_browser_smoke.py`.
 
