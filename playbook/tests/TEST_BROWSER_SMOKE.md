@@ -1,0 +1,13 @@
+# test_browser_smoke.py
+
+> **Add tests here when:** changing how the controls are wired to the Apply gate (INVARIANTS 4), to the Pinned Players invalidation and its confirm dialog (9), to the Merge Card's display, 5-player cap and 8-player quota (10), or to the commit points that re-check selected Players (17).
+
+- **Kind:** browser (Playwright), real clicks, typing and a mouse drag on the real page at 1280x900. The pure rules are tested elsewhere (`TEST_PINNED_IMPACT.md`, `TEST_MERGE_TABLE.md`); these tests check that the controls reach them.
+- **Needs:** Chromium; the tests skip without it. Its own `seeded_smoke_db` (ten edge rushers at 400 down to 235 opportunities, two interior linemen, 2025, no PFF data) replaces the shared rows, and its `page` fixture opens the app at the default bar of 230.
+- **Covers:**
+  - **4:** position and bar edits change nothing on the chart until Apply; the Players search follows the pending position while the chart and the applied filters stay put.
+  - **17:** dragging the slider or typing a number removes nobody and shows no toast; releasing the slider, leaving the number box, and Enter in the number box (which runs Apply) remove the players who no longer clear the bar and show the toast; a removed player is not restored when the bar moves back.
+  - **9:** a higher bar removes only the pinned players who no longer fit, a Comparison with two members left shrinks and one with one left dissolves, and the confirm dialog lists both; Cancel changes nothing; a position change clears everything; a looser bar needs no confirm.
+  - **10:** a Comparison's metric cells show percentiles only (ordinals, or a dash for a metric with no data) and no `#rank/N`; the Create popup refuses a sixth player; picking players never checks the Workspace quota, Submit does (10 distinct players against 8).
+- **Not here:** the single-function rules → `TEST_PINNED_IMPACT.md`; the Merge Card's layouts → `TEST_MERGE_TABLE.md`; the union of Teams and Players → `TEST_FILTERS.md`.
+- **Known gaps:** the Set Threshold lane of INVARIANTS 17 is not driven (it only lowers the bar, so it cannot remove anyone and a test could not tell it from doing nothing); the Apply lane is reached through Enter in the number box, because a click on Apply first leaves the field and so also fires the number change. A category change is not clicked through (the reset outcome is covered in `TEST_PINNED_IMPACT.md`). The slider drag aims at the thumb's expected position and relies on a drag past the end clamping to the maximum; a real touch drag is not tested. The 5-player cap is checked only in the Create popup, not in the Edit popup. The 8-player quota in the Single Cards add box is not covered.

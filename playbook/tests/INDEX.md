@@ -36,6 +36,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The Player Card's Volume column (the count beside each rate, the Volume and Rate header) | `test_volume_column.py` ([doc](TEST_VOLUME_COLUMN.md)) | browser |
 | Linemate Card roster: the Card button column and opening a teammate's card | `test_linemate_card.py` ([doc](TEST_LINEMATE_CARD.md)) | browser |
 | Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
+| How the controls are wired to the Apply gate, the Pinned Players invalidation and confirm, the Merge Card cap and quota, and the commit points that re-check selected Players (INVARIANTS 4, 9, 10, 17) | `test_browser_smoke.py` ([doc](TEST_BROWSER_SMOKE.md)) | browser |
 | Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
@@ -64,14 +65,12 @@ grep -H "Add tests here when" playbook/tests/*.md
 
 ## Behavior with no test file yet
 
-These invariants (see `INVARIANTS.md`) have no test today. If you change one of them, create a new test file and its document. For client-side logic, a browser test in the style of `test_percentiles.py` or `test_pinned_impact.py` fits.
+These invariants (see `INVARIANTS.md`) have no test today, or only part of one. If you change one of them, create a new test file and its document. For client-side logic, a browser test in the style of `test_percentiles.py` or `test_pinned_impact.py` fits.
 
-- Invariant 4: the chart changes only on Apply, while the Players search pool stays live.
-- Invariant 10: Merge Card display rules, the 5-player cap and the 8-player quota.
 - Invariant 11: the Linemate roster excludes the anchor by default; RSWA uses uncapped raw snaps.
 - Invariant 16: axis controls, display toggles, fold state and dragging never reset cards (the handler wiring).
 - Invariant 18 (wiring only): the Merge Card's Read | Sort switch, the scroll hint, the frozen head block and the always-Read PNG export. The model, both layouts and the order are tested; the event wiring and the export are not.
-- Invariant 17 (wiring only): the Players filter re-checks selections on commit, not while dragging or typing, and shows the toast. The shared function and the toast text are tested; the event wiring is not.
+- Invariant 17 (Set Threshold lane only): the lane only lowers the bar, so a test could not tell it from doing nothing; the other commit points are in `test_browser_smoke.py`.
 
 ## Deliberately untested
 
