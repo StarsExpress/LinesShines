@@ -60,17 +60,6 @@ grep -H "Add tests here when" playbook/tests/*.md
 ## Rules
 
 - Synthetic data only. Fixtures are tiny hand-made rows, never PFF exports.
+- Which invariants a file covers is the Coverage column of [`INVARIANTS.md`](../INVARIANTS.md); an invariant with coverage "none" has no test, and changing it means creating a new test file and its document. Each document lists what its file leaves out under "Known gaps".
 - A new test file ships with its document in the same change. Copy the shape of an existing one. CI enforces it: `test_playbook_docs.py` fails when a script has no document, when a document has no script, when `INDEX.md` does not link a document or links a file that does not exist, or when a document's third line lacks "Add tests here when:".
 - Keep documents short. Say where tests belong, what they need and what is not covered. Do not list test functions; `grep "^def test_" tests/<file>` does that.
-
-## Behavior with no test file yet
-
-These invariants (see `INVARIANTS.md`) have no test today, or only part of one. If you change one of them, create a new test file and its document. For client-side logic, a browser test in the style of `test_percentiles.py` or `test_pinned_impact.py` fits.
-
-- Invariant 18 (wiring only): the Merge Card's Read | Sort switch, the scroll hint, the frozen head block and the always-Read PNG export. The model, both layouts and the order are tested; the event wiring and the export are not.
-- Invariant 17 (Set Threshold lane only): the lane only lowers the bar, so a test could not tell it from doing nothing; the other commit points are in `test_browser_smoke.py`.
-
-## Deliberately untested
-
-- **Invariant 12 (every PNG export carries the PFF source footer):** the footer is one constant drawn onto a canvas, so a test would only restate the constant, and every export shows it.
-- **Invariant 13 (PFF raw CSV/xlsx never enters the repo):** git state is outside what the app's tests can see, and `.gitignore` already ignores `*.csv` and `*.xlsx`.
