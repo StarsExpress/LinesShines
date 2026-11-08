@@ -132,3 +132,18 @@ def test_select_all_carries_a_first_seen_school_on(page):
     _switch_season(page, "2024")
 
     assert sorted(_checked_teams(page)) == [AKRON, BALL_STATE]
+
+
+def test_a_conference_header_selects_then_clears_just_that_conference(page):
+    # 2025 lists Akron (MAC) and Alabama (SEC).
+    _clear_all_teams(page)
+    page.click("#teams-toggle-btn")
+
+    page.click("#teams-checklist .teams-column-header >> text='MAC'")
+    assert _checked_teams(page) == [AKRON]
+
+    page.click("#teams-checklist .teams-column-header >> text='SEC'")
+    assert sorted(_checked_teams(page)) == [AKRON, ALABAMA]
+
+    page.click("#teams-checklist .teams-column-header >> text='MAC'")
+    assert _checked_teams(page) == [ALABAMA]

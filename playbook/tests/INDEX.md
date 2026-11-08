@@ -42,6 +42,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
 | The NCAAF Teams checklist: per-season schools and what stays checked across seasons | `test_ncaaf_teams_checklist.py` ([doc](TEST_NCAAF_TEAMS_CHECKLIST.md)) | browser |
+| The NFL Teams checklist's conference and division buttons | `test_teams_group_buttons.py` ([doc](TEST_TEAMS_GROUP_BUTTONS.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
 | The Claude Code hooks in `tools/claude_hooks/` and their installer | `test_hooks.py` ([doc](TEST_HOOKS.md)) | pure Python |

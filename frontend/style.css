@@ -809,42 +809,91 @@ body {
   grid-template-columns: 1fr 1fr;
   column-gap: 8px;
 }
-.teams-dropdown--by-season .teams-column-header {
+
+/* Group headers (conference, NFL division): a box drawn like the team ticks
+   (same gold, 13px) in front of the name; ticked, half-ticked (a dash) or empty
+   to match the group. */
+.teams-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  padding: 0 0 4px;
   background: none;
   border: 0;
-  border-bottom: 1px solid var(--turf-600);
+  border-radius: 4px;
   text-align: left;
   cursor: pointer;
-}
-.teams-dropdown--by-season .teams-column-header:hover,
-.teams-dropdown--by-season .teams-column-header:focus-visible {
-  color: var(--flag-gold-bright);
-}
-
-.teams-column-header {
   font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.teams-group-toggle:hover {
+  background: rgba(241, 236, 221, 0.06);
+}
+.teams-group-toggle:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
+}
+.teams-group-box {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--chalk-dim);
+  border-radius: 3px;
+}
+.teams-group-toggle[aria-checked="true"] .teams-group-box,
+.teams-group-toggle[aria-checked="mixed"] .teams-group-box {
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+}
+.teams-group-toggle[aria-checked="true"] .teams-group-box::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 3px;
+  height: 7px;
+  border: solid var(--turf-950);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.teams-group-toggle[aria-checked="mixed"] .teams-group-box::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 4.5px;
+  width: 6px;
+  height: 2px;
+  background: var(--turf-950);
+}
+.teams-column-header {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--flag-gold);
-  padding-bottom: 4px;
-  margin-bottom: 4px;
+  padding: 4px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--turf-600);
+  border-radius: 4px 4px 0 0;
+}
+.teams-column-header:hover,
+.teams-column-header:focus-visible {
+  color: var(--flag-gold-bright);
 }
 .teams-division + .teams-division {
   margin-top: 8px;
 }
 .teams-division-header {
-  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--chalk-dim);
-  opacity: 0.75;
+  padding: 2px 4px;
   margin-bottom: 2px;
+}
+.teams-division-header:hover,
+.teams-division-header:focus-visible {
+  color: var(--chalk);
 }
 .team-option {
   display: flex;

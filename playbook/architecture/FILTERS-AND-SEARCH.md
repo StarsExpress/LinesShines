@@ -15,6 +15,8 @@ selection is a legitimate combination and must not be auto-cleared. The Players 
 own info popover (`main.js`'s `attachEvents()`, a small ⓘ trigger via `createInfoPopover()` exactly
 like Teams/X/Y — the header is a plain `<label id="players-label">`, then the ⓘ, then the Clear link)
 is where this union rule is spelled out for users, so keep its text in sync with any change here.
+**Teams group buttons.** In the Teams checklist every conference header (NFL: AFC, NFC; NCAAF: each conference) and, on the NFL, every division header is a `role="checkbox"` button (not an `<input>`, so nothing that reads the team ticks counts it) drawn like the team ticks: a gold box, empty, half-ticked (a dash) or ticked to match its group, kept in step by `updateTeamsSummary()`. One click ticks every team in that group, or clears the group when all of its teams are already ticked; other groups are untouched. Ticks made this way count as individual ticks, so they never change the "All Teams" mode flag for schools not yet seen (`markAllTeamsSelected()` / `markNoTeamsSelected()` stay the only switches).
+
 The Teams header's ⓘ carries the complementary half: Teams only *highlights* (dims everyone else via
 `render.js`'s `isDimmed`), never shrinks the percentile pool — which is determined by position and
 snap threshold alone. If Teams ever starts filtering the pool, that popover's text is wrong.
