@@ -605,7 +605,9 @@ class _Page:
     api_path: str = ""  # Overrides /api/<league> when the page reads another route.
 
 
-NCAAF_SCOPE_SEGMENT = "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC · B1G · ACC · Big 12 · Pac-12 · MAC · Notre Dame"
+NCAAF_SCOPE_SEGMENT = (
+    "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC, B1G, ACC, Big 12, Pac-12, MAC, Notre Dame"
+)
 
 # The order is the order of the navigation buttons.
 PAGES = (
@@ -692,6 +694,12 @@ def render_page(template: str, page: _Page) -> str:
         "{{PAGE_TITLE}}": page.tab_title,
         "{{PAGE_DESCRIPTION}}": page.description,
         "{{EYEBROW}}": page.eyebrow,
+        # Pages with a scope segment put the meta band on two lines.
+        "{{META_BREAK}}": (
+            '<span class="meta-break" aria-hidden="true"></span>'
+            if page.scope_segment
+            else ""
+        ),
         "{{SCOPE_SEGMENT}}": (
             f'<span class="meta-segment">{page.scope_segment}</span>'
             if page.scope_segment

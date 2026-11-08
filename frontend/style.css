@@ -46,6 +46,14 @@
   }
 }
 
+html {
+  /* Phones render the desktop layout shrunk to fit (see index.html). iOS
+     Safari's text autosizing then inflates text in wide blocks, which blew up
+     the threshold labels only. Keep every font at its declared size. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body {
   margin: 0;
@@ -87,8 +95,9 @@ body {
 }
 
 .hero-inner {
+  /* Left-aligned with the page switch above and the control bar below. */
   max-width: 860px;
-  margin: 0 auto;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -191,7 +200,7 @@ body {
 .league-nav {
   position: absolute;
   top: 16px;
-  left: 20px;
+  left: 24px;
   z-index: 3;
 }
 .league-nav-toggle {
@@ -243,40 +252,49 @@ body {
   top: 5px;
 }
 .league-nav-list {
+  /* One segmented pill instead of three separate boxes: the current page is
+     the gold segment, the others stay quiet until hovered. */
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
-  padding: 0;
+  padding: 3px;
   list-style: none;
+  background: #000;
+  border: 2px solid #f0ede4;
+  border-radius: 999px;
 }
 .league-nav-link {
   display: inline-flex;
   align-items: center;
-  height: 36px;
+  height: 30px;
   box-sizing: border-box;
-  padding: 0 12px;
-  border: 2px solid #f0ede4;
-  border-radius: 4px;
-  background: #000;
+  padding: 0 14px;
+  border: 1px solid rgba(240, 237, 228, 0.4);
+  border-radius: 999px;
   color: var(--chalk);
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.04em;
+  white-space: nowrap;
   text-decoration: none;
-  opacity: 0.8;
   transition:
     color 0.15s ease,
-    opacity 0.15s ease,
+    background-color 0.15s ease,
     border-color 0.15s ease;
 }
 .league-nav-link:hover,
 .league-nav-link:focus-visible {
-  opacity: 1;
-  border-color: var(--flag-gold);
+  color: var(--chalk);
+  background: rgba(240, 237, 228, 0.2);
+  border-color: #f0ede4;
+}
+.league-nav-link:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
 }
 .league-nav-link.is-current {
-  opacity: 1;
   color: #0f2119;
+  font-weight: 600;
   background: var(--flag-gold);
   border-color: var(--flag-gold);
 }
@@ -296,13 +314,19 @@ body {
     top: calc(100% + 6px);
     left: 0;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     min-width: 170px;
     padding: 8px;
-    background: var(--turf-800);
-    border: 1px solid var(--turf-600);
+    background: #000;
+    border: 2px solid #f0ede4;
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .league-nav-link {
+    display: flex;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 6px;
   }
   .league-nav.is-open .league-nav-list {
     display: flex;
@@ -352,7 +376,7 @@ body {
 .meta-band {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   row-gap: 4px;
   margin: 0;
   padding: 4px 24px;
@@ -360,19 +384,27 @@ body {
   font-size: 11px;
   letter-spacing: 0.03em;
   color: var(--chalk-dim);
-  text-align: center;
+  text-align: left;
 }
 .meta-segment {
   white-space: nowrap;
+}
+/* Forces a line break inside the flex row (NCAAF pages: two lines). The
+   segment after it starts the new line, so its leading dot is hidden. */
+.meta-break {
+  flex-basis: 100%;
+  height: 0;
+}
+.meta-break + .meta-segment .meta-dot {
+  display: none;
 }
 
 /* The longest single segment ("· Median lines are calculated according to
    current filter", ~416px at the 11px base size) is wider than most phone
    viewports on its own. Once flex-wrap gives it its own line (see above),
-   centering an overflowing item spills it equally past both edges of the
-   container — and since body has overflow-x: hidden (top of this file),
-   the spilled-left half, dot included, would silently disappear instead
-   of scrolling. Shrinking font-size + padding here keeps every segment,
+   an overflowing item would spill past the container edge — and since body
+   has overflow-x: hidden (top of this file), the spilled part would silently
+   disappear instead of scrolling. Shrinking font-size + padding here keeps every segment,
    including that one, narrower than the viewport at any real phone width
    so nothing ever gets clipped. */
 @media (max-width: 480px) {
