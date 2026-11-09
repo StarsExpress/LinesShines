@@ -71,6 +71,22 @@ export let appliedFilters = null;
 // again — layout.images and the scout card both just point at these.
 export const logoCache = {};
 
+// What the Teams filter ticks and the chart highlights by. A season page keys a
+// team by its id alone; Career keys it by id plus the conference the member last
+// played in, because a school that changed conference is two entries there.
+export function careerTeamKey(team, conference) {
+  return `${team}|${conference}`;
+}
+
+export function teamKeyOfRecord(record) {
+  return IS_CAREER ? careerTeamKey(record.team, record.conference) : String(record.team);
+}
+
+// The school behind a Teams filter key (for its logo, name and label).
+export function teamCodeOfKey(key) {
+  return IS_CAREER ? String(key).split("|")[0] : key;
+}
+
 export function setMetadata(m) {
   metadata = m;
 
@@ -81,8 +97,17 @@ export function setMetadata(m) {
     ["pass_rush", "pass_block"].forEach((key) => {
       metadata[key].seasons = [CAREER_SEASON];
     });
+    // The API lists, per school, every conference its members last played in. A
+    // school in two of them is two checklist entries (UCLA in Pac-12 is not UCLA in
+    // B1G), so the flat map is keyed by the school-and-conference pair.
     if (metadata.team_conferences && !(CAREER_SEASON in metadata.team_conferences)) {
-      metadata.team_conferences = { [CAREER_SEASON]: metadata.team_conferences };
+      const byKey = {};
+      Object.entries(metadata.team_conferences).forEach(([team, conferences]) => {
+        conferences.forEach((conference) => {
+          byKey[careerTeamKey(team, conference)] = conference;
+        });
+      });
+      metadata.team_conferences = { [CAREER_SEASON]: byKey };
     }
   }
 }

@@ -177,12 +177,18 @@ def _last_season_rows(sess: Session, spec: CareerSpec) -> dict:
     return chosen
 
 
-def last_season_conferences(sess: Session, spec: CareerSpec) -> dict[int, str]:
-    """The conference of each school a member last played for, for the Teams checklist."""
-    return {
-        row.team_code: row.conference
-        for row, _status in _last_season_rows(sess, spec).values()
-    }
+def last_season_conferences(sess: Session, spec: CareerSpec) -> dict[int, list[str]]:
+    """The conferences each school's members last played in, for the Teams checklist.
+
+    Only a member's last season counts, so a school can list two conferences: UCLA is
+    Pac-12 for a member whose last year was 2023 and B1G for one whose last year was 2024.
+    """
+    found: dict[int, set[str]] = dict()
+
+    for row, _status in _last_season_rows(sess, spec).values():
+        found.setdefault(row.team_code, set()).add(row.conference)
+
+    return {team: sorted(conferences) for team, conferences in found.items()}
 
 
 def merged_career_rows(

@@ -28,6 +28,8 @@ from main import SessionLocal
 
 AKRON_ID = 102  # MAC.
 ALABAMA_ID = 103  # SEC.
+TEXAS_ID = 311  # Big 12 until 2023, SEC from 2024.
+UCLA_ID = 324  # Pac-12 until 2023, B1G from 2024.
 JOINED = CareerStatus.JOINED_NFL.value
 PROSPECT = CareerStatus.PROSPECTS.value
 FRONT_7 = ("ED", "DI")
@@ -42,7 +44,9 @@ def sess():
         yield session
 
 
-def _rush_row(season, player_id, position="ED", team_code=AKRON_ID, **values):
+def _rush_row(
+    season, player_id, position="ED", team_code=AKRON_ID, conference=None, **values
+):
     defaults = dict(
         games=10,
         pr_opp=100,
@@ -68,7 +72,7 @@ def _rush_row(season, player_id, position="ED", team_code=AKRON_ID, **values):
         season=season,
         position=position,
         team_code=team_code,
-        conference="MAC" if team_code == AKRON_ID else "SEC",
+        conference=conference or ("MAC" if team_code == AKRON_ID else "SEC"),
         player_id=player_id,
         player=f"Player {player_id}",
         abbr_name=f"P. {player_id}",
@@ -282,7 +286,70 @@ def test_conferences_come_from_each_members_last_school(sess):
     sess.add(NCAAFPassRushCareerMember(player_id=1, status=JOINED))
     sess.commit()
 
-    assert last_season_conferences(sess, PASS_RUSH_CAREER) == {ALABAMA_ID: "SEC"}
+    assert last_season_conferences(sess, PASS_RUSH_CAREER) == {ALABAMA_ID: ["SEC"]}
+
+
+def _add_member(sess, player_id, rows, name):
+    """Add a member from `rows` of (season, team, conference), named `name`."""
+    for season, team_code, conference in rows:
+        row = _rush_row(season, player_id, team_code=team_code, conference=conference)
+        row.player = name
+        sess.add(row)
+
+    sess.add(NCAAFPassRushCareerMember(player_id=player_id, status=JOINED))
+
+
+def test_a_member_keeps_the_conference_of_his_last_season_after_his_school_moves(sess):
+    # Laiatu Latu's last year at UCLA was 2023, the Pac-12's last season. UCLA joined
+    # the B1G in 2024, but for Latu UCLA is still a Pac-12 school.
+    _add_member(
+        sess,
+        1,
+        [(2019, 340, "Pac-12"), (2022, UCLA_ID, "Pac-12"), (2023, UCLA_ID, "Pac-12")],
+        "Laiatu Latu",
+    )
+    # A teammate of the B1G era shows that UCLA now holds members on both sides.
+    _add_member(sess, 2, [(2025, UCLA_ID, "B1G")], "Later Bruin")
+    sess.commit()
+
+    (latu,) = _merge_rush(sess, player_id=1)
+    (later,) = _merge_rush(sess, player_id=2)
+
+    assert (latu["team"], latu["conference"]) == (UCLA_ID, "Pac-12")
+    assert (later["team"], later["conference"]) == (UCLA_ID, "B1G")
+    assert last_season_conferences(sess, PASS_RUSH_CAREER) == {
+        UCLA_ID: ["B1G", "Pac-12"]
+    }
+
+
+def test_four_big_12_years_do_not_outweigh_a_last_season_in_the_sec(sess):
+    # Vernon Broughton played at Texas from 2020; the school was in the Big 12 for the
+    # first four years and in the SEC for 2024, his last. Only 2024 places him.
+    _add_member(
+        sess,
+        1,
+        [
+            (2020, TEXAS_ID, "Big 12"),
+            (2021, TEXAS_ID, "Big 12"),
+            (2022, TEXAS_ID, "Big 12"),
+            (2023, TEXAS_ID, "Big 12"),
+            (2024, TEXAS_ID, "SEC"),
+        ],
+        "Vernon Broughton",
+    )
+    # A Texas member who left in 2023 is a Big 12 player.
+    _add_member(sess, 2, [(2023, TEXAS_ID, "Big 12")], "Earlier Longhorn")
+    sess.commit()
+
+    (broughton,) = _merge_rush(sess, player_id=1)
+    (earlier,) = _merge_rush(sess, player_id=2)
+
+    assert broughton["seasons"] == 5
+    assert (broughton["team"], broughton["conference"]) == (TEXAS_ID, "SEC")
+    assert (earlier["team"], earlier["conference"]) == (TEXAS_ID, "Big 12")
+    assert last_season_conferences(sess, PASS_RUSH_CAREER) == {
+        TEXAS_ID: ["Big 12", "SEC"]
+    }
 
 
 @pytest.fixture()
@@ -330,7 +397,10 @@ def test_career_metadata_lists_statuses_positions_and_two_thresholds(
     )
 
     assert set(body["pass_block"]["default_thresholds"]) == {JOINED, PROSPECT}
-    assert body["team_conferences"] == {str(ALABAMA_ID): "SEC", str(AKRON_ID): "MAC"}
+    assert body["team_conferences"] == {
+        str(ALABAMA_ID): ["SEC"],
+        str(AKRON_ID): ["MAC"],
+    }
     assert body["teams"][str(ALABAMA_ID)]["full_name"] == "Alabama"
     assert "tps_note" in body
 
@@ -482,3 +552,23 @@ def test_career_batted_passes_are_summed_and_their_rate_is_weighted_by_pr_opp(se
     assert (record["Batted Passes"], record["TPS Batted Passes"]) == (5, 3)
     # (2.0 x 100 + 1.0 x 300) / 400, which is also 5 / 400.
     assert record["Batted Pass Rate"] == 1.25
+
+
+def test_career_metadata_lists_both_conferences_of_a_school_that_changed(client):
+    with SessionLocal() as db:
+        for model in (
+            NCAAFPassRushStat,
+            NCAAFPassBlockStat,
+            NCAAFPassRushCareerMember,
+            NCAAFPassBlockCareerMember,
+            NCAAFTeam,
+        ):
+            db.query(model).delete()
+
+        _add_member(db, 1, [(2023, UCLA_ID, "Pac-12")], "Laiatu Latu")
+        _add_member(db, 2, [(2025, UCLA_ID, "B1G")], "Later Bruin")
+        db.commit()
+
+    body = client.get("/api/ncaaf/career/metadata").json()
+
+    assert body["team_conferences"] == {str(UCLA_ID): ["B1G", "Pac-12"]}

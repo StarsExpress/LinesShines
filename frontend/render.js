@@ -22,6 +22,7 @@ import {
   targetLogoPx,
   thresholdFieldLabel,
   metadata,
+  teamKeyOfRecord,
   LEAGUE,
   IS_CAREER,
   appliedThreshold,
@@ -273,7 +274,8 @@ export function render() {
   // off a dimmed team still stands out. Empty selectedTeams (Teams → None)
   // with no players picked has both .has() calls return false for every
   // record, which dims everyone uniformly — no special-casing needed.
-  // String(): the NCAAF team key is a number, the checklist values are strings.
+  // teamKeyOfRecord(): the checklist values are strings (a Career one also names the
+  // conference the player last played in), while a record's team is a number.
   // Career only: the Status Filter joins the same union. A player is lit when his
   // team is chosen, or he is picked, or his status is lit; a status that is off
   // lights nobody by itself and never takes a player out of the pool.
@@ -281,7 +283,7 @@ export function render() {
   const isDimmed = currentFiltered.map(
     (r) =>
       !(
-        selectedTeams.has(String(r.team)) ||
+        selectedTeams.has(teamKeyOfRecord(r)) ||
         selectedPlayerKeys.has(r.player) ||
         (IS_CAREER && litStatusSet.has(r.status))
       )

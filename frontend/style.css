@@ -398,6 +398,15 @@ body {
 .meta-break + .meta-segment .meta-dot {
   display: none;
 }
+/* Career's explanatory line is a sentence, so it wraps on a narrow phone
+   instead of staying on one line like the other segments. */
+.meta-note {
+  white-space: normal;
+}
+.meta-note strong {
+  font-weight: 600;
+  color: var(--chalk);
+}
 
 /* The longest single segment ("· Median lines are calculated according to
    current filter", ~416px at the 11px base size) is wider than most phone

@@ -84,9 +84,15 @@ default thresholds already come from `/api/{league}/metadata`, so the config hol
 - **Teams checklist.** `populateTeamsChecklist(season)` builds it from `teamGroups(season)`: `static` is the NFL's
   fixed AFC/NFC divisions in `config.js`; `by_season` is the college's conferences taken from the metadata's
   `team_conferences[season]` in `conference_order`, schools by name, with each conference header a button that selects or
-  clears the whole conference. The college checklist is rebuilt when the Season or Category changes (a school's
+  clears the whole conference. On Career a school that changed conference is two entries: `setMetadata()` keys the flat map
+  by `careerTeamKey()` (`id|conference`), the box value is that key, and `render()` lights a player when
+  `teamKeyOfRecord()` (the same key from his own last-season conference) is ticked, so UCLA in Pac-12 and UCLA in B1G tick
+  and light separately. The college checklist is rebuilt when the Season or Category changes (a school's
   conference depends on the season); the teams the user unchecked are remembered across rebuilds (`uncheckedTeams`).
 - **Page switch.** The `.league-nav` links (one URL per page, current one marked) are filled by `main.py`; below 860px
   they hide behind a hamburger button (`#league-nav-toggle`) that closes on Escape and on an outside click, with the
   same `isTrusted` guard as the other dropdowns. It sits in the hero's top row, which is not part of any PNG export.
   In the installed desktop app it is pushed right by 110px (unverified: the window buttons' exact width).
+- **Meta band.** The line under the hero is filled per page by `main.py` (`_Page.scope_segment`, `meta_note`). The NCAAF pages put
+  the scope on a second line (`{{META_BREAK}}`); the Career page adds a third (`{{META_NOTE}}`, `.meta-note`, which wraps on a
+  phone) saying that a school can appear under two conferences because each player is placed by his last season.
