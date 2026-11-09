@@ -647,11 +647,12 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
     code.textContent = teamLabel(record.team);
     team.append(logo, code);
 
-    info.append(name, team);
-
     const value = document.createElement("span");
     value.className = "below-threshold-row-value";
     value.textContent = `${record[cat.threshold_field]} ${cat.threshold_field}`;
+
+    // Name on its own line (never truncated), team and snap count beneath.
+    info.append(name, team, value);
 
     const setBtn = document.createElement("button");
     setBtn.type = "button";
@@ -665,7 +666,7 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
       closeBelowThresholdPopup();
     });
 
-    row.append(info, value, setBtn);
+    row.append(info, setBtn);
     els.belowThresholdList.appendChild(row);
   });
 

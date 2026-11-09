@@ -1420,12 +1420,20 @@ body {
 .below-threshold-row-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1 1 140px;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  flex: 1 1 100%;
   min-width: 0;
 }
+/* The name takes the full first line and wraps instead of truncating, so a
+   long name is always readable; team and snap count sit on the line below. */
 .below-threshold-row-info .player-option-name {
-  font-size: 13px;
+  flex: 1 1 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  font-size: 14px;
   color: var(--chalk);
 }
 .below-threshold-row-value {
