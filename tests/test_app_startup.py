@@ -123,6 +123,14 @@ def test_the_career_page_reads_the_career_routes(client):
     assert "Scope:" in career
 
 
+def test_only_the_career_page_explains_why_a_school_can_appear_twice(client):
+    note = "Pac-12 UCLA ≠ B1G UCLA."
+
+    assert note in client.get("/ncaaf-career").text
+    assert note not in client.get("/ncaaf-season").text
+    assert note not in client.get("/").text
+
+
 def test_no_placeholder_is_left_in_a_served_page(client):
     for path in ("/", "/ncaaf-season", "/ncaaf-career"):
         text = client.get(path).text

@@ -27,6 +27,7 @@ import {
   LABEL_GLOW_COLOR,
   LABEL_FILL_RGB,
 } from "./render.js";
+import { deliverPng } from "./png-delivery.js";
 
 // Metric labels can contain "%" or "/" (e.g. "Pressure %"), which aren't
 // safe/clean in a downloaded filename — collapse any run of non-alphanumeric
@@ -280,28 +281,10 @@ export function compositeFooterCanvas(
   return canvas;
 }
 
+// Every export ends here. png-delivery.js decides how the PNG reaches the user
+// (a download on desktop, the share sheet on a touch device) and frees the canvas.
 export function downloadCanvasAsPng(canvas, filename) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("canvas.toBlob returned null"));
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-
-      anchor.href = url;
-      anchor.download = `${filename}.png`;
-      document.body.appendChild(anchor);
-
-      anchor.click();
-      anchor.remove();
-
-      URL.revokeObjectURL(url);
-      resolve();
-    }, "image/png");
-  });
+  return deliverPng(canvas, filename);
 }
 
 // Plotly.toImage() re-derives its SVG from chartDiv's data/layout at

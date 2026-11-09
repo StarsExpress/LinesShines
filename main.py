@@ -500,10 +500,16 @@ def build_career_router(league: _LeagueApi) -> APIRouter:
     def metadata() -> dict:
         with SessionLocal() as sess:
             teams = sess.execute(select(league.team_model)).scalars().all()
-            team_conferences = dict()
+            conferences_of = dict()
 
             for spec in CAREER_SPECS.values():
-                team_conferences.update(last_season_conferences(sess, spec))
+                for team, conferences in last_season_conferences(sess, spec).items():
+                    conferences_of.setdefault(team, set()).update(conferences)
+
+            team_conferences = {
+                team: sorted(conferences)
+                for team, conferences in conferences_of.items()
+            }
 
         return {
             "current_year": date.today().year,
@@ -520,7 +526,8 @@ def build_career_router(league: _LeagueApi) -> APIRouter:
                 for key, category in categories.items()
             },
             "conference_order": list(SCOPED_CONFERENCES),
-            # {franchise_id: conference of the school's last season}, unlike the
+            # {franchise_id: [conferences its members last played in]}: a school can
+            # list two, since each member is placed by his own last season. Unlike the
             # season metadata, which gives each season's conferences.
             "team_conferences": team_conferences,
             "teams": {
@@ -603,10 +610,17 @@ class _Page:
     team_label: str  # "code" shows the team key, "name" shows the full name.
     mode: str = "season"  # "season" (one season per view) or "career" (all seasons).
     api_path: str = ""  # Overrides /api/<league> when the page reads another route.
+    meta_note: str = ""  # A last line of the meta band (HTML), "" for none.
 
 
 NCAAF_SCOPE_SEGMENT = (
     "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC, B1G, ACC, Big 12, Pac-12, MAC, Notre Dame"
+)
+
+# Career places each player by the conference of his last season, so one school can sit in two.
+CAREER_META_NOTE = (
+    "A school appears under each conference its players last played in, so for example, "
+    "<strong>Pac-12 UCLA ≠ B1G UCLA.</strong>"
 )
 
 # The order is the order of the navigation buttons.
@@ -645,6 +659,7 @@ PAGES = (
         team_label="name",
         mode="career",
         api_path="/api/ncaaf/career",
+        meta_note=CAREER_META_NOTE,
     ),
 )
 
@@ -703,6 +718,12 @@ def render_page(template: str, page: _Page) -> str:
         "{{SCOPE_SEGMENT}}": (
             f'<span class="meta-segment">{page.scope_segment}</span>'
             if page.scope_segment
+            else ""
+        ),
+        "{{META_NOTE}}": (
+            '<span class="meta-break" aria-hidden="true"></span>'
+            f'<span class="meta-segment meta-note">{page.meta_note}</span>'
+            if page.meta_note
             else ""
         ),
         "{{LEAGUE_NAV}}": _navigation_html(page),

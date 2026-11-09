@@ -38,7 +38,8 @@
    only the Career merge reads; they are not in `PASS_RUSH_DATA_COLUMNS` and never in the API payload.
    **Career API.** `build_career_router()` is mounted at `/api/ncaaf/career`: `/metadata` (statuses, per-category
    positions, metrics, `threshold_field`, one default threshold per status, teams, conference order, and
-   `team_conferences` = the conference of each school's last season) and `/pass_rush`, `/pass_block` (optional
+   `team_conferences` = `{franchise_id: [conferences its members last played in]}`; a school can list two, e.g. UCLA
+   is Pac-12 for a member whose last year was 2023 and B1G for one whose last year was 2024) and `/pass_rush`, `/pass_block` (optional
    `position`, 400 if unknown). A record is a member's whole college career as one row
    (`database/career_merge.py`, `GROUP BY player_id`): counts summed, rates weighted by their own denominator,
    Pass Cov Percent rebuilt from the snap counts; the name, position, team and conference are those of the last

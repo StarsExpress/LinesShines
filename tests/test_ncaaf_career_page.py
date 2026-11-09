@@ -17,6 +17,8 @@ from main import SessionLocal
 JOINED = CareerStatus.JOINED_NFL.value
 PROSPECT = CareerStatus.PROSPECTS.value
 AKRON_ID = 102
+# A Career Teams entry is the school plus the conference of the member's last season.
+AKRON_KEY = f"{AKRON_ID}|MAC"
 
 # The default bars of the front 7 (Joined NFL stricter than Prospects).
 DEFAULTS = NCAAF_CAREER_DEFAULT_THRESHOLDS["pass_rush"]
@@ -286,9 +288,9 @@ def test_lighting_a_status_highlights_its_players(page):
 
 def test_a_chosen_team_is_highlighted_whatever_the_status(page):
     page.click("#teams-toggle-btn")
-    page.click(f'#teams-checklist input[value="{AKRON_ID}"]')
+    page.click(f'#teams-checklist input[value="{AKRON_KEY}"]')
     page.click("#teams-toggle-btn")
-    _apply_and_wait(page, "teams", AKRON_ID)
+    _apply_and_wait(page, "teams", AKRON_KEY)
 
     assert _lit_players(page) == [1, 2, 5]
     assert _pool_ids(page) == [1, 2, 5]

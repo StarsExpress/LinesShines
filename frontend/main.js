@@ -48,6 +48,7 @@ import {
 } from "./filters.js";
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
+import { failExportStatus, showExportStatus } from "./png-delivery.js";
 import { createInfoPopover } from "./info-popover.js";
 import { PLATFORM_ICONS } from "./config.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
@@ -548,7 +549,9 @@ function attachEvents() {
     // the chart's about to be captured then immediately restored anyway.
     els.savePngBtn.disabled = true;
     setLogoRelayoutGuard(true);
-    Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" })
+    // The "Preparing image…" bar paints first, so a slow phone does not look like a dead button.
+    showExportStatus()
+      .then(() => Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" }))
       .then(() =>
         // `width`/`height` set Plotly's *logical* layout size — every fixed-px
         // font (marker labels, axis titles, median/note annotations) is sized
@@ -585,6 +588,13 @@ function attachEvents() {
         // catch this relayout and do its normal, already-correct
         // applyLogoImages()/applyLabelDeclutter() pass — which re-applies
         // emphasis — rather than duplicating that recovery logic here.
+        setLogoRelayoutGuard(false);
+        return Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" });
+      })
+      .catch((err) => {
+        // A failed export must not leave the chart on its dark export background.
+        console.error("Chart PNG export failed:", err);
+        failExportStatus();
         setLogoRelayoutGuard(false);
         return Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" });
       })

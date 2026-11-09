@@ -32,6 +32,7 @@ import {
   teamSwatch,
   teamName,
   teamLabel,
+  teamCodeOfKey,
   LEAGUE,
   allTeamCodes,
   findRecordByPlayer,
@@ -238,13 +239,15 @@ function resetTeamsIfAllSelected() {
   updateTeamsSummary();
 }
 
-export function teamOptionRow(code, checked = true) {
+// `key` is the school's id, or on Career the id plus conference (see data.js).
+export function teamOptionRow(key, checked = true) {
+  const code = teamCodeOfKey(key);
   const label = document.createElement("label");
   label.className = "team-option";
 
   const cb = document.createElement("input");
   cb.type = "checkbox";
-  cb.value = code;
+  cb.value = key;
   cb.checked = checked;
 
   const logo = document.createElement("img");
@@ -283,7 +286,7 @@ function teamGroups(season) {
           title: null,
           codes: Object.keys(conferenceOfTeam)
             .filter((code) => conferenceOfTeam[code] === conference)
-            .sort((a, b) => teamName(a).localeCompare(teamName(b))),
+            .sort((a, b) => teamName(teamCodeOfKey(a)).localeCompare(teamName(teamCodeOfKey(b)))),
         },
       ],
     }))
@@ -429,7 +432,7 @@ export function updateTeamsSummary() {
   const total = allTeamCodes().length;
   if (selected.length === total) els.teamsSummary.textContent = "All Teams";
   else if (selected.length === 0) els.teamsSummary.textContent = "No Teams";
-  else if (selected.length === 1) els.teamsSummary.textContent = teamName(selected[0]);
+  else if (selected.length === 1) els.teamsSummary.textContent = teamName(teamCodeOfKey(selected[0]));
   else els.teamsSummary.textContent = `${selected.length} Teams`;
 }
 
@@ -647,11 +650,12 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
     code.textContent = teamLabel(record.team);
     team.append(logo, code);
 
-    info.append(name, team);
-
     const value = document.createElement("span");
     value.className = "below-threshold-row-value";
     value.textContent = `${record[cat.threshold_field]} ${cat.threshold_field}`;
+
+    // Name on its own line (never truncated), team and snap count beneath.
+    info.append(name, team, value);
 
     const setBtn = document.createElement("button");
     setBtn.type = "button";
@@ -665,7 +669,7 @@ export function openBelowThresholdPopup(matches, cat, onSetThreshold) {
       closeBelowThresholdPopup();
     });
 
-    row.append(info, value, setBtn);
+    row.append(info, setBtn);
     els.belowThresholdList.appendChild(row);
   });
 

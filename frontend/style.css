@@ -398,6 +398,15 @@ body {
 .meta-break + .meta-segment .meta-dot {
   display: none;
 }
+/* Career's explanatory line is a sentence, so it wraps on a narrow phone
+   instead of staying on one line like the other segments. */
+.meta-note {
+  white-space: normal;
+}
+.meta-note strong {
+  font-weight: 600;
+  color: var(--chalk);
+}
 
 /* The longest single segment ("· Median lines are calculated according to
    current filter", ~416px at the 11px base size) is wider than most phone
@@ -1420,12 +1429,20 @@ body {
 .below-threshold-row-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1 1 140px;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  flex: 1 1 100%;
   min-width: 0;
 }
+/* The name takes the full first line and wraps instead of truncating, so a
+   long name is always readable; team and snap count sit on the line below. */
 .below-threshold-row-info .player-option-name {
-  font-size: 13px;
+  flex: 1 1 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  font-size: 14px;
   color: var(--chalk);
 }
 .below-threshold-row-value {
@@ -1916,6 +1933,61 @@ body {
    like its siblings, so it survives folding (a folded card can still be
    captured — see attachCardSave()'s ignoreElements list, which excludes this
    button itself along with .scout-close/.scout-fold/.scout-resize-handle). */
+/* The bar every PNG export shows: "Preparing image…", then "Image ready" with
+   Share / Save and Copy on a touch device (png-delivery.js). */
+.export-status {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 10px 8px 16px;
+  background: #000;
+  border: 2px solid #f0ede4;
+  border-radius: 999px;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.export-status[hidden] {
+  display: none;
+}
+.export-status-actions {
+  display: flex;
+  gap: 6px;
+}
+.export-status-actions:empty {
+  display: none;
+}
+.export-status-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  background: none;
+  border: 1px solid rgba(240, 237, 228, 0.5);
+  border-radius: 999px;
+  color: var(--chalk);
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.export-status-btn.is-primary {
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+  color: #0f2119;
+  font-weight: 600;
+}
+.export-status-btn:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
+}
+
 .card-save-btn {
   display: none;
   position: absolute;

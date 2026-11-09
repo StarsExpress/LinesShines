@@ -19,6 +19,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Season-threshold routing in `config/thresholds.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
 | Who is on the college Career page (Joined NFL, Prospects) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
 | The merged Career row (summed counts, weighted rates, Pass Cov Percent, last-season identity) and the `/api/ncaaf/career` routes | `test_career_merge.py` ([doc](TEST_CAREER_MERGE.md)) | pure Python and API |
+| The NCAAF Career Teams checklist (a school that changed conference is one entry per conference; Latu, Broughton) | `test_ncaaf_career_teams.py` ([doc](TEST_NCAAF_CAREER_TEAMS.md)) | browser |
 | The NCAAF Career page (Status Filter, two threshold bars, one pool) | `test_ncaaf_career_page.py` ([doc](TEST_NCAAF_CAREER_PAGE.md)) | browser |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
 | The `nfl_*` table names, unique key, NOT NULL `player_id`, and which table has the pass-rush percent columns | `test_db_models.py` ([doc](TEST_DB_MODELS.md)) | pure Python |
@@ -38,6 +39,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Pinned Players panel: first-visit default, remembered state, Hide / Manage label | `test_pinned_panel.py` ([doc](TEST_PINNED_PANEL.md)) | browser |
 | How the controls are wired to the Apply gate, the Pinned Players invalidation and confirm, the Merge Card cap and quota, the commit points that re-check selected Players, the Linemate roster and RSWA, and axes, toggles, folding and dragging leaving cards alone (INVARIANTS 4, 9, 10, 11, 16, 17) | `test_browser_smoke.py` ([doc](TEST_BROWSER_SMOKE.md)) | browser |
 | Card PNG exports: outer square frame, chart export unchanged | `test_card_export_frame.py` ([doc](TEST_CARD_EXPORT_FRAME.md)) | browser |
+| How an exported PNG reaches the user: desktop download, share sheet, "Image ready" bar, Copy | `test_png_delivery.py` ([doc](TEST_PNG_DELIVERY.md)) | browser |
 | The header Install button and its popup | `test_install_links.py` ([doc](TEST_INSTALL_LINKS.md)) | browser |
 | That every test script has a document here, and every document has a script | `test_playbook_docs.py` ([doc](TEST_PLAYBOOK_DOCS.md)) | pure Python |
 | What the shared info popover accepts and how each content form renders | `test_info_popover.py` ([doc](TEST_INFO_POPOVER.md)) | browser |
