@@ -1,15 +1,25 @@
-"""The NFL tables: nfl prefix on every table, constraint and index name, and the player_id key."""
+"""The stat tables: the league prefix on every name, the player_id key, and the column spec."""
 
 from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
+)
 
 STAT_TABLES = {
-    "nfl_pass_rush_stats": ("pr", NFLPassRushStat),
-    "nfl_pass_block_stats": ("pb", NFLPassBlockStat),
+    "nfl_pass_rush_stats": ("nfl", "pr", NFLPassRushStat),
+    "nfl_pass_block_stats": ("nfl", "pb", NFLPassBlockStat),
+    "ncaaf_pass_rush_stats": ("ncaaf", "pr", NCAAFPassRushStat),
+    "ncaaf_pass_block_stats": ("ncaaf", "pb", NCAAFPassBlockStat),
 }
 
 
@@ -19,21 +29,42 @@ def _engine():
     return engine
 
 
-def test_every_table_name_starts_with_nfl():
-    assert set(Base.metadata.tables) == {"nfl_teams", *STAT_TABLES}
+# The college Career page's member tables: one per category, a player_id and a status.
+CAREER_MEMBER_TABLES = {
+    "ncaaf_pass_rush_career_members",
+    "ncaaf_pass_block_career_members",
+}
 
 
-def test_every_constraint_and_index_name_carries_the_nfl_prefix():
-    for name, (short, _model) in STAT_TABLES.items():
+def test_the_tables_are_the_two_leagues():
+    assert set(Base.metadata.tables) == {
+        "nfl_teams",
+        "ncaaf_teams",
+        *STAT_TABLES,
+        *CAREER_MEMBER_TABLES,
+    }
+
+
+def test_each_career_member_table_is_keyed_by_player_id_alone():
+    for name in CAREER_MEMBER_TABLES:
+        table = Base.metadata.tables[name]
+
+        assert [column.name for column in table.primary_key.columns] == ["player_id"]
+        assert {column.name for column in table.columns} == {"player_id", "status"}
+        assert not table.columns["status"].nullable
+
+
+def test_every_constraint_and_index_name_carries_its_league_prefix():
+    for name, (league, short, _model) in STAT_TABLES.items():
         table = Base.metadata.tables[name]
         names = {c.name for c in table.constraints if c.name} | {
             i.name for i in table.indexes
         }
 
         assert names == {
-            f"uq_nfl_{short}_season_position_player_id",
-            f"idx_nfl_{short}_filter",
-            f"idx_nfl_{short}_player_id",
+            f"uq_{league}_{short}_season_position_player_id",
+            f"idx_{league}_{short}_filter",
+            f"idx_{league}_{short}_player_id",
         }
 
 
@@ -69,6 +100,7 @@ def test_a_second_row_for_the_same_season_position_and_player_id_is_rejected(
     same_player_other_team,
 ):
     sessionmaker_ = sessionmaker(_engine())
+
     with sessionmaker_() as sess:
         sess.add_all(
             [
@@ -114,3 +146,40 @@ def test_the_same_player_id_may_appear_in_another_season_or_position():
 
         sess.commit()
         assert sess.query(NFLPassRushStat).count() == 3
+
+
+def test_model_columns_match_the_column_spec():
+    """The mixins' columns are exactly the identity columns plus the spec's attributes.
+
+    This keeps the single source in `database/columns.py`: a metric added there
+    (and so to the ingestion and the API) must be given a model column too.
+    """
+    from database.columns import (
+        NCAAF_PASS_RUSH_SNAP_COLUMNS,
+        PASS_BLOCK_DATA_COLUMNS,
+        PASS_RUSH_DATA_COLUMNS,
+    )
+
+    identity = {
+        "id",
+        "season",
+        "position",
+        "team_code",
+        "player_id",
+        "player",
+        "abbr_name",
+    }
+
+    for model, data_columns, extra in (
+        (NFLPassRushStat, PASS_RUSH_DATA_COLUMNS, set()),
+        (NFLPassBlockStat, PASS_BLOCK_DATA_COLUMNS, set()),
+        (
+            NCAAFPassRushStat,
+            PASS_RUSH_DATA_COLUMNS,
+            {"conference"} | {column.attr for column in NCAAF_PASS_RUSH_SNAP_COLUMNS},
+        ),
+        (NCAAFPassBlockStat, PASS_BLOCK_DATA_COLUMNS, {"conference"}),
+    ):
+        table_columns = {column.name for column in model.__table__.columns}
+        expected = identity | {column.attr for column in data_columns} | extra
+        assert table_columns == expected, model.__name__

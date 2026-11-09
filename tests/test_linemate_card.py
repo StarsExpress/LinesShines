@@ -6,31 +6,14 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import RECORDS_READY_JS
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        # The app has finished loading once it holds its metadata, its applied filters and a slice of records.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters && d.currentRecords.length); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url, ready_js=RECORDS_READY_JS)
 
 
 # Renders the real roster table for one record per position (so more than one position on the line),
@@ -253,8 +236,17 @@ def test_read_groups_the_dl_rows_and_leaves_the_ol_without_a_bonus_section(page)
         "Bonus Metrics",
     ]
 
-    assert rows["Metadata"] == ["Games", dl["thresholdField"]]
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert rows["Metadata"] == [
+        "Games",
+        dl["thresholdField"],
+        f"TPS {dl['thresholdField']}",
+    ]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
     assert "Win Rate" in rows["Required Metrics"]
     assert all(span == 4 for _, span, _ in dl["sections"])  # Label column + 3 players.
 
@@ -406,3 +398,15 @@ def test_the_line_summary_covers_every_player_on_the_card(page):
     out = page.evaluate(OPEN_CARD_JS, ["pass_rush", 12, "read"])
 
     assert out["summaryRows"] > 0
+
+
+def test_the_season_player_card_button_says_linemates(page):
+    # The "NFL Alumni" rename is Career-only; a Season page keeps "Linemates".
+    out = page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const s = await import('/scout-card.js');
+  s.openScoutCard(d.currentRecords[0]);
+  return document.querySelector('.card-linemate-toggle').textContent.trim();
+}""")
+
+    assert out == "Linemates"

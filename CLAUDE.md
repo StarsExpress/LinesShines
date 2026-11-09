@@ -24,6 +24,9 @@ Before any task, read `playbook/INVARIANTS.md`. It holds the working rules (git,
 PFF data, frontend limits, versioning) and the invariants that must stay true. Then use the table below to find the
 detail for your task.
 
+Read it again in full at the start of every new session and after every context compaction, before editing any file: a summary
+of an earlier conversation is not a substitute for the rules, and a rule recalled from memory may be incomplete.
+
 To find a work item or an architecture file, do not open whole folders. First read the top of each file (the title and one-line summary,
 or the "Load when" line), then open only the ones that apply. The commands are in `playbook/ROSTER.md`.
 
@@ -46,3 +49,4 @@ Start at `playbook/ROSTER.md`. It maps each kind of task to the file that holds 
 | Filter changes that remove pinned players | `playbook/architecture/PINNED-INVALIDATION.md` |
 | Metrics, info popovers, metric notes | `playbook/architecture/METRICS-AND-NOTES.md` |
 | Thresholds and the threshold input | `playbook/architecture/THRESHOLDS.md` |
+| Claude Code hooks and the CI gate | `playbook/architecture/CLAUDE-HOOKS.md` |

@@ -46,6 +46,14 @@
   }
 }
 
+html {
+  /* Phones render the desktop layout shrunk to fit (see index.html). iOS
+     Safari's text autosizing then inflates text in wide blocks, which blew up
+     the threshold labels only. Keep every font at its declared size. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body {
   margin: 0;
@@ -81,13 +89,15 @@ body {
   z-index: 1;
 }
 
+/* The top 64px hold the page switch (left) and the Install and GitHub buttons (right). */
 .hero {
-  padding: 28px 24px 20px;
+  padding: 64px 24px 20px;
 }
 
 .hero-inner {
+  /* Left-aligned with the page switch above and the control bar below. */
   max-width: 860px;
-  margin: 0 auto;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -183,6 +193,146 @@ body {
   }
 }
 
+/* Page switch (NFL Season / NCAAF Season / ...): plain links, one URL each, the
+   current page highlighted. Inline on wide screens; below 860px the links hide
+   behind a hamburger button that opens a list with the full names (ESPN-style).
+   Top-left, mirroring the GitHub and Install buttons on the right. */
+.league-nav {
+  position: absolute;
+  top: 16px;
+  left: 24px;
+  z-index: 3;
+}
+.league-nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 2px solid #f0ede4;
+  border-radius: 4px;
+  background: #000;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.league-nav-toggle:hover,
+.league-nav-toggle:focus-visible,
+.league-nav-toggle[aria-expanded="true"] {
+  opacity: 1;
+  border-color: var(--flag-gold);
+}
+/* The three bars of the hamburger. */
+.league-nav-bars,
+.league-nav-bars::before,
+.league-nav-bars::after {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.league-nav-bars {
+  position: relative;
+}
+.league-nav-bars::before,
+.league-nav-bars::after {
+  content: "";
+  position: absolute;
+  left: 0;
+}
+.league-nav-bars::before {
+  top: -5px;
+}
+.league-nav-bars::after {
+  top: 5px;
+}
+.league-nav-list {
+  /* One segmented pill instead of three separate boxes: the current page is
+     the gold segment, the others stay quiet until hovered. */
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 3px;
+  list-style: none;
+  background: #000;
+  border: 2px solid #f0ede4;
+  border-radius: 999px;
+}
+.league-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid rgba(240, 237, 228, 0.4);
+  border-radius: 999px;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.league-nav-link:hover,
+.league-nav-link:focus-visible {
+  color: var(--chalk);
+  background: rgba(240, 237, 228, 0.2);
+  border-color: #f0ede4;
+}
+.league-nav-link:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
+}
+.league-nav-link.is-current {
+  color: #0f2119;
+  font-weight: 600;
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+}
+/* The installed desktop app puts its window buttons in the top-left corner. */
+@media (display-mode: standalone) and (hover: hover) and (pointer: fine) {
+  .league-nav {
+    left: 110px;
+  }
+}
+@media (max-width: 860px) {
+  .league-nav-toggle {
+    display: inline-flex;
+  }
+  .league-nav-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 170px;
+    padding: 8px;
+    background: #000;
+    border: 2px solid #f0ede4;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .league-nav-link {
+    display: flex;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 6px;
+  }
+  .league-nav.is-open .league-nav-list {
+    display: flex;
+  }
+}
+
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -226,7 +376,7 @@ body {
 .meta-band {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   row-gap: 4px;
   margin: 0;
   padding: 4px 24px;
@@ -234,19 +384,27 @@ body {
   font-size: 11px;
   letter-spacing: 0.03em;
   color: var(--chalk-dim);
-  text-align: center;
+  text-align: left;
 }
 .meta-segment {
   white-space: nowrap;
+}
+/* Forces a line break inside the flex row (NCAAF pages: two lines). The
+   segment after it starts the new line, so its leading dot is hidden. */
+.meta-break {
+  flex-basis: 100%;
+  height: 0;
+}
+.meta-break + .meta-segment .meta-dot {
+  display: none;
 }
 
 /* The longest single segment ("· Median lines are calculated according to
    current filter", ~416px at the 11px base size) is wider than most phone
    viewports on its own. Once flex-wrap gives it its own line (see above),
-   centering an overflowing item spills it equally past both edges of the
-   container — and since body has overflow-x: hidden (top of this file),
-   the spilled-left half, dot included, would silently disappear instead
-   of scrolling. Shrinking font-size + padding here keeps every segment,
+   an overflowing item would spill past the container edge — and since body
+   has overflow-x: hidden (top of this file), the spilled part would silently
+   disappear instead of scrolling. Shrinking font-size + padding here keeps every segment,
    including that one, narrower than the viewport at any real phone width
    so nothing ever gets clipped. */
 @media (max-width: 480px) {
@@ -397,14 +555,16 @@ body {
   gap: 10px;
 }
 
-#threshold-slider {
+#threshold-slider,
+#threshold-prospect-slider {
   flex: 1 1 auto;
   width: 100%;
   accent-color: var(--flag-gold);
   height: 28px;
 }
 
-#threshold-number {
+#threshold-number,
+#threshold-prospect-number {
   flex: none;
   width: 70px;
   background: var(--turf-950);
@@ -419,11 +579,14 @@ body {
 /* Chrome/Safari spinner arrows clash with the turf theme — hide them,
    the range slider next to it already covers coarse adjustment. */
 #threshold-number::-webkit-inner-spin-button,
-#threshold-number::-webkit-outer-spin-button {
+#threshold-number::-webkit-outer-spin-button,
+#threshold-prospect-number::-webkit-inner-spin-button,
+#threshold-prospect-number::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#threshold-number {
+#threshold-number,
+#threshold-prospect-number {
   -moz-appearance: textfield;
 }
 
@@ -473,12 +636,45 @@ body {
   padding-right: 4px;
 }
 
+/* --- Career page: Status Filter and the second threshold bar. ---
+   The Status Filter takes Season's place in the first row. It is a dropdown of two checkboxes
+   like Teams (both lit by default); a status that is off only dims its players.
+   Both bars are always usable: they do not follow the Status Filter. */
+.control-status {
+  /* Wider than its neighbours: the label row holds the Enable Status switch and the info
+     icon, and the button holds "Prospects". */
+  --w: 190;
+  min-width: auto;
+}
+.status-enable-toggle {
+  gap: 6px;
+  font-size: 12px;
+}
+/* A native [hidden] loses to .control's display, so say it again here. */
+.control[hidden] {
+  display: none;
+}
+/* Two short rows, so the dropdown is only as wide as its button. */
+.status-dropdown {
+  width: max-content;
+  min-width: 100%;
+}
+.status-dropdown .teams-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.status-dropdown .team-option {
+  white-space: nowrap;
+}
+
 /* --- Teams multi-selection. ---
    Built as a custom button + checkbox-list dropdown rather than a native
    <select multiple> — multi-selecting 32 options via ctrl/cmd-click isn't
    discoverable and doesn't work at all on touch. Positioned/sized to sit
    next to Season/Category like a normal .control select. */
-.control-teams {
+.control-teams,
+.control-status {
   position: relative;
 }
 
@@ -597,28 +793,107 @@ body {
   display: flex;
   flex-direction: column;
 }
-.teams-column-header {
+/* NCAAF: seven conferences do not fit two columns, so they stack as sections
+   (each with its schools in two columns) in a wider dropdown. A conference header
+   is a button there: it selects or clears the whole conference. */
+.teams-dropdown--by-season {
+  width: 360px;
+}
+.teams-dropdown--by-season .teams-checklist {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.teams-dropdown--by-season .teams-division {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 8px;
+}
+
+/* Group headers (conference, NFL division): a box drawn like the team ticks
+   (same gold, 13px) in front of the name; ticked, half-ticked (a dash) or empty
+   to match the group. */
+.teams-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
   font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.teams-group-toggle:hover {
+  background: rgba(241, 236, 221, 0.06);
+}
+.teams-group-toggle:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
+}
+.teams-group-box {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--chalk-dim);
+  border-radius: 3px;
+}
+.teams-group-toggle[aria-checked="true"] .teams-group-box,
+.teams-group-toggle[aria-checked="mixed"] .teams-group-box {
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+}
+.teams-group-toggle[aria-checked="true"] .teams-group-box::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 3px;
+  height: 7px;
+  border: solid var(--turf-950);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.teams-group-toggle[aria-checked="mixed"] .teams-group-box::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 4.5px;
+  width: 6px;
+  height: 2px;
+  background: var(--turf-950);
+}
+.teams-column-header {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--flag-gold);
-  padding-bottom: 4px;
-  margin-bottom: 4px;
+  padding: 4px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--turf-600);
+  border-radius: 4px 4px 0 0;
+}
+.teams-column-header:hover,
+.teams-column-header:focus-visible {
+  color: var(--flag-gold-bright);
 }
 .teams-division + .teams-division {
   margin-top: 8px;
 }
 .teams-division-header {
-  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--chalk-dim);
-  opacity: 0.75;
+  padding: 2px 4px;
   margin-bottom: 2px;
+}
+.teams-division-header:hover,
+.teams-division-header:focus-visible {
+  color: var(--chalk);
 }
 .team-option {
   display: flex;
@@ -794,6 +1069,16 @@ body {
 }
 .info-popover-bullets li + li {
   margin-top: 8px;
+}
+.info-popover-bullets .info-popover-bullets-or {
+  list-style: none;
+  margin-top: 2px;
+  margin-left: -14px;
+  line-height: 1.2;
+  color: var(--chalk-dim);
+}
+.info-popover-bullets .info-popover-bullets-or + li {
+  margin-top: 2px;
 }
 /* The shared TPS_NOTE appended below a TPS-variant metric's own
    formula/description (parts.extraText in info-popover.js) — visually
@@ -1288,10 +1573,54 @@ body {
   white-space: nowrap;
   cursor: pointer;
 }
-.checkbox-label input {
-  accent-color: var(--flag-gold);
-  width: 15px;
-  height: 15px;
+/* Every on/off toggle is an iPhone-style switch: Filters' Player Names, Team Logos and
+   Include metric notes, the cards' "Include {player}" and Career's Enable Status. It is
+   still a native checkbox underneath (focus, keyboard, :checked and change events). */
+.checkbox-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(241, 236, 221, 0.22);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.checkbox-label input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease;
+}
+.checkbox-label input[type="checkbox"]:checked {
+  background: var(--flag-gold);
+}
+.checkbox-label input[type="checkbox"]:checked::before {
+  transform: translateX(12px);
+}
+.checkbox-label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--flag-gold-bright);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkbox-label input[type="checkbox"],
+  .checkbox-label input[type="checkbox"]::before {
+    transition: none;
+  }
+}
+/* Enable Status off: the Status button cannot be opened. */
+.control-status .teams-select-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* --- board: chart + scouting card ---
@@ -1440,9 +1769,10 @@ body {
   right: 24px;
   /* Widened from 260px to fit the rank/percentile column added alongside
      the value column without wrapping metric labels like "TPS Pressure
-     Rate". Fixed, not resizable — see .is-folded below for the two-state
+     Rate", then from 380px to 420px for the Volume column on Required
+     Metrics. Fixed, not resizable — see .is-folded below for the two-state
      Fold/Unfold that replaced the old free edge-resize. */
-  width: 380px;
+  width: 420px;
   min-width: 260px;
   max-width: 640px;
   /* Baseline stacking order for a freshly-opened card before it's ever been
@@ -1586,6 +1916,61 @@ body {
    like its siblings, so it survives folding (a folded card can still be
    captured — see attachCardSave()'s ignoreElements list, which excludes this
    button itself along with .scout-close/.scout-fold/.scout-resize-handle). */
+/* The bar every PNG export shows: "Preparing image…", then "Image ready" with
+   Share / Save and Copy on a touch device (png-delivery.js). */
+.export-status {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 10px 8px 16px;
+  background: #000;
+  border: 2px solid #f0ede4;
+  border-radius: 999px;
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.export-status[hidden] {
+  display: none;
+}
+.export-status-actions {
+  display: flex;
+  gap: 6px;
+}
+.export-status-actions:empty {
+  display: none;
+}
+.export-status-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  background: none;
+  border: 1px solid rgba(240, 237, 228, 0.5);
+  border-radius: 999px;
+  color: var(--chalk);
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.export-status-btn.is-primary {
+  background: var(--flag-gold);
+  border-color: var(--flag-gold);
+  color: #0f2119;
+  font-weight: 600;
+}
+.export-status-btn:focus-visible {
+  outline: 2px solid var(--flag-gold);
+  outline-offset: 1px;
+}
+
 .card-save-btn {
   display: none;
   position: absolute;
@@ -1825,6 +2210,53 @@ body {
   row-gap: 9px;
   margin: 0;
   align-items: baseline;
+}
+/* Required Metrics add a Volume column between the label and the rate (see addRow() in
+   scout-card.js): label, volume, value, rank. The header row is four spans, one per column. */
+.scout-stat-grid--volume {
+  grid-template-columns: 1fr auto auto auto;
+}
+/* Metadata: a bordered table of one row, label and value cells side by side (see scout-card.js). */
+.scout-metadata-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.scout-metadata-table th,
+.scout-metadata-table td {
+  padding: 5px 8px;
+  border: 1px solid rgba(240, 237, 228, 0.22);
+}
+.scout-metadata-table th {
+  font-size: 12px;
+  font-weight: 400;
+  text-align: center;
+  color: var(--chalk-dim);
+}
+.scout-metadata-table td.scout-stat-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk);
+  text-align: center;
+  white-space: nowrap;
+}
+.scout-stat-grid--volume dd.scout-stat-value {
+  min-width: 48px;
+}
+.scout-stats dd.scout-stat-volume {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--chalk-dim);
+  min-width: 34px;
+}
+.scout-col-head {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  text-align: right;
 }
 .scout-stats dt {
   font-size: 12.5px;
@@ -2377,6 +2809,9 @@ body {
   margin: -8px 0 -6px;
   padding-left: 16px;
   list-style: disc;
+}
+.scout-card-threshold {
+  white-space: pre-line;
 }
 .scout-card-note {
   font-family: var(--font-body);
@@ -2931,6 +3366,9 @@ thead .linemate-table-frozen {
 .linemate-summary-wrap {
   overflow-x: auto;
 }
+.linemate-summary-wrap[hidden] {
+  display: none;
+}
 /* "Individual" and "Line Summary" use the Player Card's .scout-section-title (gold
    small heading over a divider). The negative top margins offset the 16px gap
    .scout-card-body already leaves between its children. */
@@ -3425,6 +3863,7 @@ thead .linemate-table-frozen {
    width; the label text still elides via the existing overflow rules. */
 @media (min-width: 861px) {
   .control-season,
+  .control-status,
   .control-teams,
   #players-control,
   .control-category,
@@ -3435,6 +3874,7 @@ thead .linemate-table-frozen {
   }
   .control-season select,
   .control-teams .teams-select-btn,
+  .control-status .teams-select-btn,
   #players-control .teams-select-btn,
   .control-category select,
   .control-position select,
@@ -3500,7 +3940,14 @@ thead .linemate-table-frozen {
     min-height: 600px;
   }
   .hero {
-    padding: 16px 16px 12px;
+    padding: 58px 16px 12px; /* The top row holds the page switch and the buttons on the right. */
+  }
+  .league-nav {
+    top: 14px;
+    left: 16px;
+  }
+  .league-nav-toggle {
+    height: 34px;
   }
   .hero-inner {
     gap: 12px;
@@ -3664,7 +4111,8 @@ thead .linemate-table-frozen {
     border-radius: 0;
   }
   .filters-drawer .control select,
-  .filters-drawer #threshold-number {
+  .filters-drawer #threshold-number,
+  #threshold-prospect-number {
     width: 100%;
   }
   .filters-drawer .control-season select {

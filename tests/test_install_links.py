@@ -15,22 +15,13 @@ EXPECTED = {
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def page(live_server_url, open_page):
+    app_page = open_page(live_server_url, viewport={"width": 1280, "height": 800})
+    app_page.locator("#hero-install-slot .info-popover-trigger").wait_for(
+        state="visible"
+    )
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": 1280, "height": 800})
-        pg.goto(live_server_url)
-        pg.locator("#hero-install-slot .info-popover-trigger").wait_for(state="visible")
-
-        yield pg
-        browser.close()
+    return app_page
 
 
 def test_install_button_exists_left_of_github(page):
@@ -161,23 +152,15 @@ def test_install_options_have_decorative_colored_icon_label_and_href(page):
 
 
 @pytest.mark.parametrize("width", [1280, 600])
-def test_install_button_matches_github_button_height(live_server_url, width):
-    sync_api = pytest.importorskip("playwright.sync_api")
+def test_install_button_matches_github_button_height(live_server_url, open_page, width):
+    app_page = open_page(live_server_url, viewport={"width": width, "height": 800})
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page(viewport={"width": width, "height": 800})
-        pg.goto(live_server_url)
-
-        trigger = pg.locator("#hero-install-slot .info-popover-trigger")
-        trigger.wait_for(state="visible")
-        install, gh = trigger.bounding_box(), pg.locator(".hero-github").bounding_box()
-        browser.close()
+    trigger = app_page.locator("#hero-install-slot .info-popover-trigger")
+    trigger.wait_for(state="visible")
+    install, gh = (
+        trigger.bounding_box(),
+        app_page.locator(".hero-github").bounding_box(),
+    )
 
     assert install["height"] == gh["height"]
     assert install["y"] == gh["y"]

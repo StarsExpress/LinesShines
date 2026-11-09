@@ -12,6 +12,7 @@
  * without adding a new cycle.
  */
 import { compositeFooterCanvas, downloadCanvasAsPng, sanitizeForFilename } from "./chart-export.js";
+import { failExportStatus, showExportStatus } from "./png-delivery.js";
 
 export { sanitizeForFilename };
 
@@ -161,6 +162,10 @@ export async function exportCardPng(cardEl, filename, prepareClone, appendixNote
       creditBand: true,
       notesDivider: true,
     });
+
+    // The capture is copied into finalCanvas; free its pixels before encoding the PNG.
+    sourceCanvas.width = 0;
+    sourceCanvas.height = 0;
     await downloadCanvasAsPng(finalCanvas, filename);
   } finally {
     clone.remove();
@@ -184,11 +189,14 @@ export function attachCardSave(cardEl, getFilename, prepareClone, getAppendixNot
     if (btn.disabled) return;
     btn.disabled = true;
     try {
+      // Shown first, so a slow phone does not look like a dead button.
+      await showExportStatus();
       await exportCardPng(cardEl, getFilename(), prepareClone, getAppendixNotes && getAppendixNotes());
     } catch (err) {
       // Best-effort convenience feature — same swallow-and-log pattern as
       // loadMetadata()'s own top-level .catch() in main.js, not a popup.
       console.error("Card PNG export failed:", err);
+      failExportStatus();
     } finally {
       btn.disabled = false;
     }

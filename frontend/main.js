@@ -15,6 +15,8 @@ import {
   seasonSwitchChangesThresholdDefault,
   currentCategoryMeta,
   metadata,
+  LEAGUE,
+  IS_CAREER,
 } from "./data.js";
 import {
   selectedPlayers,
@@ -23,6 +25,8 @@ import {
   populateCategoryDependentControls,
   resetThresholdToCategoryDefault,
   populateTeamsChecklist,
+  markAllTeamsSelected,
+  markNoTeamsSelected,
   updateTeamsSummary,
   openTeamsDropdown,
   closeTeamsDropdown,
@@ -38,9 +42,13 @@ import {
   loadCurrentSlice,
   closeFiltersDrawer,
   applyFilters,
+  syncStatusBars,
+  openStatusDropdown,
+  closeStatusDropdown,
 } from "./filters.js";
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
+import { failExportStatus, showExportStatus } from "./png-delivery.js";
 import { createInfoPopover } from "./info-popover.js";
 import { PLATFORM_ICONS } from "./config.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
@@ -75,9 +83,26 @@ import {
 // end of every season "change" event itself.
 let previousSeasonValue = null;
 
+// The Career page has no Season: it shows the Status Filter in its place, a second
+// threshold bar (Prospects), and names the first bar after Joined NFL.
+function setUpCareerControls() {
+  if (!IS_CAREER) return;
+  els.seasonControl.hidden = true;
+  els.statusControl.hidden = false;
+  els.thresholdProspectControl.hidden = false;
+  els.thresholdStatusLabel.hidden = false;
+  // Joined NFL starts switched off: grey its bar and set the button's label.
+  syncStatusBars();
+  // Teams, Players and Status combine as a union, so with every team lit nothing
+  // would be dimmed and Status would show nothing. Career starts with no team picked.
+  markNoTeamsSelected();
+}
+
 async function loadMetadata() {
-  const res = await fetch("/api/metadata");
-  if (!res.ok) throw new Error(`GET /api/metadata → ${res.status}`);
+  setUpCareerControls();
+  const metadataUrl = `${LEAGUE.apiPrefix}/metadata`;
+  const res = await fetch(metadataUrl);
+  if (!res.ok) throw new Error(`GET ${metadataUrl} → ${res.status}`);
   // setMetadata()/setPlayerPool()/setAppliedFilters() replace the original's
   // direct assignments below — data.js owns that state now, see its header
   // comment for why. Same assignments, same order, same timing.
@@ -85,7 +110,7 @@ async function loadMetadata() {
 
   populateCategoryDependentControls();
   previousSeasonValue = els.season.value;
-  populateTeamsChecklist();
+  populateTeamsChecklist(els.season.value);
   attachEvents();
   await loadCurrentSlice();
   setPlayerPool(currentRecords, currentSliceCategory);
@@ -113,7 +138,7 @@ async function loadMetadata() {
 //
 // A "TPS "-prefixed metric additionally gets the shared TPS_NOTE appended
 // as a second paragraph (`extraText`) — that text lives once, server-side
-// (config.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
+// (config/metrics.py's TPS_NOTE, exposed at metadata.tps_note), not duplicated into
 // every TPS metric's own note, so the "is this a TPS metric" check is done
 // here, off the metric's own name, rather than baked into per-metric data.
 function axisFormulaContent(selectEl) {
@@ -130,7 +155,12 @@ function axisFormulaContent(selectEl) {
 function attachEvents() {
   els.playersInfoSlot.appendChild(
     createInfoPopover(
-      "Teams and Players combine as a union: a player is highlighted if either his team is chosen, or his name is selected.",
+      {
+        text: IS_CAREER
+          ? "Teams, Players and Status combine as a union — highlights a player if his:"
+          : "Teams and Players combine as a union — highlights a player if his:",
+        bullets: ["Team is chosen.", "OR", "Name is selected.", ...(IS_CAREER ? ["OR", "Status is lit."] : [])],
+      },
       { ariaLabel: "Players filter info", label: "ⓘ" }
     )
   );
@@ -172,6 +202,41 @@ function attachEvents() {
       { ariaLabel: "Install the app", label: "Install", alignRight: true }
     )
   );
+
+  if (IS_CAREER) {
+    els.statusInfoSlot.appendChild(
+      createInfoPopover(
+        {
+          bullets: [
+            "Prospects: still playing in the latest college season.",
+            "Joined NFL: played NCAAF and appeared in NFL — prospects' benchmark.",
+            "Enable Status: off, and Status leaves the highlights — only Teams and Players light players.",
+          ],
+        },
+        { ariaLabel: "Status filter info", label: "ⓘ" }
+      )
+    );
+
+    els.statusBtn.addEventListener("click", () => {
+      if (els.statusDropdown.hidden) openStatusDropdown();
+      else closeStatusDropdown();
+    });
+
+    // Same e.isTrusted guard as the Teams dropdown: the PNG export's synthetic
+    // anchor click must not shut it.
+    document.addEventListener("click", (e) => {
+      if (!e.isTrusted) return;
+      if (els.statusDropdown.hidden) return;
+      if (!els.statusControl.contains(e.target)) closeStatusDropdown();
+    });
+
+    [els.statusEnabled, els.statusJoined, els.statusProspect].forEach((box) =>
+      box.addEventListener("change", () => {
+        syncStatusBars();
+        updatePendingState();
+      })
+    );
+  }
 
   els.teamsInfoSlot.appendChild(
     createInfoPopover(
@@ -216,6 +281,7 @@ function attachEvents() {
     // compares against what's actually on screen now, not a stale value
     // from before this category switch.
     previousSeasonValue = els.season.value;
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -254,6 +320,8 @@ function attachEvents() {
       setResetThresholdOnNextRange(true);
     }
     previousSeasonValue = els.season.value;
+    // The NCAAF checklist groups schools by that season's conferences.
+    populateTeamsChecklist(els.season.value);
     updatePendingState();
     updatePlayerPool();
   });
@@ -275,12 +343,14 @@ function attachEvents() {
 
   els.teamsSelectAll.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = true));
+    markAllTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });
 
   els.teamsSelectNone.addEventListener("click", () => {
     els.teamsChecklist.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+    markNoTeamsSelected();
     updateTeamsSummary();
     updatePendingState();
   });
@@ -298,6 +368,28 @@ function attachEvents() {
     if (!e.isTrusted) return;
     if (els.teamsDropdown.hidden) return;
     if (!els.teamsControl.contains(e.target)) closeTeamsDropdown();
+  });
+
+  // League navigation: on narrow screens the three pages sit behind a hamburger
+  // button (CSS shows it below 860px). It closes on Escape and on a click outside,
+  // with the same e.isTrusted guard as the dropdowns here, so the PNG export's
+  // synthetic click cannot shut it.
+  const setLeagueNavOpen = (open) => {
+    els.leagueNav.classList.toggle("is-open", open);
+    els.leagueNavToggle.setAttribute("aria-expanded", String(open));
+  };
+
+  els.leagueNavToggle.addEventListener("click", () => {
+    setLeagueNavOpen(!els.leagueNav.classList.contains("is-open"));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (!els.leagueNav.contains(e.target)) setLeagueNavOpen(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setLeagueNavOpen(false);
   });
 
   // Players: collapsed behind a button + panel, same mechanism as Teams —
@@ -357,10 +449,16 @@ function attachEvents() {
   // was slamming the whole panel shut on every single pick. composedPath()
   // is captured at dispatch time, before that mutation, so it still
   // includes playersControl.
+  //
+  // The Below Threshold popup belongs to this panel too: its Set Threshold and Close buttons sit
+  // outside playersControl, but a click there must not shut the panel, or the user lands on a
+  // closed panel and has to reopen it to see the player the threshold just let in.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     if (els.playersPanel.hidden) return;
-    if (!e.composedPath().includes(els.playersControl)) closePlayersPanel();
+    const path = e.composedPath();
+    if (path.includes(els.belowThresholdOverlay)) return;
+    if (!path.includes(els.playersControl)) closePlayersPanel();
   });
 
   // Dragging the slider or typing a number only updates these two controls'
@@ -368,55 +466,61 @@ function attachEvents() {
   // clicks Apply (or presses Enter in the number field). Re-rendering on
   // every pixel of drag / every keystroke was the whole problem on dense
   // positions.
-  els.threshold.addEventListener("input", () => {
-    els.thresholdNumber.value = els.threshold.value;
-    // The user just gave an explicit threshold — don't let a pending
-    // category switch stomp it back to that category's default at Apply
-    // time (see the resetThresholdOnNextRange comment above its declaration).
-    setResetThresholdOnNextRange(false);
-    // Selected Players are deliberately NOT re-checked here: while the slider
-    // is still being dragged the value is not final. The "change" listener
-    // below does it once the slider is released.
-    updatePendingState();
-  });
+  // The Career page has a second bar (Prospects) wired exactly like the first.
+  [
+    [els.threshold, els.thresholdNumber],
+    [els.thresholdProspect, els.thresholdProspectNumber],
+  ].forEach(([slider, number]) => {
+    slider.addEventListener("input", () => {
+      number.value = slider.value;
+      // The user just gave an explicit threshold — don't let a pending
+      // category switch stomp it back to that category's default at Apply
+      // time (see the resetThresholdOnNextRange comment above its declaration).
+      setResetThresholdOnNextRange(false);
+      // Selected Players are deliberately NOT re-checked here: while the slider
+      // is still being dragged the value is not final. The "change" listener
+      // below does it once the slider is released.
+      updatePendingState();
+    });
 
-  // Fires once, on release (or after a keyboard step): the threshold is now a
-  // committed value, so selected players who no longer qualify are dropped
-  // and the user is told who (see prunePlayerSelections()).
-  els.threshold.addEventListener("change", () => {
-    prunePlayerSelections();
-    updatePendingState();
-  });
+    // Fires once, on release (or after a keyboard step): the threshold is now a
+    // committed value, so selected players who no longer qualify are dropped
+    // and the user is told who (see prunePlayerSelections()).
+    slider.addEventListener("change", () => {
+      prunePlayerSelections();
+      updatePendingState();
+    });
 
-  els.thresholdNumber.addEventListener("input", () => {
-    const min = Number(els.threshold.min);
-    const max = Number(els.threshold.max);
-    const step = Number(els.threshold.step) || 1;
+    number.addEventListener("input", () => {
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+      const step = Number(slider.step) || 1;
 
-    let raw = Number(els.thresholdNumber.value);
-    if (Number.isNaN(raw)) raw = min;
-    raw = Math.min(Math.max(raw, min), max);
-    els.thresholdNumber.value = raw;
+      let raw = Number(number.value);
+      if (Number.isNaN(raw)) raw = min;
+      raw = Math.min(Math.max(raw, min), max);
+      number.value = raw;
 
-    // Slider snaps to the nearest step just to keep the handle in sync
-    // visually — filtering below still uses the exact typed number.
-    els.threshold.value = min + Math.round((raw - min) / step) * step;
-    setResetThresholdOnNextRange(false);
-    // Not re-checking selected Players per keystroke — see the slider's
-    // "input" handler above; the "change" listener below does it on commit.
-    updatePendingState();
-  });
+      // Slider snaps to the nearest step just to keep the handle in sync
+      // visually — filtering below still uses the exact typed number.
+      slider.value = min + Math.round((raw - min) / step) * step;
+      setResetThresholdOnNextRange(false);
+      // Not re-checking selected Players per keystroke — see the slider's
+      // "input" handler above; the "change" listener below does it on commit.
+      updatePendingState();
+    });
 
-  // Fires when the typed value is committed (Enter or leaving the field).
-  els.thresholdNumber.addEventListener("change", () => {
-    prunePlayerSelections();
-    updatePendingState();
-  });
+    // Fires when the typed value is committed (Enter or leaving the field).
+    number.addEventListener("change", () => {
+      prunePlayerSelections();
+      updatePendingState();
+    });
 
-  els.thresholdNumber.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    applyFilters();
+    number.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      applyFilters();
+    });
   });
 
   els.applyBtn.addEventListener("click", applyFilters);
@@ -445,7 +549,9 @@ function attachEvents() {
     // the chart's about to be captured then immediately restored anyway.
     els.savePngBtn.disabled = true;
     setLogoRelayoutGuard(true);
-    Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" })
+    // The "Preparing image…" bar paints first, so a slow phone does not look like a dead button.
+    showExportStatus()
+      .then(() => Plotly.relayout(els.chart, { paper_bgcolor: "#16301f", plot_bgcolor: "#16301f" }))
       .then(() =>
         // `width`/`height` set Plotly's *logical* layout size — every fixed-px
         // font (marker labels, axis titles, median/note annotations) is sized
@@ -482,6 +588,13 @@ function attachEvents() {
         // catch this relayout and do its normal, already-correct
         // applyLogoImages()/applyLabelDeclutter() pass — which re-applies
         // emphasis — rather than duplicating that recovery logic here.
+        setLogoRelayoutGuard(false);
+        return Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" });
+      })
+      .catch((err) => {
+        // A failed export must not leave the chart on its dark export background.
+        console.error("Chart PNG export failed:", err);
+        failExportStatus();
         setLogoRelayoutGuard(false);
         return Plotly.relayout(els.chart, { paper_bgcolor: "transparent", plot_bgcolor: "transparent" });
       })
@@ -619,6 +732,6 @@ function attachEvents() {
 loadMetadata().catch((err) => {
   console.error(err);
   els.chart.innerHTML =
-    `<p style="color:#f1ecdd;padding:24px;">Could not load /api/metadata — ` +
+    `<p style="color:#f1ecdd;padding:24px;">Could not load ${LEAGUE.apiPrefix}/metadata — ` +
     `is the FastAPI server running? (${err.message})</p>`;
 });

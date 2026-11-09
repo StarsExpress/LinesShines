@@ -35,13 +35,13 @@ FONT_SIZE = 18
 
 # One entry per metric *family* — the TPS variant of a metric shares its
 # base metric's formula (same math, restricted to true-pass-set rows), same
-# convention as config.py's HAVOC_RATE_NOTE/ALLOWED_HAVOC_RATE_NOTE already
+# convention as config/metrics.py's HAVOC_RATE_NOTE/ALLOWED_HAVOC_RATE_NOTE already
 # being reused verbatim for both a metric and its "TPS " counterpart.
 FORMULAS: dict[str, str] = {
     "havoc_rate": r"$\mathrm{Havoc\ Rate} = \dfrac{\mathrm{Sacks} + \mathrm{QB\ Hits}}{\mathrm{Pass\ Rush\ Opportunities}}$",
     "allowed_havoc_rate": r"$\mathrm{Allowed\ Havoc\ Rate} = \dfrac{\mathrm{Sacks} + \mathrm{QB\ Hits}}{\mathrm{Non\ Spike\ Pass\ Block\ Snaps}}$",
-    "prp": r"$\mathrm{PRP} = \dfrac{\mathrm{Sacks} + 0.75\,(\mathrm{QB\ Hits} + \mathrm{Hurries})}{\mathrm{Pass\ Rush\ Snaps}} \times 100$",
-    "pbe": r"$\mathrm{PBE} = 100 - \dfrac{\mathrm{Sacks} + 0.75\,(\mathrm{QB\ Hits} + \mathrm{Hurries})}{\mathrm{Pass\ Block\ Snaps}}$",
+    "prp": r"$\mathrm{PRP} = \dfrac{\mathrm{Sacks} + 0.5\,(\mathrm{QB\ Hits} + \mathrm{Hurries})}{\mathrm{Pass\ Rush\ Opportunities}} \times 100$",
+    "pbe": r"$\mathrm{PBE} = 100 - \dfrac{\mathrm{Sacks} + 0.5\,(\mathrm{QB\ Hits} + \mathrm{Hurries})}{\mathrm{Non\ Spike\ Pass\ Block\ Snaps}} \times 100$",
 }
 
 

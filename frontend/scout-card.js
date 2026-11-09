@@ -9,9 +9,14 @@ import {
   rankAndPercentile,
   teamColor,
   teamName,
+  teamLabel,
   logoSrc,
   thresholdFieldLabel,
   metadata,
+  appliedThreshold,
+  thresholdClauses,
+  scopeNote,
+  IS_CAREER,
 } from "./data.js";
 import {
   ordinal,
@@ -25,10 +30,11 @@ import {
   endScoutDrag,
   updateScoutEmptyHint,
 } from "./cards-base.js";
-import { toggleLinemateCard, setPlayerCardOpener } from "./linemate-card.js";
+import { toggleLinemateCard, setPlayerCardOpener, rosterNoun } from "./linemate-card.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
 import { categoryAppendixNotes } from "./metric-notes.js";
 import { DISPLAY_DECIMALS } from "./config.js";
+import { snapsLabel } from "./player-table-model.js";
 
 // Live floating Player Cards, one per currently-open card, keyed by the same
 // full "player" string selectedPlayers/prunePlayerSelections use elsewhere —
@@ -41,11 +47,13 @@ import { DISPLAY_DECIMALS } from "./config.js";
 export const scoutCards = new Map();
 
 // Rounds to DISPLAY_DECIMALS for display only — the underlying record (and
-// everything plotted from it) keeps its full DB precision untouched.
+// everything plotted from it) keeps its full DB precision untouched. A metric whose rates are
+// small (Batted Pass Rate) names its own `decimals` in the metadata.
 export function formatValue(value, meta) {
   if (value == null) return "—";
   const unit = meta && meta.unit ? meta.unit : "";
-  const rounded = typeof value === "number" ? value.toFixed(DISPLAY_DECIMALS) : value;
+  const decimals = meta && meta.decimals != null ? meta.decimals : DISPLAY_DECIMALS;
+  const rounded = typeof value === "number" ? value.toFixed(decimals) : value;
   return `${rounded}${unit}`;
 }
 
@@ -61,6 +69,18 @@ function percentileChipClass(percentile) {
   if (percentile < 75) return "scout-pct-lightblue";
   if (percentile < 90) return "scout-pct-darkblue";
   return "scout-pct-violet";
+}
+
+// The marker for an empty cell on the Player Card (an en dash).
+const EMPTY_CELL = "–";
+
+// The name a metric goes by on the Player Card only: the trailing "%" and "Rate" are dropped
+// ("Allowed Pressure %" -> "Allowed Pressure", "TPS Win Rate" -> "TPS Win"). Next to a Volume
+// column the full names read as if the count were the percentage; the rate column already says
+// "Rate" in its header. Every other place (axis menus, Comparison and Linemate cards, notes) keeps
+// the full name, and the metric's key is untouched.
+export function metricCardName(key) {
+  return key.replace(/\s*%$/, "").replace(/\s+Rate$/, "");
 }
 
 // Builds/rebuilds a Player Card's stat rows (value + rank/percentile) — used
@@ -83,7 +103,15 @@ export function renderScoutCardStats(cardEl, record) {
   poolEl.textContent = `Percentiles calculated among ${pool.length} ${record.position}.`;
 
   const thresholdEl = cardEl.querySelector(".scout-card-threshold");
-  thresholdEl.textContent = `Threshold: ≥ ${appliedFilters.threshold} ${thresholdFieldLabel(cat)}.`;
+  // One line per status on Career (the note's CSS keeps the line break), one line otherwise.
+  const thresholdLines = thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).map((clause) => `${clause}.`);
+  thresholdEl.textContent = `Threshold: ${thresholdLines.join("\n")}`;
+
+  // The OL's snaps are the non-spike ones, said once under the threshold; the Metadata table then
+  // calls them "PB Snaps". The front 7 has no such note.
+  const scopeEl = cardEl.querySelector(".scout-card-scope");
+  scopeEl.textContent = scopeNote(cat);
+  scopeEl.hidden = !scopeEl.textContent;
 
   // Three grid children per row (dt, value dd, rank dd) so the grid's
   // row-major auto-placement stays aligned — a row that only emitted two
@@ -93,9 +121,17 @@ export function renderScoutCardStats(cardEl, record) {
   // is only passed for metric rows (Games/threshold field have none) — when
   // present, the whole "#rank/N · Nth pct" string renders inside a colored
   // chip span rather than as plain text.
-  const addRow = (gridEl, label, value, rankText, percentile, neutral = false) => {
+  const addRow = (gridEl, label, value, rankText, percentile, neutral = false, volume = null) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
+    gridEl.appendChild(dt);
+    // `volume` is null in a section without a Volume column; otherwise it is the cell text (a dash when empty).
+    if (volume !== null) {
+      const volumeDd = document.createElement("dd");
+      volumeDd.className = "scout-stat-volume";
+      volumeDd.textContent = volume;
+      gridEl.appendChild(volumeDd);
+    }
     const dd = document.createElement("dd");
     dd.className = "scout-stat-value";
     dd.textContent = value;
@@ -109,7 +145,6 @@ export function renderScoutCardStats(cardEl, record) {
     } else {
       rankDd.textContent = rankText || "—";
     }
-    gridEl.appendChild(dt);
     gridEl.appendChild(dd);
     gridEl.appendChild(rankDd);
   };
@@ -117,12 +152,13 @@ export function renderScoutCardStats(cardEl, record) {
   // One titled <dl> grid per section, in the order Metadata, Required
   // Metrics, Bonus Metrics. Each grid keeps the three-children-per-row layout
   // above, so its columns align inside the section.
-  const addSection = (title) => {
+  const addSection = (title, withVolume = false) => {
     const heading = document.createElement("h4");
     heading.className = "scout-section-title";
     heading.textContent = title;
     const grid = document.createElement("dl");
     grid.className = "scout-stat-grid";
+    if (withVolume) grid.classList.add("scout-stat-grid--volume");
     statsEl.appendChild(heading);
     statsEl.appendChild(grid);
     return grid;
@@ -131,32 +167,84 @@ export function renderScoutCardStats(cardEl, record) {
   // Games and the threshold field (PR Opp / Non Spike PB Snaps) are volume
   // stats, not rate metrics — rank/percentile against them wouldn't mean
   // "how well this player performed," so only the metrics loop below gets a rank.
-  const metadataGrid = addSection("Metadata");
-  addRow(metadataGrid, "Games", record.games);
-  addRow(metadataGrid, cat.threshold_field, record[cat.threshold_field]);
+  // Metadata is a bordered table of one row: label and value cells side by side, with no rank cell
+  // (none of it is ranked), so the front 7 card shows Games, PR Opp and TPS PR Opp on one line. On
+  // Career the Status sits in a row of its own above. Cells hold `th` (label) and `td` (value).
+  const metadataHeading = document.createElement("h4");
+  metadataHeading.className = "scout-section-title";
+  metadataHeading.textContent = "Metadata";
+  const metadataTable = document.createElement("table");
+  metadataTable.className = "scout-metadata-table";
+  const metadataBody = metadataTable.createTBody();
+  const addMetadataCells = (rowEl, label, value, colSpan = 1) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    const td = document.createElement("td");
+    td.className = "scout-stat-value";
+    td.colSpan = colSpan;
+    td.textContent = value;
+    rowEl.appendChild(th);
+    rowEl.appendChild(td);
+  };
+  const metadataFacts = [
+    ["Games", record.games],
+    [snapsLabel(cat.threshold_field), record[cat.threshold_field]],
+    // The true-pass-set share of those snaps, next to it.
+    [snapsLabel(`TPS ${cat.threshold_field}`), record[`TPS ${cat.threshold_field}`]],
+  ];
+  if (IS_CAREER) {
+    addMetadataCells(metadataBody.insertRow(), "Status", record.status, metadataFacts.length * 2 - 1);
+  }
+  const factsRow = metadataBody.insertRow();
+  metadataFacts.forEach(([label, value]) => addMetadataCells(factsRow, label, value));
+  statsEl.appendChild(metadataHeading);
+  statsEl.appendChild(metadataTable);
 
   // `bonus` metrics (Pass Cov Percent, DL only) get their own section after
   // the required ones; a category without any (pass block) gets no Bonus heading.
   const metricEntries = Object.entries(cat.metrics);
-  const addMetricRows = (gridEl, entries) =>
+  // Required Metrics carry a Volume column: the count behind a rate (the numerator), shown plain and
+  // never ranked (a count grows with playing time; the rate is what ranks). A metric with no single
+  // count (PRP, PBE) leaves its cell empty. The column header sits in the grid as spans, not dt/dd,
+  // so the row labels stay the metrics alone.
+  const addVolumeHeader = (gridEl) => {
+    ["", "Volume", "Rate", ""].forEach((text, index) => {
+      const span = document.createElement("span");
+      span.className = `scout-col-head scout-col-head-${index}`;
+      span.textContent = text;
+      gridEl.appendChild(span);
+    });
+  };
+  // A dash marks every metric with no count to show (PRP, PBE, Pass Cov Percent) and a count the
+  // record lacks, the same en dash as an empty cell in Metadata.
+  const volumeText = (meta) => {
+    if (!meta.volume) return EMPTY_CELL;
+    const value = record[meta.volume];
+    return value == null ? EMPTY_CELL : String(value);
+  };
+  const addMetricRows = (gridEl, entries, withVolume = false) =>
     entries.forEach(([key, meta]) => {
       const rank = rankAndPercentile(pool, key, meta.higher_is_better, record[key]);
       const rankText = rank ? `#${rank.rank}/${rank.n} · ${ordinal(rank.percentile)} pct` : "";
       addRow(
         gridEl,
-        key,
+        metricCardName(key),
         formatValue(record[key], meta),
         rankText,
         rank ? rank.percentile : null,
-        meta.neutral === true
+        meta.neutral === true,
+        withVolume ? volumeText(meta) : null
       );
     });
+  const requiredGrid = addSection("Required Metrics", true);
+  addVolumeHeader(requiredGrid);
   addMetricRows(
-    addSection("Required Metrics"),
-    metricEntries.filter(([, meta]) => !meta.bonus)
+    requiredGrid,
+    metricEntries.filter(([, meta]) => !meta.bonus),
+    true
   );
   const bonusEntries = metricEntries.filter(([, meta]) => meta.bonus);
-  if (bonusEntries.length) addMetricRows(addSection("Bonus Metrics"), bonusEntries);
+  if (bonusEntries.length) addMetricRows(addSection("Bonus Metrics", true), bonusEntries, true);
 }
 
 // Re-renders every open Player Card's stats against the current
@@ -178,13 +266,13 @@ function setScoutCardIdentity(cardEl, record) {
   const badge = cardEl.querySelector(".scout-badge");
   const color = teamColor(record.team);
   logoImg.src = logoSrc(record.team);
-  logoImg.alt = `${record.team} logo`;
+  logoImg.alt = `${teamLabel(record.team)} logo`;
   logoImg.hidden = false;
   badge.hidden = true;
   logoImg.onerror = () => {
     logoImg.hidden = true;
     badge.hidden = false;
-    badge.textContent = record.team;
+    badge.textContent = teamLabel(record.team);
     badge.style.background = color;
   };
   cardEl.querySelector(".scout-meta").textContent =
@@ -233,6 +321,13 @@ export function openScoutCard(record) {
   // entry.record, not the closed-over `record`: retargetScoutCard() swaps it
   // when a season change carries this card to another season's row.
   linemateBtn.addEventListener("click", () => toggleLinemateCard(entry.record));
+
+  if (IS_CAREER) {
+    // On the Career page the button and the card it opens are "NFL Alumni" (see linemate-card.js).
+    const noun = rosterNoun().card;
+    linemateBtn.setAttribute("aria-label", `Show ${noun}`);
+    linemateBtn.lastChild.textContent = ` ${noun}`;
+  }
   // abbr_name shortens the first name to an initial, keeping the last name
   // intact (e.g. "D. Hall") — same convention already shown on every card
   // title/table cell, just applied to the downloaded filename too.

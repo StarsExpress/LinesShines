@@ -3,29 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from conftest import APP_READY_JS
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        # The app has finished loading once it holds its metadata and its applied filters.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url, ready_js=APP_READY_JS)
 
 
 # The union rule lives inside render(), so this calls the real render() on synthetic rows and reads the trace it
@@ -198,3 +181,36 @@ def test_the_season_change_handler_asks_that_rule_and_not_only_the_leaving_direc
 
     assert "seasonSwitchChangesThresholdDefault(previousSeasonValue" in source
     assert "isOngoingSeason(previousSeasonValue)" not in source
+
+
+def test_set_threshold_in_the_below_threshold_popup_keeps_the_players_panel_open(page):
+    # Two rushers around a bar of 280: Lowe falls below it and is only a Below Threshold match.
+    page.evaluate("""async () => {
+  const d = await import('/data.js');
+  const row = (player, opp) => ({
+    player, abbr_name: player, team: 'BUF', position: 'ED', games: 17, 'PR Opp': opp, 'TPS PR Opp': opp - 50,
+  });
+  const records = [row('Hi Hawk', 300), row('Lowe Hawk', 250)];
+  d.setCurrentSlice(records, 'pass_rush');
+  d.setPlayerPool(records, 'pass_rush');
+  d.setAppliedFilters({ ...d.appliedFilters, category: 'pass_rush', position: 'ED', threshold: '280' });
+  document.getElementById('threshold-number').value = '280';
+}""")
+    page.click("#players-toggle-btn")
+    page.fill("#players-input", "Hawk")
+    page.click(".below-threshold-toggle")
+    page.click(".below-threshold-row-btn")
+
+    # Click sat in popup, outside Players control, but mustn't close panel:
+    # dropdown now lists the player the new threshold let in.
+    assert page.is_visible("#players-panel")
+    assert page.is_visible("#players-dropdown")
+    assert "Lowe Hawk" in page.inner_text("#players-dropdown")
+
+
+def test_a_click_outside_the_players_control_still_closes_the_panel(page):
+    page.click("#players-toggle-btn")
+    assert page.is_visible("#players-panel")
+
+    page.click("#x-metric-select")
+    assert not page.is_visible("#players-panel")

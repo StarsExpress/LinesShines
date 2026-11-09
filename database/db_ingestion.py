@@ -1,10 +1,14 @@
 """Ingest preprocessed PFF Excel workbooks into database.
 
-Reads `nfl/front_7_pass_rush/{season}.xlsx` and
-`nfl/ol_pass_block/{season}.xlsx` files (under the data root) that
+Reads `{league}/front_7_pass_rush/{season}.xlsx` and
+`{league}/ol_pass_block/{season}.xlsx` files (under the data root) that
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
-produce, and bulk-inserts them into the `nfl_pass_rush_stats` /
-`nfl_pass_block_stats` tables.
+produce, and bulk-inserts them into that league's tables: `nfl_pass_rush_stats` /
+`nfl_pass_block_stats` or `ncaaf_pass_rush_stats` / `ncaaf_pass_block_stats`.
+The league is always named (`--league`), so the wrong one is never loaded by accident.
+
+The college run (`--league ncaaf`) also rebuilds the Career page's member tables
+(`database/career.py`) after loading, so run the NFL ingestion first when both run.
 
 Strict: a sheet that lacks any column the tables need, or a row without a
 `Player Id`, stops the run with an error instead of loading NULLs.
@@ -16,16 +20,18 @@ per-row upsert and dialect-agnostic (works on both SQLite and Postgres).
 Usage:
 1. Must always go from project root.
 2. After running two preprocessing scripts.
-3. python -m database.db_ingestion
+3. python -m database.db_ingestion --league nfl
 
 For Railway, set DATABASE_URL to Postgres URL Railway assigns.
 Point LINESHINES_REPO_ROOT at LinesShines project root so scripts can
-locate xlsx files under $LINESHINES_REPO_ROOT/data/nfl/.
+locate xlsx files under $LINESHINES_REPO_ROOT/data/{nfl,ncaaf}/.
 """
 
 from __future__ import annotations
 import argparse
 import os
+from dataclasses import dataclass
+from typing import Callable
 import re
 import sys
 from datetime import date
@@ -33,55 +39,32 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
-from config import DYNAMIC_THRESHOLDS
-from database.db_models import Base, NFLPassBlockStat, NFLPassRushStat, NFLTeam
-from main import engine, SessionLocal
-from teams_reference import TEAMS
+from config import LEAGUE_DYNAMIC_THRESHOLDS, League
+from database.career import rebuild_all_career_members
+from database.columns import (
+    NCAAF_PASS_RUSH_SNAP_COLUMNS,
+    PASS_BLOCK_DATA_COLUMNS,
+    PASS_RUSH_DATA_COLUMNS,
+    required_excel_headers,
+)
+from database.db_models import (
+    Base,
+    NCAAFPassBlockStat,
+    NCAAFPassRushStat,
+    NCAAFTeam,
+    NFLPassBlockStat,
+    NFLPassRushStat,
+    NFLTeam,
+)
+from database.session import engine, SessionLocal
+from teams.ncaaf import SCHOOL_NAMES
+from teams.nfl import TEAMS
 
 FRONT_7_POSITIONS = ("DI", "ED", "LB")
 OL_POSITIONS = ("T", "G", "C")
 
-# The data root holds one folder per league; the NFL files are under data/nfl/.
-NFL_SUBDIR = "nfl"
-
+# The data root holds one folder per league (the League value): data/nfl/, data/ncaaf/.
 SEASON_CATEGORY_DIRS = ("front_7_pass_rush", "ol_pass_block")
-
-# Columns each category's sheets must have; ingestion fails loudly without them.
-PASS_RUSH_COLUMNS = (
-    "Team",
-    "Player Id",
-    "Player",
-    "Abbr Name",
-    "Games",
-    "PR Opp",
-    "TPS PR Opp",
-    "Pass Rush Percent",
-    "TPS Pass Rush Percent",
-    "Win Rate",
-    "TPS Win Rate",
-    "Pressure Rate",
-    "TPS Pressure Rate",
-    "Havoc Rate",
-    "TPS Havoc Rate",
-    "PRP",
-    "TPS PRP",
-)
-
-PASS_BLOCK_COLUMNS = (
-    "Team",
-    "Player Id",
-    "Player",
-    "Abbr Name",
-    "Games",
-    "Non Spike PB Snaps",
-    "TPS Non Spike PB Snaps",
-    "Allowed Pressure %",
-    "TPS Allowed Pressure %",
-    "Allowed Havoc %",
-    "TPS Allowed Havoc %",
-    "PBE",
-    "TPS PBE",
-)
 
 
 def _find_project_root() -> Path:
@@ -95,7 +78,7 @@ def _find_project_root() -> Path:
 
 
 def _repo_root() -> Path:
-    """The data root: the folder that holds `nfl/` (and later `ncaaf/`).
+    """The data root: the folder that holds `nfl/` and `ncaaf/`.
 
     Order of precedence:
       1. `--data-dir` CLI flag.
@@ -114,9 +97,9 @@ def _repo_root() -> Path:
     return _find_project_root() / "data"
 
 
-def _discover_seasons(data_dir: Path) -> list[int]:
+def _discover_seasons(data_dir: Path, league: League = League.NFL) -> list[int]:
     """Union of seasons with a `{season}.xlsx` file under either category
-    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir/nfl`.
+    subdir (`front_7_pass_rush`, `ol_pass_block`) of `data_dir/{league}`.
 
     Union, not intersection — OL and DL are independent categories with no
     joint table, so it's fine for one to have a season's file before the other does.
@@ -129,14 +112,11 @@ def _discover_seasons(data_dir: Path) -> list[int]:
     seasons = set()
 
     for category_dir in SEASON_CATEGORY_DIRS:
-        for path in (data_dir / NFL_SUBDIR / category_dir).glob("*.xlsx"):
+        for path in (data_dir / league.value / category_dir).glob("*.xlsx"):
             if re.fullmatch(r"\d{4}", path.stem):
                 seasons.add(int(path.stem))
 
     return list(seasons)
-
-
-DEFAULT_SEASONS = _discover_seasons(_repo_root())
 
 
 def _safe_int(val):
@@ -168,7 +148,7 @@ def _require_columns(df: pd.DataFrame, columns, path, sheet) -> None:
         raise ValueError(f"{path} sheet {sheet} is missing columns: {missing}")
 
 
-def upsert_teams(sess: Session) -> None:
+def upsert_nfl_teams(sess: Session) -> None:
     existing = {t.code for t in sess.query(NFLTeam).all()}
 
     for code, (full_name, color) in TEAMS.items():
@@ -183,137 +163,214 @@ def upsert_teams(sess: Session) -> None:
     sess.commit()
 
 
-def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
+def upsert_ncaaf_teams(sess: Session) -> None:
+    """One `ncaaf_teams` row per scoped school; colours are left as they are (unset)."""
+    existing = {team.franchise_id for team in sess.query(NCAAFTeam).all()}
+
+    for franchise_id, full_name in SCHOOL_NAMES.items():
+        if franchise_id in existing:
+            sess.get(NCAAFTeam, franchise_id).full_name = full_name
+
+        else:
+            sess.add(NCAAFTeam(franchise_id=franchise_id, full_name=full_name))
+
+    sess.commit()
+
+
+def _read_value(kind: str, value):
+    """Read one Excel cell the way its column's kind says."""
+    if kind == "int":
+        return _safe_int(value)
+
+    if kind == "float":
+        return _safe_float(value)
+
+    if kind == "complement":
+        return _complement(value)
+
+    raise ValueError(f"unknown column kind: {kind!r}")
+
+
+@dataclass(frozen=True)
+class _Category:
+    """Everything the ingestion needs to load one category into its table."""
+
+    league: League
+    model: type
+    folder: str
+    positions: tuple[str, ...]
+    data_columns: tuple
+    snap_header: str  # The column a row must have a value in (dropna subset).
+    skip_label: str  # Wording of the "file not found" line.
+    row_label: str  # Wording of the per-position "N rows" line.
+    team_header: str = "Team"  # The column that holds the team key.
+    team_code_type: Callable = str  # The NFL key is a code, the college key an id.
+    extra_columns: tuple[tuple[str, str], ...] = ()  # (model attribute, Excel header).
+    hidden_columns: (
+        tuple
+    ) = ()  # Read like data columns, but not part of the API payload.
+
+
+_PASS_RUSH = _Category(
+    league=League.NFL,
+    model=NFLPassRushStat,
+    folder="front_7_pass_rush",
+    positions=FRONT_7_POSITIONS,
+    data_columns=PASS_RUSH_DATA_COLUMNS,
+    snap_header="PR Opp",
+    skip_label="pass rush",
+    row_label="pass_rush",
+)
+
+_PASS_BLOCK = _Category(
+    league=League.NFL,
+    model=NFLPassBlockStat,
+    folder="ol_pass_block",
+    positions=OL_POSITIONS,
+    data_columns=PASS_BLOCK_DATA_COLUMNS,
+    snap_header="Non Spike PB Snaps",
+    skip_label="pass block",
+    row_label="pass_block",
+)
+
+# The college rows key the team by franchise_id and carry the conference attached at conversion.
+_NCAAF_PASS_RUSH = _Category(
+    league=League.NCAAF,
+    model=NCAAFPassRushStat,
+    folder="front_7_pass_rush",
+    positions=FRONT_7_POSITIONS,
+    data_columns=PASS_RUSH_DATA_COLUMNS,
+    snap_header="PR Opp",
+    skip_label="ncaaf pass rush",
+    row_label="ncaaf_pass_rush",
+    team_header="Franchise Id",
+    team_code_type=int,
+    extra_columns=(("conference", "Conference"),),
+    hidden_columns=NCAAF_PASS_RUSH_SNAP_COLUMNS,
+)
+
+_NCAAF_PASS_BLOCK = _Category(
+    league=League.NCAAF,
+    model=NCAAFPassBlockStat,
+    folder="ol_pass_block",
+    positions=OL_POSITIONS,
+    data_columns=PASS_BLOCK_DATA_COLUMNS,
+    snap_header="Non Spike PB Snaps",
+    skip_label="ncaaf pass block",
+    row_label="ncaaf_pass_block",
+    team_header="Franchise Id",
+    team_code_type=int,
+    extra_columns=(("conference", "Conference"),),
+)
+
+LEAGUE_CATEGORIES: dict[League, tuple[_Category, ...]] = {
+    League.NFL: (_PASS_RUSH, _PASS_BLOCK),
+    League.NCAAF: (_NCAAF_PASS_RUSH, _NCAAF_PASS_BLOCK),
+}
+
+LEAGUE_TEAM_UPSERTS: dict[League, Callable[[Session], None]] = {
+    League.NFL: upsert_nfl_teams,
+    League.NCAAF: upsert_ncaaf_teams,
+}
+
+
+def ingest_category(
+    sess: Session, data_dir: Path, seasons: list[int], category: _Category
+) -> int:
+    """Load one category's seasons into its table, replacing each slice first.
+
+    The body is shared by the categories of both leagues; the column reads come
+    from the declaration in `database/columns.py`.
+    """
+    required = required_excel_headers(
+        category.data_columns + category.hidden_columns
+    ) + (
+        category.team_header,
+        *(header for _, header in category.extra_columns),
+    )
     total = 0
+
     for season in seasons:
-        path = data_dir / NFL_SUBDIR / "front_7_pass_rush" / f"{season}.xlsx"
+        path = data_dir / category.league.value / category.folder / f"{season}.xlsx"
 
         if not path.exists():
-            print(f"Skip pass rush {season}: {path} not found")
+            print(f"Skip {category.skip_label} {season}: {path} not found")
             continue
 
         sheets = pd.read_excel(path, sheet_name=None)
-        for position in FRONT_7_POSITIONS:
+        for position in category.positions:
             position_df = sheets.get(position)
             if position_df is None or position_df.empty:
                 continue
 
-            _require_columns(position_df, PASS_RUSH_COLUMNS, path, position)
-            position_df.dropna(subset=["PR Opp"], inplace=True)
+            _require_columns(position_df, required, path, position)
+            position_df.dropna(subset=[category.snap_header], inplace=True)
 
             # Wipe slice before re-insertion.
             sess.execute(
-                delete(NFLPassRushStat).where(
-                    NFLPassRushStat.season == season,
-                    NFLPassRushStat.position == position,
+                delete(category.model).where(
+                    category.model.season == season,
+                    category.model.position == position,
                 )
             )
 
             rows = []
             for _, row in position_df.iterrows():
-                rows.append(
-                    NFLPassRushStat(
-                        season=season,
-                        position=position,
-                        team_code=row["Team"],
-                        player_id=_player_id(row, path, position),
-                        player=row["Player"],
-                        abbr_name=row["Abbr Name"],
-                        games=_safe_int(row.get("Games")),
-                        pr_opp=_safe_int(row.get("PR Opp")),
-                        tps_pr_opp=_safe_int(row.get("TPS PR Opp")),
-                        pass_cov_percent=_complement(row.get("Pass Rush Percent")),
-                        tps_pass_cov_percent=_complement(
-                            row.get("TPS Pass Rush Percent")
-                        ),
-                        win_rate=_safe_float(row.get("Win Rate")),
-                        tps_win_rate=_safe_float(row.get("TPS Win Rate")),
-                        pressure_rate=_safe_float(row.get("Pressure Rate")),
-                        tps_pressure_rate=_safe_float(row.get("TPS Pressure Rate")),
-                        havoc_rate=_safe_float(row.get("Havoc Rate")),
-                        tps_havoc_rate=_safe_float(row.get("TPS Havoc Rate")),
-                        prp=_safe_float(row.get("PRP")),
-                        tps_prp=_safe_float(row.get("TPS PRP")),
+                values = {
+                    "season": season,
+                    "position": position,
+                    "team_code": category.team_code_type(row[category.team_header]),
+                    "player_id": _player_id(row, path, position),
+                    "player": row["Player"],
+                    "abbr_name": row["Abbr Name"],
+                }
+                for column in category.data_columns + category.hidden_columns:
+                    values[column.attr] = _read_value(
+                        column.kind, row.get(column.excel_header)
                     )
-                )
+
+                for attr, header in category.extra_columns:
+                    values[attr] = row[header]
+
+                rows.append(category.model(**values))
 
             sess.add_all(rows)
             total += len(rows)
-            print(f"  pass_rush {season} {position}: {len(rows)} rows")
+            print(f"  {category.row_label} {season} {position}: {len(rows)} rows")
 
     sess.commit()
     return total
+
+
+def ingest_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
+    return ingest_category(sess, data_dir, seasons, _PASS_RUSH)
 
 
 def ingest_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
-    total = 0
-    for season in seasons:
-        path = data_dir / NFL_SUBDIR / "ol_pass_block" / f"{season}.xlsx"
-        if not path.exists():
-            print(f"Skip pass block {season}: {path} not found")
-            continue
+    return ingest_category(sess, data_dir, seasons, _PASS_BLOCK)
 
-        sheets = pd.read_excel(path, sheet_name=None)
-        for position in OL_POSITIONS:
-            position_df = sheets.get(position)
-            if position_df is None or position_df.empty:
-                continue
 
-            _require_columns(position_df, PASS_BLOCK_COLUMNS, path, position)
-            position_df.dropna(subset=["Non Spike PB Snaps"], inplace=True)
+def ingest_ncaaf_pass_rush(sess: Session, data_dir: Path, seasons: list[int]) -> int:
+    return ingest_category(sess, data_dir, seasons, _NCAAF_PASS_RUSH)
 
-            sess.execute(
-                delete(NFLPassBlockStat).where(
-                    NFLPassBlockStat.season == season,
-                    NFLPassBlockStat.position == position,
-                )
-            )
 
-            rows = []
-            for _, row in position_df.iterrows():
-                rows.append(
-                    NFLPassBlockStat(
-                        season=season,
-                        position=position,
-                        team_code=row["Team"],
-                        player_id=_player_id(row, path, position),
-                        player=row["Player"],
-                        abbr_name=row["Abbr Name"],
-                        games=_safe_int(row.get("Games")),
-                        non_spike_pb_snaps=_safe_int(row.get("Non Spike PB Snaps")),
-                        tps_non_spike_pb_snaps=_safe_int(
-                            row.get("TPS Non Spike PB Snaps")
-                        ),
-                        allowed_pressure_pct=_safe_float(row.get("Allowed Pressure %")),
-                        tps_allowed_pressure_pct=_safe_float(
-                            row.get("TPS Allowed Pressure %")
-                        ),
-                        allowed_havoc_pct=_safe_float(row.get("Allowed Havoc %")),
-                        tps_allowed_havoc_pct=_safe_float(
-                            row.get("TPS Allowed Havoc %")
-                        ),
-                        pbe=_safe_float(row.get("PBE")),
-                        tps_pbe=_safe_float(row.get("TPS PBE")),
-                    )
-                )
-
-            sess.add_all(rows)
-            total += len(rows)
-            print(f"  pass_block {season} {position}: {len(rows)} rows")
-
-    sess.commit()
-    return total
+def ingest_ncaaf_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -> int:
+    return ingest_category(sess, data_dir, seasons, _NCAAF_PASS_BLOCK)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 
     parser.add_argument(
+        "--league", required=True, choices=[league.value for league in League]
+    )
+
+    parser.add_argument(
         "--seasons",
         type=int,
         nargs="+",
-        default=DEFAULT_SEASONS,
-        help=f"Seasons to ingest (default: {DEFAULT_SEASONS})",
+        default=None,
+        help="Seasons to ingest (default: every season with an xlsx file for the league).",
     )
 
     parser.add_argument(
@@ -334,27 +391,38 @@ def main() -> None:
         )
         sys.exit(1)
 
-    print(f"Reading xlsx from: {data_dir}")
+    league = League(args.league)
+    seasons = args.seasons or _discover_seasons(data_dir, league)
+    print(f"Reading {league.value} xlsx from: {data_dir}")
 
     Base.metadata.create_all(engine)
     with SessionLocal() as sess:
-        upsert_teams(sess)
-        pass_rush_rows = ingest_pass_rush(sess, data_dir, args.seasons)
-        pass_block_rows = ingest_pass_block(sess, data_dir, args.seasons)
+        LEAGUE_TEAM_UPSERTS[league](sess)
+        pass_rush_category, pass_block_category = LEAGUE_CATEGORIES[league]
+        pass_rush_rows = ingest_category(sess, data_dir, seasons, pass_rush_category)
+        pass_block_rows = ingest_category(sess, data_dir, seasons, pass_block_category)
+
+        # The Career members read both leagues' tables, so only the college run rebuilds them.
+        if league is League.NCAAF:
+            rebuild_all_career_members(sess)
 
     print(
-        f"\nBulk-inserted {pass_rush_rows} pass-rush rows and {pass_block_rows} pass-block rows."
+        f"\nBulk-inserted {pass_rush_rows} {league.value} pass-rush rows and "
+        f"{pass_block_rows} pass-block rows."
     )
 
     # In-progress season's threshold is hand-eyeballed weekly, not
-    # auto-computed (see config.py's DYNAMIC_THRESHOLDS).
+    # auto-computed (see config/thresholds.py's DYNAMIC_THRESHOLDS and NCAAF_DYNAMIC_THRESHOLDS).
     # Nudge rather than silently falling back if this week's ingestion covers
     # the current season and nobody's touched it yet.
     current_year = date.today().year
-    if current_year in args.seasons and current_year not in DYNAMIC_THRESHOLDS:
+    if (
+        current_year in seasons
+        and current_year not in LEAGUE_DYNAMIC_THRESHOLDS[league]
+    ):
         print(
-            f"Reminder: {current_year} has no entry in config.DYNAMIC_THRESHOLDS yet — "
-            "falling back to the static default thresholds until you set one."
+            f"Reminder: {current_year} has no {league.value} entry in the dynamic thresholds "
+            "of config/thresholds.py yet — falling back to the static default thresholds until you set one."
         )
 
 

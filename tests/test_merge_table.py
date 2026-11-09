@@ -3,29 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from conftest import APP_READY_JS
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        # The app has finished loading once it holds its metadata and its applied filters.
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url, ready_js=APP_READY_JS)
 
 
 # The model on its own: plain strings stand in for players.
@@ -63,6 +46,7 @@ async ([sort, mode, rows]) => {
     position: 'ED',
     games,
     [cat.threshold_field]: opportunities,
+    [`TPS ${cat.threshold_field}`]: opportunities - 50,
     ...Object.fromEntries(metricKeys.map((key, i) => [key, base + i])),
   }));
   d.setCurrentSlice(records, 'pass_rush');
@@ -75,7 +59,7 @@ async ([sort, mode, rows]) => {
   };
   const card = el('scout-card scout-card--merge', 'aside');
   const table = el('merge-table', 'table');
-  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), table);
+  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
 
   const sortState = { key: sort.key, dir: sort.dir };
   if (mode == null) m.renderMergeCardBody(card, records, sortState);
@@ -152,12 +136,46 @@ def test_sort_layout_is_one_head_row_of_columns_and_one_row_per_player(page):
         "Linemates",
         "Games",
         "PR Opp",
+        "TPS PR Opp",
         "M1",
         "M2",
         "M3",
     ]
     assert [row["player"] for row in out["sortBody"]] == ["B", "A", "C"]
-    assert all(len(row["cells"]) == 8 for row in out["sortBody"])
+    assert all(len(row["cells"]) == 9 for row in out["sortBody"])
+
+
+def test_ol_snap_columns_are_labelled_pb_snaps_but_keep_their_full_keys(page):
+    labels = page.evaluate("""
+async () => {
+  const m = await import('/player-table-model.js');
+  const model = m.buildPlayerTableModel(['A'], 'Non Spike PB Snaps', ['M1'], []);
+  return {
+    snaps: model.columns.filter((c) => c.kind === 'snaps').map((c) => [c.key, c.label]),
+    plain: [m.snapsLabel('PR Opp'), m.snapsLabel('TPS PR Opp')],
+  };
+}
+""")
+
+    assert labels["snaps"] == [
+        ["Non Spike PB Snaps", "PB Snaps"],
+        ["TPS Non Spike PB Snaps", "TPS PB Snaps"],
+    ]
+    assert labels["plain"] == ["PR Opp", "TPS PR Opp"]
+
+
+def test_scope_note_is_for_the_ol_only(page):
+    notes = page.evaluate("""
+async () => {
+  const d = await import('/data.js');
+  return [
+    d.scopeNote({ threshold_field: 'PR Opp' }),
+    d.scopeNote({ threshold_field: 'Non Spike PB Snaps' }),
+  ];
+}
+""")
+
+    assert notes == ["", "For OL, only non-spike pass block snaps are considered."]
 
 
 def test_read_layout_heads_each_player_with_name_team_and_linemates(page):
@@ -173,6 +191,7 @@ def test_read_layout_rows_are_games_the_threshold_field_then_the_metrics(page):
     assert [row["column"] for row in out["readBody"]] == [
         "Games",
         "PR Opp",
+        "TPS PR Opp",
         "M1",
         "M2",
         "M3",
@@ -227,11 +246,13 @@ def test_read_turns_the_table_on_its_side(page):
     assert [row[0] for row in out["body"]] == [
         "Games",
         out["thresholdField"],
+        f"TPS {out['thresholdField']}",
         *out["metricKeys"],
     ]
 
     assert out["body"][0][1:] == ["7", "3", "9"]
     assert out["body"][1][1:] == ["300", "280", "310"]
+    assert out["body"][2][1:] == ["250", "230", "260"]  # The TPS count, right under it.
     assert all(len(row) == 4 for row in out["head"] + out["body"])
 
 
@@ -246,12 +267,13 @@ def test_sort_keeps_the_original_layout(page):
             "Linemates",
             "Games",
             out["thresholdField"],
+            f"TPS {out['thresholdField']}",
             *out["metricKeys"],
         ]
     ]
 
     assert [row[0] for row in out["body"]] == ["A. Alpha", "B. Bravo", "C. Charlie"]
-    assert all(len(row) == 5 + len(out["metricKeys"]) for row in out["body"])
+    assert all(len(row) == 6 + len(out["metricKeys"]) for row in out["body"])
 
 
 def test_only_sort_has_sortable_headers(page):
@@ -260,7 +282,7 @@ def test_only_sort_has_sortable_headers(page):
 
     assert read["sortableHeaders"] == 0
     # Every column sorts except Linemates, which holds a button, not data.
-    assert sort["sortableHeaders"] == 4 + len(sort["metricKeys"])
+    assert sort["sortableHeaders"] == 5 + len(sort["metricKeys"])
 
 
 def test_read_follows_the_current_sort_order(page):
@@ -310,7 +332,7 @@ def test_read_layout_groups_the_rows_into_sections_and_leaves_out_an_empty_bonus
         bonus_keys=("B1", "B2"),
     )
     assert out["readSections"] == [
-        ["Metadata", ["Games", "PR Opp"]],
+        ["Metadata", ["Games", "PR Opp", "TPS PR Opp"]],
         ["Required Metrics", ["M1", "M2"]],
         ["Bonus Metrics", ["B1", "B2"]],
     ]
@@ -318,6 +340,7 @@ def test_read_layout_groups_the_rows_into_sections_and_leaves_out_an_empty_bonus
     assert [r["column"] for r in out["readBody"]] == [
         "Games",
         "PR Opp",
+        "TPS PR Opp",
         "M1",
         "M2",
         "B1",
@@ -337,8 +360,17 @@ def test_read_shows_a_heading_row_for_each_section_with_the_bonus_metrics_last(p
     rows = {title: labels for title, _, labels in out["sections"]}
 
     assert titles == ["Metadata", "Required Metrics", "Bonus Metrics"]
-    assert rows["Metadata"] == ["Games", out["thresholdField"]]
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert rows["Metadata"] == [
+        "Games",
+        out["thresholdField"],
+        f"TPS {out['thresholdField']}",
+    ]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
     assert "Win Rate" in rows["Required Metrics"]
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
         rows["Required Metrics"]
@@ -369,7 +401,21 @@ def test_the_model_takes_its_identity_columns_from_the_caller(page):
 
     assert out["head"] == ["Player", "Position", "Card"]
     assert out["sections"] == [
-        ["Metadata", ["Games", "PR Opp"]],
+        ["Metadata", ["Games", "PR Opp", "TPS PR Opp"]],
         ["Required Metrics", ["M1"]],
         ["Bonus Metrics", ["B1"]],
     ]
+
+
+def test_the_model_adds_a_status_row_to_the_metadata_only_when_asked(page):
+    out = page.evaluate("""async () => {
+  const m = await import('/player-table-model.js');
+  const keys = (includeStatus) => {
+    const model = m.buildPlayerTableModel(['A'], 'PR Opp', ['M1'], [], undefined, includeStatus);
+    return m.readLayout(model).sections[0].rows.map((r) => r.column.key);
+  };
+  return { season: keys(false), career: keys(true) };
+}""")
+
+    assert out["season"] == ["Games", "PR Opp", "TPS PR Opp"]
+    assert out["career"] == ["Status", "Games", "PR Opp", "TPS PR Opp"]

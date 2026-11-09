@@ -2,21 +2,43 @@
 
     python -m preprocessing.preprocess --league nfl --seasons 2026
 
-Both arguments are required, so the wrong league is never processed by accident.
-Several seasons go after one flag: --seasons 2022 2023 2024.
-Also holds the helpers both category scripts share: file paths and the column check.
+The league is required, so the wrong league is never processed by accident.
+Several seasons go after one flag: --seasons 2022 2023 2024. Without --seasons every
+CSV of the league is processed (a `{season}.csv` with a four-digit season, in either category folder).
+Also holds the helpers both category scripts share: file paths, the column check
+and the league scope (the NCAAF conference column and its out-of-scope filter).
 """
 
 import argparse
 import os
+import re
 import sys
 import pandas as pd
-from config import LEAGUE_DATA_PATHS, League
+from config import LEAGUE_DATA_PATHS, ROUNDING_DECIMALS, League
+from teams.ncaaf import conference_of
 
 
 def season_file_path(league: League, category: str, season: int, extension: str) -> str:
     """data/{league}/{category}/{season}.{extension}."""
     return os.path.join(LEAGUE_DATA_PATHS[league], category, f"{season}.{extension}")
+
+
+def discover_csv_seasons(league: League, category: str) -> list[int]:
+    """The seasons that have a `{season}.csv` in the league's category folder, oldest first.
+
+    Only a four-digit stem counts; any other file name is skipped, and a missing folder yields none.
+    """
+    category_path = os.path.join(LEAGUE_DATA_PATHS[league], category)
+    if not os.path.isdir(category_path):
+        return []
+
+    seasons = []
+    for file_name in os.listdir(category_path):
+        stem, extension = os.path.splitext(file_name)
+        if extension == ".csv" and re.fullmatch(r"\d{4}", stem):
+            seasons.append(int(stem))
+
+    return sorted(seasons)
 
 
 def require_columns(
@@ -31,6 +53,56 @@ def require_columns(
         )
 
 
+def apply_league_scope(df: pd.DataFrame, league: League, season: int) -> pd.DataFrame:
+    """NCAAF: add the Conference column and drop the schools outside the scope.
+
+    The NFL has no conference, so its rows come back untouched. A school the
+    lookup does not know raises, naming the school and the season, so a new team
+    in a PFF export is noticed instead of silently dropped.
+    """
+    if league is not League.NCAAF:
+        return df
+
+    require_columns(df, ["Team", "Franchise Id"], league, season)
+
+    conference_by_franchise_id = dict()
+    schools_df = df[["Franchise Id", "Team"]].drop_duplicates()
+    for franchise_id, team in schools_df.itertuples(index=False):
+        try:
+            conference_by_franchise_id[franchise_id] = conference_of(
+                int(franchise_id), season
+            )
+
+        except KeyError:
+            raise ValueError(
+                f"{league.value} {season}: unknown school {team} "
+                f"(franchise_id {franchise_id}); add it to teams/ncaaf.py."
+            ) from None
+
+    scoped_df = df.copy()
+    scoped_df["Conference"] = scoped_df["Franchise Id"].map(conference_by_franchise_id)
+
+    return scoped_df[scoped_df["Conference"].notna()].copy()
+
+
+def percent_of(numerator, denominator):
+    """A rate as a rounded percentage: numerator / denominator, zero-filled, x100."""
+    rate = numerator / denominator
+    rate = rate.fillna(0)
+    rate *= 100
+
+    return rate.round(ROUNDING_DECIMALS)
+
+
+def write_position_sheets(league, category, season, positional_sheets) -> None:
+    """Write one sheet per position to the season's xlsx, in insertion order."""
+    destination_path = season_file_path(league, category, season, "xlsx")
+
+    with pd.ExcelWriter(destination_path, engine="openpyxl") as writer:
+        for position, sheet in positional_sheets.items():
+            sheet.to_excel(writer, sheet_name=position, index=False)
+
+
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__.splitlines()[0], allow_abbrev=False
@@ -38,7 +110,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--league", required=True, choices=[league.value for league in League]
     )
-    parser.add_argument("--seasons", required=True, type=int, nargs="+")
+    parser.add_argument("--seasons", type=int, nargs="+")
     return parser.parse_args(argv)
 
 
@@ -58,16 +130,38 @@ def main(argv: list[str] | None = None) -> list[str]:
         "ol_pass_block": preprocess_offensive_line,
     }
 
-    failures = []
-    for season in arguments.seasons:
-        for category, preprocess in categories.items():
-            try:
-                preprocess(league, season)
+    if arguments.seasons:
+        # Every requested season runs both categories; a CSV that is missing is reported as a failure.
+        jobs = [
+            (season, category)
+            for season in arguments.seasons
+            for category in categories
+        ]
 
-            except Exception as error:
-                failure = f"{league.value} {season} {category}: {type(error).__name__}: {error}"
-                print(f"FAILED {failure}", file=sys.stderr)
-                failures.append(failure)
+    else:
+        jobs = sorted(
+            (season, category)
+            for category in categories
+            for season in discover_csv_seasons(league, category)
+        )
+        print(f"Found {len(jobs)} {league.value} CSV(s) to preprocess.")
+
+    failures = []
+    if not jobs:
+        failure = f"{league.value}: no CSV found under {LEAGUE_DATA_PATHS[league]}"
+        print(f"FAILED {failure}", file=sys.stderr)
+        failures.append(failure)
+
+    for season, category in jobs:
+        try:
+            categories[category](league, season)
+
+        except Exception as error:
+            failure = (
+                f"{league.value} {season} {category}: {type(error).__name__}: {error}"
+            )
+            print(f"FAILED {failure}", file=sys.stderr)
+            failures.append(failure)
 
     if failures:
         print(f"{len(failures)} CSV(s) failed:", file=sys.stderr)

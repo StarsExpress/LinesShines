@@ -6,30 +6,15 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import APP_READY_JS
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 STYLES = (FRONTEND / "style.css").read_text(encoding="utf-8")
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-        pg.wait_for_function(
-            "async () => { const d = await import('/data.js'); return !!(d.metadata && d.appliedFilters); }"
-        )
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url, ready_js=APP_READY_JS)
 
 
 # Five ED players; each metric rises with the player's index, so ranks are predictable.
@@ -40,6 +25,7 @@ const keys = Object.keys(cat.metrics);
 const records = [1, 2, 3, 4, 5].map((n) => ({
   player: `P${n}`, abbr_name: `P${n}`, team: 'ARI', position: 'ED', games: 17,
   [cat.threshold_field]: 300,
+  [`TPS ${cat.threshold_field}`]: 120,
   ...Object.fromEntries(keys.map((k) => [k, n * 10])),
 }));
 d.setCurrentSlice(records, 'pass_rush');
@@ -53,9 +39,11 @@ PLAYER_CARD_JS = "async () => {" + SETUP_JS + """
   s.renderScoutCardStats(card, records[0]);
   const labels = [...card.querySelectorAll('dt')].map((e) => e.textContent);
   const chips = {};
-  card.querySelectorAll('dd.scout-stat-rank').forEach((dd, i) => {
+  card.querySelectorAll('dd.scout-stat-rank').forEach((dd) => {
+    let row = dd.previousElementSibling;
+    while (row && row.tagName !== 'DT') row = row.previousElementSibling;
     const chip = dd.querySelector('.scout-pct-chip');
-    chips[labels[i]] = chip ? { cls: chip.className, text: chip.textContent } : null;
+    chips[row.textContent] = chip ? { cls: chip.className, text: chip.textContent } : null;
   });
   return { labels, chips };
 }"""
@@ -65,7 +53,7 @@ MERGE_CARD_JS = "async () => {" + SETUP_JS + """
   const el = (cls, tag = 'div') => { const e = document.createElement(tag); e.className = cls; return e; };
   const card = el('scout-card scout-card--merge', 'aside');
   const table = el('merge-table', 'table');
-  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), table);
+  card.append(el('merge-card-title'), el('merge-card-subtitle'), el('merge-card-pool'), el('merge-card-scope', 'li'), table);
   m.renderMergeCardBody(card, records, { key: null, dir: 'asc' });
   return [...table.querySelectorAll('.merge-pct-chip')].map((c) => c.className);
 }"""
@@ -90,7 +78,7 @@ SECTIONS_JS = "async (category) => {" + """
   const stats = card.querySelector('.scout-stats');
   return [...stats.children].reduce((out, el) => {
     if (el.tagName === 'H4') out.push([el.textContent, []]);
-    else out[out.length - 1][1].push(...[...el.querySelectorAll('dt')].map((e) => e.textContent));
+    else out[out.length - 1][1].push(...[...el.querySelectorAll('dt, th')].map((e) => e.textContent));
     return out;
   }, []);
 }"""
@@ -102,14 +90,35 @@ def test_the_pass_rush_player_card_has_metadata_required_and_bonus_sections(page
     rows = dict(sections)
 
     assert titles == ["Metadata", "Required Metrics", "Bonus Metrics"]
-    assert rows["Metadata"] == ["Games", "PR Opp"]
+    assert rows["Metadata"] == ["Games", "PR Opp", "TPS PR Opp"]
 
-    assert rows["Bonus Metrics"] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
-    assert rows["Required Metrics"][:2] == ["Win Rate", "TPS Win Rate"]
+    assert rows["Bonus Metrics"] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass",
+        "TPS Batted Pass",
+    ]
+    assert rows["Required Metrics"][:2] == ["Win", "TPS Win"]
 
     assert not {"Pass Cov Percent", "TPS Pass Cov Percent"} & set(
         rows["Required Metrics"]
     )
+
+
+def test_the_player_card_shows_the_tps_count_right_under_the_threshold_field(page):
+    out = page.evaluate("async () => {" + SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  s.renderScoutCardStats(card, records[0]);
+  const grid = card.querySelector('.scout-metadata-table');
+  const labels = [...grid.querySelectorAll('th')].map((e) => e.textContent);
+  const values = [...grid.querySelectorAll('td')].map((e) => e.textContent);
+  return { labels, values };
+}""")
+
+    assert out["labels"] == ["Games", "PR Opp", "TPS PR Opp"]
+    assert out["values"] == ["17", "300", "120"]
 
 
 def test_the_pass_block_player_card_has_no_bonus_section(page):
@@ -117,6 +126,61 @@ def test_the_pass_block_player_card_has_no_bonus_section(page):
 
     assert [title for title, _ in sections] == ["Metadata", "Required Metrics"]
     assert all(rows for _, rows in sections)
+
+
+# Five OL players; each metric rises with the player's index, as in SETUP_JS.
+OFFENSIVE_LINE_SETUP_JS = """
+const d = await import('/data.js');
+const cat = d.metadata.pass_block;
+const keys = Object.keys(cat.metrics);
+const records = [1, 2, 3, 4, 5].map((n) => ({
+  player: `P${n}`, abbr_name: `P${n}`, team: 'ARI', position: 'T', games: 17,
+  [cat.threshold_field]: 500,
+  [`TPS ${cat.threshold_field}`]: 200,
+  ...Object.fromEntries(keys.map((k) => [k, n * 10])),
+}));
+d.setCurrentSlice(records, 'pass_block');
+d.setAppliedFilters({ ...d.appliedFilters, category: 'pass_block', position: 'T', threshold: '100' });
+"""
+
+
+def test_the_offensive_line_card_lists_the_tps_proportion_first_with_a_colour_chip(
+    page,
+):
+    out = page.evaluate("async () => {" + OFFENSIVE_LINE_SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  s.renderScoutCardStats(card, records[4]);
+  const labels = [...card.querySelectorAll('dt')].map((e) => e.textContent);
+  const row = [...card.querySelectorAll('dt')].find((e) => e.textContent === 'TPS Proportion');
+  let first = row.nextElementSibling;
+  while (!first.classList.contains('scout-stat-rank')) first = first.nextElementSibling;
+  const chip = first.querySelector('.scout-pct-chip');
+  return { labels, cls: chip.className, text: chip.textContent };
+}""")
+
+    required = out["labels"][out["labels"].index("TPS Proportion") :]
+
+    assert required[:2] == ["TPS Proportion", "Allowed Pressure"]
+    assert "scout-pct-neutral" not in out["cls"]
+    assert out["text"].startswith("#1/5")
+
+
+def test_the_line_summary_includes_the_tps_proportion_for_the_offensive_line(page):
+    keys = page.evaluate("async () => {" + OFFENSIVE_LINE_SETUP_JS + """
+  const l = await import('/linemate-card.js');
+  return Object.keys(l.computeThreeMRSWA(records, cat));
+}""")
+
+    assert "TPS Proportion %" in keys
+
+    # The front 7 has no such metric.
+    front_7_keys = page.evaluate(
+        "async () => Object.keys((await import('/data.js')).metadata.pass_rush.metrics)"
+    )
+
+    assert "TPS Proportion %" not in front_7_keys
 
 
 def test_the_line_summary_leaves_out_pass_cov_percent(page):
@@ -138,10 +202,15 @@ def test_the_metric_order_puts_the_bonus_metrics_after_the_required_ones(page):
     )
 
     assert metrics[0] == "Win Rate"
-    assert metrics[-2:] == ["Pass Cov Percent", "TPS Pass Cov Percent"]
+    assert metrics[-4:] == [
+        "Pass Cov Percent",
+        "TPS Pass Cov Percent",
+        "Batted Pass Rate",
+        "TPS Batted Pass Rate",
+    ]
 
 
-def test_player_card_has_only_the_pool_and_threshold_bullets(page):
+def test_the_front_7_player_card_has_only_the_pool_and_threshold_bullets(page):
     notes = page.evaluate("async () => {" + SETUP_JS + """
   const s = await import('/scout-card.js');
   const dom = await import('/dom.js');
@@ -150,7 +219,9 @@ def test_player_card_has_only_the_pool_and_threshold_bullets(page):
   return [...card.querySelectorAll('.scout-card-note')].map((e) => e.textContent);
 }""")
 
-    assert len(notes) == 2
+    # The third note is the OL's scope note, empty (and hidden) on the front 7 card.
+    assert len(notes) == 3
+    assert notes[2] == ""
     assert notes[1].startswith("Threshold: ≥ 100")
 
 
@@ -165,7 +236,7 @@ def test_player_card_shows_a_neutral_chip_with_rank_and_percentile(page):
     assert chips["Pass Cov Percent"]["text"].startswith("#5/5")
 
     # Every other metric keeps its Color Code.
-    assert "scout-pct-neutral" not in chips["Win Rate"]["cls"]
+    assert "scout-pct-neutral" not in chips["Win"]["cls"]
 
 
 def test_merge_card_uses_the_neutral_chip_only_for_neutral_metrics(page):
@@ -209,3 +280,41 @@ def test_the_neutral_chip_text_is_readable(cls):
     hi, lo = sorted((luminance(background), luminance(colour)), reverse=True)
 
     assert (hi + 0.05) / (lo + 0.05) >= 4.5
+
+
+def test_batted_pass_rate_is_left_out_of_the_line_summary_and_the_axis_menus(page):
+    summary_keys = page.evaluate("async () => {" + SETUP_JS + """
+  const l = await import('/linemate-card.js');
+  return Object.keys(l.computeThreeMRSWA(records, cat));
+}""")
+    axis_options = page.evaluate(
+        "() => [...document.querySelectorAll('#x-metric-select option')].map((o) => o.value)"
+    )
+
+    assert "Win Rate" in summary_keys
+    assert not {"Batted Pass Rate", "TPS Batted Pass Rate"} & set(summary_keys)
+    assert "Win Rate" in axis_options
+    assert not {"Batted Pass Rate", "TPS Batted Pass Rate"} & set(axis_options)
+
+
+def test_batted_pass_rate_is_ranked_on_the_player_card_to_two_decimals(page):
+    out = page.evaluate("async () => {" + SETUP_JS + """
+  const s = await import('/scout-card.js');
+  const dom = await import('/dom.js');
+  const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
+  // The record stays in the pool, so it gets a real rank.
+  const record = records[0];
+  record['Batted Pass Rate'] = 1.2345;
+  record['Batted Passes'] = 7;
+  s.renderScoutCardStats(card, record);
+  const label = [...card.querySelectorAll('dt')].find((e) => e.textContent === 'Batted Pass');
+  const cells = [];
+  for (let e = label.nextElementSibling; e && e.tagName === 'DD' && cells.length < 3; e = e.nextElementSibling) {
+    cells.push(e.textContent);
+  }
+  return cells;
+}""")
+
+    assert out[0] == "7"
+    assert out[1] == "1.23%"
+    assert re.fullmatch(r"#\d+/\d+ · \d+(st|nd|rd|th) pct", out[2])

@@ -11,21 +11,8 @@ FIELD = "PR Opp"
 
 
 @pytest.fixture()
-def page(live_server_url):
-    sync_api = pytest.importorskip("playwright.sync_api")
-
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:  # Browser binary not installed.
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        pg.goto(live_server_url)
-
-        yield pg
-        browser.close()
+def page(live_server_url, open_page):
+    return open_page(live_server_url)
 
 
 def _state(season=2025, position="ED", threshold=230, category="pass_rush"):
@@ -556,24 +543,14 @@ def test_warning_notice_colours_meet_contrast():
     assert _contrast(colour("color"), colour("background")) >= 4.5
 
 
-def test_app_boots_without_module_errors(live_server_url):
+def test_app_boots_without_module_errors(live_server_url, chromium_browser):
     """The new imports (filters.js <-> card modules) must not break module loading."""
-    sync_api = pytest.importorskip("playwright.sync_api")
+    pg = chromium_browser.new_page()
+    errors = []
 
-    with sync_api.sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-
-        except Exception as exc:
-            pytest.skip(f"chromium unavailable: {exc}")
-
-        pg = browser.new_page()
-        errors = []
-
-        pg.on("pageerror", lambda e: errors.append(str(e)))
-        pg.goto(live_server_url)
-        pg.wait_for_load_state("networkidle")
-        browser.close()
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(live_server_url)
+    pg.wait_for_load_state("networkidle")
 
     assert errors == []
 
@@ -681,3 +658,113 @@ def test_the_preferred_position_wins_when_two_rows_qualify(page):
     pool = [_rec("Swing", 200, "ED"), _rec("Swing", 180, "DI")]
     assert _resolve(page, pool, "Swing", "DI", LINE, 100)["position"] == "DI"
     assert _resolve(page, pool, "Swing", "ED", LINE, 100)["position"] == "ED"
+
+
+# ---- The Career page: two bars, one per status. ----------------------------
+
+
+def _career_rec(player, opp, status, position="ED"):
+    return {"player": player, "position": position, FIELD: opp, "status": status}
+
+
+JOINED = "Joined NFL"
+PROSPECT = "Prospects"
+CAREER_POOL = [
+    _career_rec("J-high", 400, JOINED),
+    _career_rec("J-low", 200, JOINED),
+    _career_rec("P-high", 200, PROSPECT),
+    _career_rec("P-low", 100, PROSPECT),
+]
+
+
+def _career_state(joined, prospect, position="ED"):
+    return dict(
+        category="pass_rush",
+        season="Career",
+        position=position,
+        threshold=dict(joined=joined, prospect=prospect),
+    )
+
+
+def _spec_call(page, function, *arguments):
+    return page.evaluate(
+        """async args => {
+            const m = await import('/pinned-impact.js');
+            return m[args.function](...args.arguments);
+        }""",
+        dict(function=function, arguments=list(arguments)),
+    )
+
+
+def test_a_career_player_is_judged_against_the_bar_of_his_own_status(page):
+    spec = dict(joined=300, prospect=150)
+
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[0], FIELD, spec) is True
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[1], FIELD, spec) is False
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[2], FIELD, spec) is True
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[3], FIELD, spec) is False
+
+
+def test_a_plain_number_still_judges_every_player_the_same_way(page):
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[1], FIELD, 200) is True
+    assert _spec_call(page, "meetsThreshold", CAREER_POOL[1], FIELD, "201") is False
+    assert _spec_call(page, "meetsThreshold", dict(player="x"), FIELD, 0) is False
+
+
+def test_the_spec_is_a_number_on_a_season_page_and_a_pair_on_career(page):
+    assert _spec_call(page, "thresholdSpec", "230", None) == 230
+    assert _spec_call(page, "thresholdSpec", "300", "150") == dict(
+        joined=300, prospect=150
+    )
+
+
+def test_raising_either_career_bar_counts_as_a_stricter_threshold(page):
+    base = dict(joined=300, prospect=150)
+
+    assert _spec_call(page, "thresholdRaised", dict(joined=300, prospect=151), base)
+    assert _spec_call(page, "thresholdRaised", dict(joined=301, prospect=150), base)
+    assert not _spec_call(page, "thresholdRaised", dict(joined=300, prospect=150), base)
+    assert not _spec_call(page, "thresholdRaised", dict(joined=200, prospect=100), base)
+    assert _spec_call(page, "thresholdRaised", 231, 230)
+    assert not _spec_call(page, "thresholdRaised", 230, 230)
+
+
+def test_eligibility_on_career_uses_each_players_own_bar(page):
+    names = ["J-high", "J-low", "P-high", "P-low"]
+
+    result = _partition(
+        page, names, CAREER_POOL, threshold=dict(joined=300, prospect=150)
+    )
+
+    assert result == dict(kept=["J-high", "P-high"], removed=["J-low", "P-low"])
+
+
+def test_a_stricter_prospect_bar_removes_only_prospects(page):
+    pinned = ["J-high", "P-high"]
+    applied = _career_state(300, 150)
+
+    result = _full(page, applied, _career_state(300, 250), pinned, CAREER_POOL)
+
+    assert result["outcome"] == "partial"
+    assert result["removed"] == ["P-high"]
+    assert result["kept"] == ["J-high"]
+
+
+def test_a_looser_career_bar_changes_nothing(page):
+    pinned = ["J-high", "P-high"]
+
+    outcome = _evaluate(
+        page, _career_state(300, 150), _career_state(250, 100), pinned, CAREER_POOL
+    )
+
+    assert outcome == "unaffected"
+
+
+def test_the_one_career_season_is_never_a_season_change(page):
+    pinned = ["J-high", "P-high"]
+
+    outcome = _evaluate(
+        page, _career_state(300, 150), _career_state(300, 150), pinned, CAREER_POOL
+    )
+
+    assert outcome == "unaffected"
