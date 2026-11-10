@@ -1936,10 +1936,13 @@ body {
 /* The bar every PNG export shows: "Preparing image…", then "Image ready" with
    Share / Save and Copy on a touch device (png-delivery.js). */
 .export-status {
+  /* Centered on the screen: at the bottom edge of an installed PWA it sat under
+     the home indicator and was too small to hit. */
   position: fixed;
-  left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  inset: 0;
+  margin: auto;
+  width: fit-content;
+  height: fit-content;
   z-index: 2000;
   display: flex;
   align-items: center;
@@ -1957,6 +1960,39 @@ body {
 }
 .export-status[hidden] {
   display: none;
+}
+/* "Image ready": a real popup. The dimmed backdrop is a pseudo-element, so a tap
+   on it is swallowed instead of reaching the page behind. */
+.export-status.is-ready {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  width: min(320px, calc(100vw - 48px));
+  padding: 22px 20px 20px;
+  border-radius: 16px;
+  font-size: 16px;
+  text-align: center;
+}
+.export-status.is-ready::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.6);
+}
+.export-status.is-ready .export-status-text {
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.export-status.is-ready .export-status-actions {
+  flex-direction: column;
+  gap: 10px;
+}
+.export-status.is-ready .export-status-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 15px;
 }
 .export-status-actions {
   display: flex;
