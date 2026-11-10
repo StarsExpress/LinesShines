@@ -23,7 +23,7 @@ DEFAULT_THRESHOLDS: dict[str, int] = {
 # Key, which means current season, must be "renamed" when a new season comes.
 DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 110,  # Min PR Opp for pass rush filter.
+        "pass_rush": 100,  # Min PR Opp for pass rush filter.
         "pass_block": 130,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
@@ -41,8 +41,8 @@ NCAAF_DEFAULT_THRESHOLDS: dict[str, int] = {
 # of about 2/3 of the static values (a college season has about 12 games).
 NCAAF_DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
     2026: {
-        "pass_rush": 120,  # Min PR Opp for pass rush filter.
-        "pass_block": 205,  # Min Non Spike PB Snaps for pass block filter.
+        "pass_rush": 170,  # Min PR Opp for pass rush filter.
+        "pass_block": 280,  # Min Non Spike PB Snaps for pass block filter.
     },
 }
 
