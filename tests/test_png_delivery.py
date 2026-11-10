@@ -169,6 +169,22 @@ def test_on_a_phone_with_an_expired_tap_the_bar_asks_for_a_new_one(page):
     page.wait_for_selector(BAR, state="hidden")
 
 
+def test_the_ready_popup_sits_in_the_middle_of_the_screen(page):
+    page.set_viewport_size({"width": 390, "height": 844})
+    _touch(page, tap_is_fresh=False)
+
+    _save(page)
+    _wait_ready(page)
+
+    box = page.locator(BAR).bounding_box()
+
+    assert abs(box["x"] + box["width"] / 2 - 390 / 2) <= 2
+    assert abs(box["y"] + box["height"] / 2 - 844 / 2) <= 2
+    # Big enough to hit: every button is at least 44px tall, the touch-target minimum.
+    for button in page.locator(f"{BAR} .export-status-btn").all():
+        assert button.bounding_box()["height"] >= 44
+
+
 def test_the_ready_bar_can_copy_the_image(page):
     _touch(page, tap_is_fresh=False)
 
@@ -212,6 +228,6 @@ def test_the_close_button_hides_the_ready_bar(page):
 
     _save(page)
     _wait_ready(page)
-    page.click(f"{BAR} >> text='✕'")
+    page.click(f"{BAR} >> text='Close'")
 
     page.wait_for_selector(BAR, state="hidden")

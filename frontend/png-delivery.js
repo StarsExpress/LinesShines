@@ -51,10 +51,12 @@ function ensureStatusBar() {
   return statusEl;
 }
 
-function setStatus(message, actions = []) {
+function setStatus(message, actions = [], { ready = false } = {}) {
   ensureStatusBar();
   clearTimeout(hideTimer);
 
+  // "Image ready" is a popup with a backdrop; the other messages are a small pill.
+  statusEl.classList.toggle("is-ready", ready);
   textEl.textContent = message;
   actionsEl.replaceChildren(...actions);
   statusEl.hidden = false;
@@ -174,9 +176,9 @@ function showReadyBar(blob, file, filename) {
   ];
 
   if (canCopyImage()) actions.push(statusButton("Copy", () => copyImage(blob)));
-  actions.push(statusButton("✕", hideExportStatus));
+  actions.push(statusButton("Close", hideExportStatus));
 
-  setStatus("Image ready", actions);
+  setStatus("Image ready", actions, { ready: true });
 }
 
 // Hands the canvas's PNG to the user and releases the canvas's memory.
