@@ -108,6 +108,7 @@ class PassBlockMetricsMixin:
     tps_pressures = Column(Integer)  # TPS Pressures allowed.
     havoc = Column(Integer)  # Havoc allowed = Sacks + Hits allowed.
     tps_havoc = Column(Integer)  # TPS Havoc allowed.
+    penalties = Column(Integer)  # Penalties (PFF has no true-pass-set split of it).
 
     allowed_pressure_pct = Column(Float)  # Allowed Pressure %.
     tps_allowed_pressure_pct = Column(Float)  # TPS Allowed Pressure %.
@@ -117,6 +118,8 @@ class PassBlockMetricsMixin:
 
     pbe = Column(Float)  # PBE.
     tps_pbe = Column(Float)  # TPS PBE.
+
+    penalty_rate = Column(Float)  # Penalty Rate = Penalties / Non Spike PB Snaps.
 
 
 class NFLTeam(Base):

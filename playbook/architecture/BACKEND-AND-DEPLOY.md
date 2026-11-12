@@ -10,14 +10,14 @@
 1. `data/nfl/front_7_pass_rush/{season}.csv` and `data/nfl/ol_pass_block/{season}.csv` are raw PFF exports
    (one row per player-season).
 
-2. `preprocessing/preprocess.py --league nfl [--seasons {season ...}]` (the league is required; without `--seasons` every `{season}.csv` of the league is processed) calls
+2. `preprocessing/preprocess.py [--league nfl] [--seasons {season ...}]` (without `--league` both leagues run, NFL first and then NCAAF, and `--seasons` applies to both; without `--seasons` every `{season}.csv` of the league is processed) calls
    `preprocessing/front_7.py` and `preprocessing/offensive_line.py`, which each read the season CSV,
    rename PFF's snake_case columns to display names via `utils/renamers.py`, compute derived rate
    metrics (Havoc Rate, Pressure Rate, and their TPS/"true pass set" variants) through the shared
    `percent_of()` helper in `preprocess.py`, split by position
    into separate sheets written by the shared `write_position_sheets()` helper, and write `data/nfl/{front_7_pass_rush,ol_pass_block}/{season}.xlsx` (`config.NFL_DATA_PATH`; the `League` enum in `config/leagues.py` picks the league's folder, `data/ncaaf/` for the college side, and `preprocessing/preprocess.py` also builds the paths and checks the required columns first).
 
-3. `database/db_ingestion.py --league {nfl,ncaaf}` (the league is required) reads those xlsx workbooks and upserts rows into that league's tables: `nfl_pass_rush_stats` /
+3. `database/db_ingestion.py [--league {nfl,ncaaf}]` (without `--league` both leagues load through `ingest_league()`, NFL first because the college run rebuilds the Career members from the NFL tables too) reads those xlsx workbooks and upserts rows into that league's tables: `nfl_pass_rush_stats` /
    `nfl_pass_block_stats`, or `ncaaf_pass_rush_stats` / `ncaaf_pass_block_stats`. One `ingest_category()` body loads every category, driven by a `_Category`
    descriptor (`LEAGUE_CATEGORIES` lists each league's two); the required-column check and the row building read the one column declaration in
    `database/columns.py` (`ingest_pass_rush` / `ingest_pass_block` and the `ingest_ncaaf_*` pair remain as thin wrappers). The NFL team key is the `Team` code; the college key is the workbook's `Franchise Id` (into `team_code`), and each college row also carries the `Conference` attached at conversion. The league's team table is filled first (`LEAGUE_TEAM_UPSERTS`: `nfl_teams` from `teams/nfl.py`, `ncaaf_teams` from `teams/ncaaf.py`, colours unset). Every row carries PFF's `player_id` (NOT NULL; a null Player Id or a missing required column raises `ValueError`), and the unique key is `(season, position, player_id)`. It's idempotent by deleting all rows for a given `(season, position)` slice

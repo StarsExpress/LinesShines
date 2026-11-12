@@ -86,6 +86,8 @@ def _write_ol_xlsx(
             "TPS Allowed Havoc %": [3.0],
             "PBE": [95.0],
             "TPS PBE": [92.0],
+            "Penalties": [4],
+            "Penalty Rate": [0.8],
             **(extra or {}),
         }
     )
@@ -459,11 +461,43 @@ def test_only_the_college_run_rebuilds_the_career_members(tmp_path, monkeypatch)
     assert len(rebuilds) == 1
 
 
-def test_the_command_line_needs_a_league(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["db_ingestion", "--seasons", "2026"])
+def test_without_a_league_both_are_loaded_nfl_first(tmp_path, monkeypatch):
+    _patch_ingestion_to_an_in_memory_database(monkeypatch)
+    order = []
+    monkeypatch.setattr(
+        db_ingestion,
+        "ingest_league",
+        lambda league, data_dir, seasons: order.append((league, seasons)),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["db_ingestion", "--seasons", "2026", "--data-dir", str(tmp_path)],
+    )
 
-    with pytest.raises(SystemExit):
-        db_ingestion.main()
+    db_ingestion.main()
+
+    assert order == [(League.NFL, [2026]), (League.NCAAF, [2026])]
+
+
+def test_without_a_league_the_career_members_are_rebuilt_after_the_nfl_load(
+    tmp_path, monkeypatch
+):
+    _patch_ingestion_to_an_in_memory_database(monkeypatch)
+    events = []
+    for league in League:
+        monkeypatch.setitem(
+            db_ingestion.LEAGUE_TEAM_UPSERTS,
+            league,
+            lambda sess, league=league: events.append(league.value),
+        )
+    monkeypatch.setattr(
+        db_ingestion, "rebuild_all_career_members", lambda sess: events.append("career")
+    )
+    monkeypatch.setattr("sys.argv", ["db_ingestion", "--data-dir", str(tmp_path)])
+
+    db_ingestion.main()
+
+    assert events == ["nfl", "ncaaf", "career"]
 
 
 def test_every_league_has_two_categories_and_a_team_upsert():
@@ -492,3 +526,4 @@ def test_the_counts_behind_the_rates_are_stored(tmp_path):
     assert (rusher.batted_pass_rate, rusher.tps_batted_pass_rate) == (2.0, 1.667)
     assert (blocker.pressures, blocker.tps_pressures) == (25, 12)
     assert (blocker.havoc, blocker.tps_havoc) == (10, 6)
+    assert (blocker.penalties, blocker.penalty_rate) == (4, 0.8)

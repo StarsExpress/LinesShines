@@ -152,6 +152,8 @@ def seeded_db():
                 tps_allowed_havoc_pct=3.0,
                 pbe=95.0,
                 tps_pbe=92.0,
+                penalties=4,
+                penalty_rate=0.8,
             )
         )
 

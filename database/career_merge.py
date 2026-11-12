@@ -93,6 +93,7 @@ PASS_BLOCK_CAREER = CareerSpec(
         "tps_pressures",
         "havoc",
         "tps_havoc",
+        "penalties",
     ),
     order_attr="non_spike_pb_snaps",
     adds_tps_proportion=True,

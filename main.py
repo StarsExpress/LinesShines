@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from config import (
     ALLOWED_HAVOC_RATE_NOTE,
+    PENALTY_RATE_NOTE,
     HAVOC_RATE_NOTE,
     PASS_COV_PERCENT_NOTE,
     PBE_NOTE,
@@ -238,6 +239,18 @@ PASS_BLOCK_METRICS = {
         "formula_note": PBE_NOTE,
         "formula_svg": "/images/metric_formulas/pbe.svg",
         "pff_note": "Pass block efficiency on true pass sets",
+    },
+    # Lower is better, and a flag costs the offense yards, so it is a regular chartable metric: unlike
+    # Batted Pass Rate it is spread wider (about 17% of NFL linemen with 300+ snaps have none, against
+    # about 39% of front 7 players with no batted pass). A penalty is rare per snap, so two decimals.
+    # PFF has no true-pass-set split of it, so there is no TPS twin.
+    "Penalty Rate": {
+        "unit": "%",
+        "volume": "Penalties",
+        "higher_is_better": False,
+        "decimals": 2,
+        "note": PENALTY_RATE_NOTE,
+        "pff_note": "Penalties / non-spike pass block snaps",
     },
 }
 

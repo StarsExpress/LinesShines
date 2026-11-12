@@ -5,10 +5,10 @@ Reads `{league}/front_7_pass_rush/{season}.xlsx` and
 `preprocessing/front_7.py` and `preprocessing/offensive_line.py` already
 produce, and bulk-inserts them into that league's tables: `nfl_pass_rush_stats` /
 `nfl_pass_block_stats` or `ncaaf_pass_rush_stats` / `ncaaf_pass_block_stats`.
-The league is always named (`--league`), so the wrong one is never loaded by accident.
+Without `--league` both leagues are loaded, NFL first and then NCAAF.
 
 The college run (`--league ncaaf`) also rebuilds the Career page's member tables
-(`database/career.py`) after loading, so run the NFL ingestion first when both run.
+(`database/career.py`) after loading, so the NFL ingestion must come first when both run.
 
 Strict: a sheet that lacks any column the tables need, or a row without a
 `Player Id`, stops the run with an error instead of loading NULLs.
@@ -20,7 +20,7 @@ per-row upsert and dialect-agnostic (works on both SQLite and Postgres).
 Usage:
 1. Must always go from project root.
 2. After running two preprocessing scripts.
-3. python -m database.db_ingestion --league nfl
+3. python -m database.db_ingestion [--league nfl]
 
 For Railway, set DATABASE_URL to Postgres URL Railway assigns.
 Point LINESHINES_REPO_ROOT at LinesShines project root so scripts can
@@ -358,41 +358,11 @@ def ingest_ncaaf_pass_block(sess: Session, data_dir: Path, seasons: list[int]) -
     return ingest_category(sess, data_dir, seasons, _NCAAF_PASS_BLOCK)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-
-    parser.add_argument(
-        "--league", required=True, choices=[league.value for league in League]
-    )
-
-    parser.add_argument(
-        "--seasons",
-        type=int,
-        nargs="+",
-        default=None,
-        help="Seasons to ingest (default: every season with an xlsx file for the league).",
-    )
-
-    parser.add_argument(
-        "--data-dir",
-        type=Path,
-        default=None,
-        help="Override where to look for the *.xlsx files.",
-    )
-
-    args = parser.parse_args()
-
-    data_dir = args.data_dir or _repo_root()
-    if not data_dir.exists():
-        print(f"Data directory not found: {data_dir}", file=sys.stderr)
-        print(
-            "Set --data-dir or LINESHINES_DATA_DIR/LINESHINES_REPO_ROOT env var",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    league = League(args.league)
-    seasons = args.seasons or _discover_seasons(data_dir, league)
+def ingest_league(
+    league: League, data_dir: Path, requested_seasons: list[int] | None
+) -> None:
+    """Load one league's pass-rush and pass-block seasons, and the Career members after a college run."""
+    seasons = requested_seasons or _discover_seasons(data_dir, league)
     print(f"Reading {league.value} xlsx from: {data_dir}")
 
     Base.metadata.create_all(engine)
@@ -424,6 +394,43 @@ def main() -> None:
             f"Reminder: {current_year} has no {league.value} entry in the dynamic thresholds "
             "of config/thresholds.py yet — falling back to the static default thresholds until you set one."
         )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+
+    parser.add_argument("--league", choices=[league.value for league in League])
+
+    parser.add_argument(
+        "--seasons",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Seasons to ingest (default: every season with an xlsx file for the league).",
+    )
+
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        help="Override where to look for the *.xlsx files.",
+    )
+
+    args = parser.parse_args()
+
+    data_dir = args.data_dir or _repo_root()
+    if not data_dir.exists():
+        print(f"Data directory not found: {data_dir}", file=sys.stderr)
+        print(
+            "Set --data-dir or LINESHINES_DATA_DIR/LINESHINES_REPO_ROOT env var",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # NFL goes first: the college run rebuilds the Career members from the NFL tables too.
+    leagues = [League(args.league)] if args.league else [League.NFL, League.NCAAF]
+    for league in leagues:
+        ingest_league(league, data_dir, args.seasons)
 
 
 if __name__ == "__main__":

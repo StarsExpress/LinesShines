@@ -58,6 +58,7 @@ OL_RAW = {
     "true_pass_set_sacks_allowed": [0],
     "true_pass_set_hits_allowed": [1],
     "true_pass_set_pressures_allowed": [5],
+    "penalties": [3],
 }
 
 CASES = [
@@ -130,9 +131,11 @@ def test_a_missing_column_names_the_league_the_season_and_the_column(
     )
 
 
-def test_the_command_line_needs_a_league():
-    with pytest.raises(SystemExit):
-        parse_arguments(["--seasons", "2026"])
+def test_the_command_line_without_a_league_leaves_it_unset():
+    arguments = parse_arguments(["--seasons", "2026"])
+
+    assert arguments.league is None
+    assert arguments.seasons == [2026]
 
 
 def test_the_command_line_without_seasons_leaves_them_unset():
@@ -418,6 +421,48 @@ def test_without_seasons_every_csv_of_the_league_is_processed(
     ]
 
 
+def test_without_a_league_both_leagues_are_processed_nfl_first(
+    league_folders, monkeypatch
+):
+    done = []
+    monkeypatch.setattr(
+        "preprocessing.front_7.preprocess_front_7",
+        lambda league, season: done.append((league, season)),
+    )
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line", lambda *_: None
+    )
+    _touch(league_folders, League.NCAAF, "front_7_pass_rush", "2022.csv")
+    _touch(league_folders, League.NFL, "front_7_pass_rush", "2025.csv")
+
+    failures = main([])
+
+    assert failures == []
+    assert done == [(League.NFL, 2025), (League.NCAAF, 2022)]
+
+
+def test_without_a_league_the_seasons_apply_to_both_and_a_missing_csv_fails(
+    league_folders, monkeypatch
+):
+    done = []
+    monkeypatch.setattr(
+        "preprocessing.front_7.preprocess_front_7",
+        lambda league, season: done.append((league, season)),
+    )
+    monkeypatch.setattr(
+        "preprocessing.offensive_line.preprocess_offensive_line",
+        lambda league, season: (_ for _ in ()).throw(FileNotFoundError("no csv")),
+    )
+
+    failures = main(["--seasons", "2026"])
+
+    assert done == [(League.NFL, 2026), (League.NCAAF, 2026)]
+    assert [failure.split(":")[0] for failure in failures] == [
+        "nfl 2026 ol_pass_block",
+        "ncaaf 2026 ol_pass_block",
+    ]
+
+
 def test_without_seasons_and_without_any_csv_it_reports_a_failure(
     league_folders, capsys
 ):
@@ -450,3 +495,23 @@ def test_without_seasons_an_error_in_one_csv_does_not_stop_the_rest(
     assert done == [2025]
     assert len(failures) == 1
     assert failures[0].startswith("nfl 2024 front_7_pass_rush:")
+
+
+def test_the_ol_workbook_carries_penalties_and_their_rate_per_non_spike_snap(
+    league_folders,
+):
+    pd.DataFrame(OL_RAW).to_csv(
+        season_file_path(League.NFL, "ol_pass_block", 2025, "csv"), index=False
+    )
+
+    preprocess_offensive_line(League.NFL, 2025)
+
+    row = pd.read_excel(
+        season_file_path(League.NFL, "ol_pass_block", 2025, "xlsx"), sheet_name="T"
+    ).iloc[0]
+
+    # 3 penalties over 200 non-spike pass block snaps.
+    assert row["Penalties"] == 3
+    assert row["Penalty Rate"] == 1.5
+    # PFF has no true-pass-set split of penalties, so there is no TPS twin.
+    assert "TPS Penalty Rate" not in row.index

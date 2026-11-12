@@ -97,6 +97,8 @@ def _block_row(season, player_id, position="T", **values):
         tps_allowed_havoc_pct=2.0,
         pbe=96.0,
         tps_pbe=96.0,
+        penalties=2,
+        penalty_rate=0.5,
     )
     defaults.update(values)
 
@@ -521,6 +523,23 @@ def test_career_counts_of_the_offensive_line_are_summed_too(sess):
 
     assert (record["Pressures"], record["TPS Pressures"]) == (50, 12)
     assert (record["Havoc"], record["TPS Havoc"]) == (12, 4)
+
+
+def test_career_penalties_are_summed_and_their_rate_is_weighted_by_non_spike_snaps(
+    sess,
+):
+    # 4 penalties over 400 snaps (1.0 %), then 8 over 800 (1.0 %), then 0 over 400 (0 %).
+    sess.add(_block_row(2022, 1, non_spike_pb_snaps=400, penalties=4, penalty_rate=1.0))
+    sess.add(_block_row(2023, 1, non_spike_pb_snaps=800, penalties=8, penalty_rate=1.0))
+    sess.add(_block_row(2024, 1, non_spike_pb_snaps=400, penalties=0, penalty_rate=0.0))
+    sess.add(NCAAFPassBlockCareerMember(player_id=1, status=JOINED))
+    sess.commit()
+
+    (record,) = merged_career_rows(sess, PASS_BLOCK_CAREER, ("T", "G", "C"))
+
+    assert record["Penalties"] == 12
+    # 12 penalties over 1,600 snaps; the mean of the three seasons' rates would say 0.667.
+    assert record["Penalty Rate"] == pytest.approx(0.75)
 
 
 def test_career_batted_passes_are_summed_and_their_rate_is_weighted_by_pr_opp(sess):
