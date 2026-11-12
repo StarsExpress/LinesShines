@@ -608,6 +608,15 @@ app.include_router(build_career_router(NCAAF_API), prefix="/api/ncaaf/career")
 # ---- Pages: one per league view, all served from frontend/index.html. -------
 
 
+# The NFL page's text under the eyebrow; the college pages have their own below.
+DEFAULT_BYLINE = (
+    "\"No Line No Shine.\"<br /><br />"
+    "Infrastructure always starts everything, but quite often gets ignored<br />"
+    "thanks to its unadorned hard works and grit &amp; grind styles.<br /><br />"
+    "For all these under-appreciated. Let's explore 🗺️"
+)
+
+
 @dataclass(frozen=True)
 class _Page:
     """One page of the site: its URL, the league it shows and its own texts."""
@@ -624,7 +633,19 @@ class _Page:
     mode: str = "season"  # "season" (one season per view) or "career" (all seasons).
     api_path: str = ""  # Overrides /api/<league> when the page reads another route.
     meta_note: str = ""  # A last line of the meta band (HTML), "" for none.
+    byline: str = DEFAULT_BYLINE  # The text under the eyebrow (HTML).
 
+
+SEASON_BYLINE = (
+    "A place to let you trace paths for:<br />"
+    "• ⌛️The past of NFL professionals.<br />"
+    "• ⏳The present of College players."
+)
+
+CAREER_BYLINE = (
+    "NCAAF prospects VS. Already joined NFL people:<br />"
+    "🔬Draft evaluations powered by history as a benchmark."
+)
 
 NCAAF_SCOPE_SEGMENT = (
     "&nbsp;&nbsp;·&nbsp;&nbsp;Scope: SEC, B1G, ACC, Big 12, Pac-12, MAC, Notre Dame"
@@ -659,6 +680,7 @@ PAGES = (
         scope_segment=NCAAF_SCOPE_SEGMENT,
         team_groups="by_season",
         team_label="name",
+        byline=SEASON_BYLINE,
     ),
     _Page(
         path="/ncaaf-career",
@@ -673,6 +695,7 @@ PAGES = (
         mode="career",
         api_path="/api/ncaaf/career",
         meta_note=CAREER_META_NOTE,
+        byline=CAREER_BYLINE,
     ),
 )
 
@@ -722,6 +745,7 @@ def render_page(template: str, page: _Page) -> str:
         "{{PAGE_TITLE}}": page.tab_title,
         "{{PAGE_DESCRIPTION}}": page.description,
         "{{EYEBROW}}": page.eyebrow,
+        "{{BYLINE}}": page.byline,
         # Pages with a scope segment put the meta band on two lines.
         "{{META_BREAK}}": (
             '<span class="meta-break" aria-hidden="true"></span>'

@@ -543,10 +543,12 @@ def test_the_ol_threshold_labels_stay_on_one_line(
     page.select_option("#category-select", "pass_block")
 
     # The OL names are long ("Min Non-Spike Pass Block Snaps"); a label that wraps lifts its bar out of line with the other one.
-    heights = page.evaluate(
-        """() => ['#threshold-control', '#prospect-threshold-control'].map(
-            id => document.querySelector(id + ' label').getBoundingClientRect().height
-        )"""
+    # Counted in font sizes, since the line height of one line differs between machines (12px here, 16px on CI).
+    lines = page.evaluate(
+        """() => ['#threshold-control', '#prospect-threshold-control'].map(id => {
+            const label = document.querySelector(id + ' label');
+            return label.getBoundingClientRect().height / parseFloat(getComputedStyle(label).fontSize);
+        })"""
     )
 
-    assert max(heights) < 16
+    assert max(lines) < 2

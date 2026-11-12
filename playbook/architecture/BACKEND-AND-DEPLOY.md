@@ -67,7 +67,7 @@
    response (pass rush) is about 500 KB raw against about 150 KB for the NFL (the app compresses every
    response of 1,000 bytes or more with `GZipMiddleware`, about 65 KB for that one). `/health` stays a plain route.
    The pages: `PAGES` lists each page (`/` NFL Season, `/ncaaf-season` NCAAF Season), its league, subtitle
-   (eyebrow), tab title and navigation label; `render_page()` fills them into `index.html` together with the
+   (eyebrow), the `byline` (the text under it: the NFL page keeps the "No Line No Shine." text, NCAAF Season and Career each have their own), tab title and navigation label; `render_page()` fills them into `index.html` together with the
    navigation and the `window.LEAGUE` object the frontend reads (see `FRONTEND-STRUCTURE.md`). It also mounts `frontend/` as static
    files (mounted *last* so `/api/*` routes take precedence) and `frontend/images/team_logos/`
    under `/logos/` (NFL logos at `/logos/nfl/{team code}.png`, NCAAF logos at `/logos/ncaaf/{franchise_id}.png`). `index.html` is served through `render_page()`, which replaces `{{VERSION}}`

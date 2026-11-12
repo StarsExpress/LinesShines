@@ -298,12 +298,6 @@ body {
   background: var(--flag-gold);
   border-color: var(--flag-gold);
 }
-/* The installed desktop app puts its window buttons in the top-left corner. */
-@media (display-mode: standalone) and (hover: hover) and (pointer: fine) {
-  .league-nav {
-    left: 110px;
-  }
-}
 @media (max-width: 860px) {
   .league-nav-toggle {
     display: inline-flex;

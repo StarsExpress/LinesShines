@@ -131,6 +131,24 @@ def test_only_the_career_page_explains_why_a_school_can_appear_twice(client):
     assert note not in client.get("/").text
 
 
+def test_each_page_has_its_own_text_under_the_subtitle(client):
+    nfl = client.get("/").text
+    season = client.get("/ncaaf-season").text
+    career = client.get("/ncaaf-career").text
+
+    assert "No Line No Shine." in nfl and "grit &amp; grind styles" in nfl
+    assert "A place to let you trace paths for:" in season
+    assert "• ⌛️The past of NFL professionals." in season
+    assert "• ⏳The present of College players." in season
+    assert "NCAAF prospects VS. Already joined NFL people:" in career
+    assert "🔬Draft evaluations powered by history as a benchmark." in career
+
+    # The NFL text stays on the NFL page only.
+    assert "No Line No Shine." not in season and "No Line No Shine." not in career
+    assert "A place to let you trace paths for:" not in career
+    assert "NCAAF prospects VS." not in season and "NCAAF prospects VS." not in nfl
+
+
 def test_no_placeholder_is_left_in_a_served_page(client):
     for path in ("/", "/ncaaf-season", "/ncaaf-career"):
         text = client.get(path).text

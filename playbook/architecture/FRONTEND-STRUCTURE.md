@@ -92,7 +92,7 @@ default thresholds already come from `/api/{league}/metadata`, so the config hol
 - **Page switch.** The `.league-nav` links (one URL per page, current one marked) are filled by `main.py`; below 860px
   they hide behind a hamburger button (`#league-nav-toggle`) that closes on Escape and on an outside click, with the
   same `isTrusted` guard as the other dropdowns. It sits in the hero's top row, which is not part of any PNG export.
-  In the installed desktop app it is pushed right by 110px (unverified: the window buttons' exact width).
+  It stays at the left edge in the installed desktop app too: the window buttons sit in the app's own title bar above the page, so they never overlap it.
 - **Meta band.** The line under the hero is filled per page by `main.py` (`_Page.scope_segment`, `meta_note`). The NCAAF pages put
   the scope on a second line (`{{META_BREAK}}`); the Career page adds a third (`{{META_NOTE}}`, `.meta-note`, which wraps on a
   phone) saying that a school can appear under two conferences because each player is placed by his last season.
