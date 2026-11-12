@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 from conftest import RECORDS_READY_JS
+from database.db_models import NFLPassRushStat
+from main import SessionLocal
 
 BAR = "#export-status"
 SAVE_BUTTON = ".scout-card.is-active .card-save-btn"
@@ -231,3 +233,54 @@ def test_the_close_button_hides_the_ready_bar(page):
     page.click(f"{BAR} >> text='Close'")
 
     page.wait_for_selector(BAR, state="hidden")
+
+
+# The export clones sit off-screen at left -99999px; a count of them at the moment the PNG is handed over.
+CLONES_AT_DELIVERY_JS = """
+() => {
+  window.__clonesAtDelivery = [];
+  const realClick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    const clones = [...document.body.children].filter((el) => el.style.left === '-99999px');
+    window.__clonesAtDelivery.push(clones.length);
+    return realClick.call(this);
+  };
+}
+"""
+
+
+def _add_a_second_edge_rusher() -> None:
+    with SessionLocal() as sess:
+        first = sess.query(NFLPassRushStat).filter_by(position="ED").first()
+        values = {
+            column.name: getattr(first, column.name)
+            for column in NFLPassRushStat.__table__.columns
+            if column.name != "id"
+        }
+        values.update(
+            player="S. Second", abbr_name="S. Second", player_id=first.player_id + 1
+        )
+        sess.add(NFLPassRushStat(**values))
+        sess.commit()
+
+
+def test_the_card_export_clone_is_gone_before_the_png_is_handed_over(page):
+    page.evaluate(CLONES_AT_DELIVERY_JS)
+
+    with page.expect_download():
+        _save(page)
+
+    assert page.evaluate("window.__clonesAtDelivery") == [0]
+
+
+def test_the_chart_export_clone_is_gone_before_the_png_is_handed_over(page):
+    # The chart needs two players to draw, and the seeded season has one edge rusher.
+    _add_a_second_edge_rusher()
+    page.reload()
+    page.wait_for_selector("#save-png-btn:not([disabled])")
+    page.evaluate(CLONES_AT_DELIVERY_JS)
+
+    with page.expect_download():
+        page.click("#save-png-btn")
+
+    assert page.evaluate("window.__clonesAtDelivery") == [0]

@@ -11,7 +11,7 @@
  * card.js/merge-card.js/linemate-card.js can each import attachCardSave()
  * without adding a new cycle.
  */
-import { compositeFooterCanvas, downloadCanvasAsPng, sanitizeForFilename } from "./chart-export.js";
+import { compositeFooterCanvas, downloadCanvasAsPng, releaseCanvas, sanitizeForFilename } from "./chart-export.js";
 import { failExportStatus, showExportStatus } from "./png-delivery.js";
 
 export { sanitizeForFilename };
@@ -164,8 +164,10 @@ export async function exportCardPng(cardEl, filename, prepareClone, appendixNote
     });
 
     // The capture is copied into finalCanvas; free its pixels before encoding the PNG.
-    sourceCanvas.width = 0;
-    sourceCanvas.height = 0;
+    releaseCanvas(sourceCanvas);
+
+    // The clone is no longer needed either, and the share sheet below can stay open for a long time.
+    clone.remove();
     await downloadCanvasAsPng(finalCanvas, filename);
   } finally {
     clone.remove();
