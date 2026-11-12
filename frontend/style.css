@@ -558,6 +558,12 @@ body {
   flex: 1 1 170px;
 }
 
+/* A threshold label never wraps: the OL's "Min Non-Spike Pass Block Snaps" is long, and a label
+   that wrapped lifted its bar out of line with the other bar. The drawer below puts it back. */
+.control-slider label {
+  white-space: nowrap;
+}
+
 .threshold-row {
   display: flex;
   align-items: center;
@@ -4204,6 +4210,9 @@ thead .linemate-table-frozen {
   .filters-drawer .control-slider {
     flex: none;
     min-width: 0;
+  }
+  .filters-drawer .control-slider label {
+    white-space: normal;
   }
   .filters-drawer .apply-btn,
   .filters-drawer .png-btn {
