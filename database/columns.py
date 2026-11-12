@@ -78,6 +78,7 @@ PASS_BLOCK_DATA_COLUMNS = (
     DataColumn("TPS Pressures", "tps_pressures", "TPS Pressures", "int"),
     DataColumn("Havoc", "havoc", "Havoc", "int"),
     DataColumn("TPS Havoc", "tps_havoc", "TPS Havoc", "int"),
+    DataColumn("Penalties", "penalties", "Penalties", "int"),
     DataColumn(
         "Allowed Pressure %", "allowed_pressure_pct", "Allowed Pressure %", "float"
     ),
@@ -93,6 +94,7 @@ PASS_BLOCK_DATA_COLUMNS = (
     ),
     DataColumn("PBE", "pbe", "PBE", "float"),
     DataColumn("TPS PBE", "tps_pbe", "TPS PBE", "float"),
+    DataColumn("Penalty Rate", "penalty_rate", "Penalty Rate", "float"),
 )
 
 

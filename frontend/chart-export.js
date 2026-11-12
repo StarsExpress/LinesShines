@@ -117,14 +117,24 @@ export function drawExportFooter(ctx, canvasWidth, sourceHeight, footerPx, scale
   );
 }
 
+// Safari keeps a canvas's pixels until garbage collection; zeroing the size frees them now.
+export function releaseCanvas(canvas) {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 // EXPORT_FOOTER_TEXT's own rendered width, at a given export scale — used
 // by compositeFooterCanvas below to guarantee the canvas is wide enough to
 // hold it. A throwaway canvas 2d context is the standard way to measure text
 // without touching the DOM; harmless to create one per export click.
 function measureFooterTextWidth(scale) {
-  const ctx = document.createElement("canvas").getContext("2d");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
   ctx.font = `${Math.round(EXPORT_FOOTER_FONT_SIZE * scale)}px Inter, sans-serif`;
-  return ctx.measureText(EXPORT_FOOTER_TEXT).width;
+
+  const width = ctx.measureText(EXPORT_FOOTER_TEXT).width;
+  releaseCanvas(canvas);
+  return width;
 }
 
 // Greedy word-wrap for a single note string against maxWidth (logical
@@ -160,7 +170,8 @@ function wrapText(ctx, text, maxWidth) {
 // footer's minimum width.
 function wrapAppendixNotes(notes, canvasWidth, scale) {
   if (!notes || notes.length === 0) return [];
-  const ctx = document.createElement("canvas").getContext("2d");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
   ctx.font = `${Math.round(APPENDIX_FONT_SIZE * scale)}px ${APPENDIX_FONT_FAMILY}`;
   // Text sits to the right of a bullet column, so it wraps narrower.
@@ -171,6 +182,8 @@ function wrapAppendixNotes(notes, canvasWidth, scale) {
   // wrapped continuation lines hang under the text.
   const lines = [];
   notes.forEach((note) => wrapText(ctx, note, maxWidth).forEach((text, i) => lines.push({ text, bullet: i === 0 })));
+
+  releaseCanvas(canvas);
   return lines;
 }
 
@@ -408,6 +421,11 @@ function deepClone(value) {
   return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
+function releaseExportClone(clone) {
+  Plotly.purge(clone);
+  clone.remove();
+}
+
 async function buildExportClone(chartDiv, width, height) {
   const clone = document.createElement("div");
   // Off-screen, not display:none — Plotly needs real layout/rendering to
@@ -459,7 +477,11 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
     );
 
     await Plotly.restyle(clone, { "textfont.color": [transparentColors] }, [0]);
-    const dataUrl = await Plotly.toImage(clone, { format: "png", scale });
+    let dataUrl = await Plotly.toImage(clone, { format: "png", scale });
+
+    // The export clone holds one image node per logo, and the share sheet below can stay open
+    // for a long time, so it is freed as soon as the picture exists.
+    releaseExportClone(clone);
 
     const img = await new Promise((resolve, reject) => {
       const el = new Image();
@@ -467,6 +489,7 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
       el.onerror = () => reject(new Error("Failed to load rendered chart image"));
       el.src = dataUrl;
     });
+    dataUrl = ""; // The base64 text of the whole PNG is no longer needed.
 
     const sourceCanvas = document.createElement("canvas");
     sourceCanvas.width = img.width;
@@ -474,16 +497,17 @@ export async function exportChartPngWithFooter(chartDiv, { width, height, scale,
 
     const ctx = sourceCanvas.getContext("2d");
     ctx.drawImage(img, 0, 0);
+    img.src = ""; // The decoded bitmap is a second copy of the pixels.
 
     await document.fonts.ready; // Guards against a fallback-font flash if Oswald somehow hasn't finished loading yet.
 
     drawLabelEmphasisOverlay(ctx, positions, scale);
-    await downloadCanvasAsPng(
-      compositeFooterCanvas(sourceCanvas, scale, { appendixNotes, creditBand: true }),
-      filename
-    );
+    const finalCanvas = compositeFooterCanvas(sourceCanvas, scale, { appendixNotes, creditBand: true });
+
+    // The capture is copied into finalCanvas; free its pixels before encoding the PNG.
+    releaseCanvas(sourceCanvas);
+    await downloadCanvasAsPng(finalCanvas, filename);
   } finally {
-    Plotly.purge(clone);
-    clone.remove();
+    releaseExportClone(clone);
   }
 }

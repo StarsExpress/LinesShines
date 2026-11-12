@@ -21,6 +21,7 @@ REQUIRED_COLUMNS = [
     "TPS Hits",
     "TPS Pressures",
     "TPS Non Spike PB Snaps",
+    "Penalties",
 ]
 
 
@@ -44,6 +45,12 @@ def preprocess_offensive_line(league: League, season: int) -> None:
 
         positional_df["Pressure %"] = percent_of(
             positional_df["Pressures"], positional_df["Non Spike PB Snaps"]
+        )
+
+        # PFF counts penalties for the season as a whole, with no true-pass-set split, so
+        # there is no TPS twin of this rate.
+        positional_df["Penalty Rate"] = percent_of(
+            positional_df["Penalties"], positional_df["Non Spike PB Snaps"]
         )
 
         positional_df["TPS Havoc"] = (

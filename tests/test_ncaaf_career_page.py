@@ -528,3 +528,27 @@ def test_the_season_pages_keep_one_bar_and_no_status_filter(
 
     assert "prospectThreshold" not in applied
     assert "statuses" not in applied
+
+
+@pytest.mark.parametrize("width", [1280, 1100, 900])
+def test_the_ol_threshold_labels_stay_on_one_line(
+    live_server_url, seeded_career_page_db, open_page, width
+):
+    page = open_page(
+        f"{live_server_url}/ncaaf-career",
+        viewport={"width": width, "height": 900},
+        ready_js=CHART_READY_JS,
+        settle=True,
+    )
+    page.select_option("#category-select", "pass_block")
+
+    # The OL names are long ("Min Non-Spike Pass Block Snaps"); a label that wraps lifts its bar out of line with the other one.
+    # Counted in font sizes, since the line height of one line differs between machines (12px here, 16px on CI).
+    lines = page.evaluate(
+        """() => ['#threshold-control', '#prospect-threshold-control'].map(id => {
+            const label = document.querySelector(id + ' label');
+            return label.getBoundingClientRect().height / parseFloat(getComputedStyle(label).fontSize);
+        })"""
+    )
+
+    assert max(lines) < 2

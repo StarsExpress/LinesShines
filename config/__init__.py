@@ -19,6 +19,7 @@ from config.leagues import (
 )
 from config.metrics import (
     ALLOWED_HAVOC_RATE_NOTE,
+    PENALTY_RATE_NOTE,
     DISPLAY_DECIMALS,
     FRONT_7_NAMES,
     HAVOC_RATE_NOTE,
@@ -43,6 +44,7 @@ from config.thresholds import (
 
 __all__ = [
     "ALLOWED_HAVOC_RATE_NOTE",
+    "PENALTY_RATE_NOTE",
     "BASE_PATH",
     "DATA_FOLDER_PATH",
     "DEFAULT_THRESHOLDS",

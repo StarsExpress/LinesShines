@@ -344,6 +344,7 @@ def test_the_volume_of_each_rate_is_its_count_and_composites_have_none(
     assert block["Allowed Pressure %"]["volume"] == "Pressures"
     assert block["TPS Allowed Havoc %"]["volume"] == "TPS Havoc"
     assert block["TPS Proportion %"]["volume"] == "TPS Non Spike PB Snaps"
+    assert block["Penalty Rate"]["volume"] == "Penalties"
 
     # PRP and PBE are weighted composites, and Pass Cov Percent is no count of anything.
     composites = ("PRP", "TPS PRP", "Pass Cov Percent", "TPS Pass Cov Percent")
@@ -371,6 +372,32 @@ def test_batted_pass_rate_is_a_ranked_bonus_metric_that_is_never_charted(
         for key, meta in metrics.items()
         if "Batted" not in key
     )
+
+
+def test_penalty_rate_is_a_regular_chartable_lower_is_better_ol_metric(
+    client, seeded_db
+):
+    metrics = client.get("/api/nfl/metadata").json()["pass_block"]["metrics"]
+    penalty = metrics["Penalty Rate"]
+
+    assert penalty["higher_is_better"] is False
+    assert penalty["decimals"] == 2
+    assert penalty["unit"] == "%"
+    # Unlike Batted Pass Rate, it is plotted and ranked with the main metrics.
+    assert penalty.get("chartable", True) is True
+    assert "bonus" not in penalty
+    # PFF has no true-pass-set split of penalties.
+    assert "TPS Penalty Rate" not in metrics
+
+
+def test_an_ol_record_carries_penalties_and_the_penalty_rate(client, seeded_db):
+    records = client.get(
+        "/api/nfl/pass_block", params={"season": 2025, "position": "T"}
+    ).json()["records"]
+
+    (blocker,) = [r for r in records if r["player"] == "O. Line"]
+
+    assert (blocker["Penalties"], blocker["Penalty Rate"]) == (4, 0.8)
 
 
 def test_a_front_7_record_carries_the_batted_pass_counts_and_rates(client, seeded_db):

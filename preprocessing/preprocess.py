@@ -2,9 +2,9 @@
 
     python -m preprocessing.preprocess --league nfl --seasons 2026
 
-The league is required, so the wrong league is never processed by accident.
-Several seasons go after one flag: --seasons 2022 2023 2024. Without --seasons every
-CSV of the league is processed (a `{season}.csv` with a four-digit season, in either category folder).
+Without --league both leagues are processed, NFL first and then NCAAF.
+Several seasons go after one flag: --seasons 2022 2023 2024 (they apply to every league processed).
+Without --seasons every CSV of the league is processed (a `{season}.csv` with a four-digit season, in either category folder).
 Also holds the helpers both category scripts share: file paths, the column check
 and the league scope (the NCAAF conference column and its out-of-scope filter).
 """
@@ -107,15 +107,13 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__.splitlines()[0], allow_abbrev=False
     )
-    parser.add_argument(
-        "--league", required=True, choices=[league.value for league in League]
-    )
+    parser.add_argument("--league", choices=[league.value for league in League])
     parser.add_argument("--seasons", type=int, nargs="+")
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> list[str]:
-    """Preprocess every requested CSV; an error in one is printed and the rest go on.
+def preprocess_league(league: League, seasons: list[int] | None) -> list[str]:
+    """Preprocess the requested CSVs of one league; an error in one is printed and the rest go on.
 
     Returns what failed, one "league season category: error" line each.
     """
@@ -123,20 +121,14 @@ def main(argv: list[str] | None = None) -> list[str]:
     from preprocessing.front_7 import preprocess_front_7
     from preprocessing.offensive_line import preprocess_offensive_line
 
-    arguments = parse_arguments(argv)
-    league = League(arguments.league)
     categories = {
         "front_7_pass_rush": preprocess_front_7,
         "ol_pass_block": preprocess_offensive_line,
     }
 
-    if arguments.seasons:
+    if seasons:
         # Every requested season runs both categories; a CSV that is missing is reported as a failure.
-        jobs = [
-            (season, category)
-            for season in arguments.seasons
-            for category in categories
-        ]
+        jobs = [(season, category) for season in seasons for category in categories]
 
     else:
         jobs = sorted(
@@ -162,6 +154,21 @@ def main(argv: list[str] | None = None) -> list[str]:
             )
             print(f"FAILED {failure}", file=sys.stderr)
             failures.append(failure)
+
+    return failures
+
+
+def main(argv: list[str] | None = None) -> list[str]:
+    """Preprocess the named league, or NFL and then NCAAF when none is named.
+
+    Returns what failed, one "league season category: error" line each.
+    """
+    arguments = parse_arguments(argv)
+    leagues = [League(arguments.league)] if arguments.league else list(League)
+
+    failures = []
+    for league in leagues:
+        failures += preprocess_league(league, arguments.seasons)
 
     if failures:
         print(f"{len(failures)} CSV(s) failed:", file=sys.stderr)
