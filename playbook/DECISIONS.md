@@ -18,7 +18,7 @@ date only when a decision replaces an earlier one. Do not record decisions in `C
 | The Players search pool has its own live, non-Apply-gated data track | The chart stays Apply-gated; the pool stays live. Never read `currentRecords` from search code. | `architecture/FILTERS-AND-SEARCH.md` |
 | Below-threshold matches are a second search pass, never auto-popped; the query text is left untouched | Must never alter what the normal dropdown shows. | `architecture/FILTERS-AND-SEARCH.md` |
 | Axis direction is per metric (`higher_is_better`), not per category | PBE / TPS PBE are higher-is-better despite being pass-block. | `architecture/METRICS-AND-NOTES.md` |
-| Default axis pairs cross "raw rate" and "PFF composite, TPS" metrics | Surfaces PRP/PBE. | `architecture/METRICS-AND-NOTES.md` |
+| The default axis pairs are Win Rate vs. TPS PRP (DL) and TPS Proportion % vs. TPS PBE (OL) | They cross a raw or context metric with PFF's composite TPS metric, which surfaces PRP/PBE. The OL's protection context, how often a line works true pass sets, is meant to be on an axis by default. 2026-11-12: replaces Allowed Pressure % as the OL's X. | `architecture/METRICS-AND-NOTES.md` |
 | `DYNAMIC_THRESHOLDS` is keyed by a literal season year and edited by hand each week | A computed key would freeze at import time and could never be "missing". Thresholds are eyeballed, not formula-derived. | `architecture/THRESHOLDS.md` |
 | The threshold is a display filter only | Preprocessing never reads it; every row is ingested. | `architecture/THRESHOLDS.md` |
 | Threshold input `.max` moves only when the value needs it | Prevents clamp flicker and stale clamps. | `architecture/THRESHOLDS.md` |

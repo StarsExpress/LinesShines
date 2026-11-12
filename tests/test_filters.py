@@ -214,3 +214,18 @@ def test_a_click_outside_the_players_control_still_closes_the_panel(page):
 
     page.click("#x-metric-select")
     assert not page.is_visible("#players-panel")
+
+
+def _axes(page) -> list[str]:
+    return page.evaluate(
+        "() => [document.querySelector('#x-metric-select').value, document.querySelector('#y-metric-select').value]"
+    )
+
+
+def test_the_default_axes_of_each_category(page):
+    page.select_option("#category-select", "pass_rush")
+    assert _axes(page) == ["Win Rate", "TPS PRP"]
+
+    # The OL's protection context (how often the line works true pass sets) is on the X axis by default.
+    page.select_option("#category-select", "pass_block")
+    assert _axes(page) == ["TPS Proportion %", "TPS PBE"]

@@ -44,10 +44,10 @@ text-only `formula_note` (`TPS_PROPORTION_NOTE`); because its name starts with "
 **Default axis pair per category** (`filters.js`'s `populateCategoryDependentControls()`): each
 category seeds its X/Y metric selects to a distinct, curated pair rather than the first two entries
 in `PASS_RUSH_METRICS`/`PASS_BLOCK_METRICS` — pass-rush defaults to Win Rate (X) vs. TPS PRP (Y),
-pass-block to Allowed Pressure % (X) vs. TPS PBE (Y). Both pairs deliberately cross the "raw rate
+pass-block to TPS Proportion % (X) vs. TPS PBE (Y): the OL's protection context, how often the line works true pass sets, is on an axis by default. The pass-rush pair deliberately crosses the "raw rate
 metric" vs. "PFF's own composite score, true-pass-set variant" line rather than pairing a metric
 against its own TPS counterpart (an earlier version defaulted to Win Rate vs. TPS Win Rate /
-Allowed Pressure % vs. TPS Allowed Pressure %) — this surfaces PRP/PBE, the two metrics most likely
+Allowed Pressure % vs. TPS Allowed Pressure %; the OL pair was Allowed Pressure % vs. TPS PBE until 2026-11-12) — this surfaces PRP/PBE, the two metrics most likely
 to get overlooked since they're not derived by this codebase and read less self-explanatory than a
 named rate. Each `if`/`else if` branch checks both metric names exist in `metricKeys` before setting
 them, falling through to the generic non-TPS/TPS heuristic (`else` branch) if a category's metadata
