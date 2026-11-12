@@ -972,10 +972,10 @@ export function populateCategoryDependentControls() {
     els.yMetric.value = "TPS PRP";
   } else if (
     els.category.value === "pass_block" &&
-    metricKeys.includes("Allowed Pressure %") &&
+    metricKeys.includes("TPS Proportion %") &&
     metricKeys.includes("TPS PBE")
   ) {
-    els.xMetric.value = "Allowed Pressure %";
+    els.xMetric.value = "TPS Proportion %";
     els.yMetric.value = "TPS PBE";
   } else {
     els.xMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0];
