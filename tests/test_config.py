@@ -61,12 +61,12 @@ def test_future_season_relative_to_today_uses_static_default():
 
 
 def test_the_college_has_its_own_thresholds():
-    assert NCAAF_DEFAULT_THRESHOLDS == {"pass_rush": 220, "pass_block": 360}
+    assert NCAAF_DEFAULT_THRESHOLDS == {"pass_rush": 220, "pass_block": 300}
     assert (
         resolve_default_threshold(
             "pass_block", 2025, League.NCAAF, today=date(2026, 6, 1)
         )
-        == 360
+        == 300
     )
     assert (
         resolve_default_threshold("pass_block", 2025, today=date(2026, 6, 1))

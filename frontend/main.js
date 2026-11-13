@@ -23,6 +23,7 @@ import {
   setResetThresholdOnNextRange,
   currentFilterState,
   populateCategoryDependentControls,
+  applyRememberedAxes,
   resetThresholdToCategoryDefault,
   populateTeamsChecklist,
   markAllTeamsSelected,
@@ -49,6 +50,7 @@ import {
 import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { failExportStatus, showExportStatus } from "./png-delivery.js";
+import { restoreAndWatchSwitches } from "./preferences.js";
 import { createInfoPopover } from "./info-popover.js";
 import { PLATFORM_ICONS } from "./config.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
@@ -108,6 +110,7 @@ async function loadMetadata() {
   // comment for why. Same assignments, same order, same timing.
   setMetadata(await res.json());
 
+  restoreAndWatchSwitches();
   populateCategoryDependentControls();
   previousSeasonValue = els.season.value;
   populateTeamsChecklist(els.season.value);
@@ -327,6 +330,8 @@ function attachEvents() {
   });
 
   els.position.addEventListener("change", () => {
+    // A position the visitor chose axes for before gets them back; any other keeps the current pair.
+    applyRememberedAxes();
     updatePendingState();
     updatePlayerPool();
   });
