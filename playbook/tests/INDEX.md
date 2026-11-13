@@ -19,7 +19,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Season-threshold routing in `config/thresholds.py` | `test_config.py` ([doc](TEST_CONFIG.md)) | pure Python |
 | Who is on the college Career page (Joined NFL, Prospects) and how the members are rebuilt | `test_career_members.py` ([doc](TEST_CAREER_MEMBERS.md)) | pure Python |
 | The merged Career row (summed counts, weighted rates, Pass Cov Percent, last-season identity) and the `/api/ncaaf/career` routes | `test_career_merge.py` ([doc](TEST_CAREER_MERGE.md)) | pure Python and API |
-| The page remembering the last axes (per category and position) and switches, per View | `test_remembered_choices.py` ([doc](TEST_REMEMBERED_CHOICES.md)) | browser |
+| The page remembering the last axes (per category and position), switches, category and position, per View | `test_remembered_choices.py` ([doc](TEST_REMEMBERED_CHOICES.md)) | browser |
 | The NCAAF Career Teams checklist (a school that changed conference is one entry per conference; Latu, Broughton) | `test_ncaaf_career_teams.py` ([doc](TEST_NCAAF_CAREER_TEAMS.md)) | browser |
 | The NCAAF Career page (Status Filter, two threshold bars, one pool) | `test_ncaaf_career_page.py` ([doc](TEST_NCAAF_CAREER_PAGE.md)) | browser |
 | Ingestion: file path resolution, replacing a season/position slice | `test_db_ingestion.py` ([doc](TEST_DB_INGESTION.md)) | pure Python |
