@@ -23,6 +23,7 @@ import {
   setResetThresholdOnNextRange,
   currentFilterState,
   populateCategoryDependentControls,
+  populateControlsForFirstLoad,
   applyRememberedAxes,
   resetThresholdToCategoryDefault,
   populateTeamsChecklist,
@@ -111,7 +112,7 @@ async function loadMetadata() {
   setMetadata(await res.json());
 
   restoreAndWatchSwitches();
-  populateCategoryDependentControls();
+  populateControlsForFirstLoad();
   previousSeasonValue = els.season.value;
   populateTeamsChecklist(els.season.value);
   attachEvents();

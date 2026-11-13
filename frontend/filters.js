@@ -53,7 +53,7 @@ import {
   retargetLinemateCard,
 } from "./linemate-card.js";
 import { workspaceSingles, mergeCards, refreshOpenMergeCards, distinctWorkspacePlayers } from "./merge-card.js";
-import { forgetAxes, rememberAxes, rememberedAxes } from "./preferences.js";
+import { forgetAxes, forgetView, rememberAxes, rememberedAxes, rememberedView, rememberView } from "./preferences.js";
 import {
   clearWorkspace,
   showMergeInvalidationConfirm,
@@ -1015,6 +1015,40 @@ export function rememberAppliedAxes() {
   else rememberAxes(category, position, xMetric, yMetric);
 }
 
+function hasOption(select, value) {
+  return [...select.options].some((option) => option.value === value);
+}
+
+// Called when the filters are applied. The first category with its first position is what the page
+// opens on anyway, so that pair is dropped instead of stored; a later change of what comes first
+// then still reaches everyone who never chose anything else.
+export function rememberAppliedView() {
+  const { category, position } = currentFilterState();
+  const firstCategory = els.category.options[0].value;
+  const firstPosition = Object.keys(currentCategoryMeta().positions)[0];
+
+  if (category === firstCategory && position === firstPosition) forgetView();
+  else rememberView(category, position);
+}
+
+// The first load's version of populateCategoryDependentControls(): the category and position
+// remembered for this View are chosen before the first slice is fetched, so the page never loads
+// the default slice and then a second one. The order is category, position, then that pair's axes.
+// A remembered value the page no longer offers is ignored.
+export function populateControlsForFirstLoad() {
+  const remembered = rememberedView();
+  if (remembered && hasOption(els.category, remembered.category)) els.category.value = remembered.category;
+
+  populateCategoryDependentControls();
+
+  if (remembered && hasOption(els.position, remembered.position)) {
+    els.position.value = remembered.position;
+    // Not the previous position's pair: a position with nothing remembered shows its category default.
+    chooseDefaultAxes(chartableMetricKeys());
+    applyRememberedAxes();
+  }
+}
+
 // Puts the X / Y pair remembered for the category and position now selected over the defaults.
 // Nothing happens when none is remembered, or when either metric is no longer offered (a
 // metric that was renamed or dropped), so the axes stay as they are.
@@ -1292,6 +1326,7 @@ export async function applyFilters() {
   // assignment — see the comment in loadCurrentSlice() above for why.
   setAppliedFilters(currentFilterState());
   rememberAppliedAxes();
+  rememberAppliedView();
   closeFiltersDrawer();
   render();
   // Carry surviving cards to the applied slice, then refresh their numbers

@@ -1,4 +1,4 @@
-"""The page remembers the last axes (per category and position) and switches, separately for each View."""
+"""The page remembers the last axes (per category and position), switches, category and position, separately for each View."""
 
 from __future__ import annotations
 
@@ -99,10 +99,12 @@ def test_each_position_keeps_its_own_pair(page):
     assert _axes(page) == di_pair
     assert ed_pair != ed_default and di_pair != ed_pair
 
+    # DI was the last position applied, so the page opens on it, with its own pair.
     _reload(page)
-    assert _axes(page) == ed_pair
-    page.select_option("#position-select", "DI")
+    assert page.input_value("#position-select") == "DI"
     assert _axes(page) == di_pair
+    page.select_option("#position-select", "ED")
+    assert _axes(page) == ed_pair
 
 
 def test_each_category_keeps_its_own_pair(page):
@@ -252,3 +254,133 @@ def test_the_inline_script_reads_the_career_key_too(
     _reload_without_the_modules(page)
 
     assert page.is_checked("#metric-notes-toggle")
+
+
+# --- The category and position last applied ---
+
+
+def _apply_block_view(page) -> str:
+    """Applies OL Pass Block with its second position (or its first when it has one) and returns it."""
+    page.select_option("#category-select", "pass_block")
+    position = _options(page, "#position-select")[-1]
+    page.select_option("#position-select", position)
+    _apply(page)
+
+    return position
+
+
+def _view(page) -> list[str]:
+    return page.evaluate(
+        "() => [document.querySelector('#category-select').value, document.querySelector('#position-select').value]"
+    )
+
+
+def test_an_applied_category_and_position_come_back_after_a_reload(page):
+    ed_view = _view(page)
+    position = _apply_block_view(page)
+
+    _reload(page)
+
+    assert _view(page) == ["pass_block", position]
+    assert ed_view != _view(page)
+
+
+def test_a_category_and_position_that_were_not_applied_are_not_remembered(page):
+    first_view = _view(page)
+    page.select_option("#category-select", "pass_block")
+
+    _reload(page)
+
+    assert _view(page) == first_view
+    assert _stored(page) is None
+
+
+def test_the_first_category_and_position_are_not_stored(page):
+    _apply_block_view(page)
+    assert _stored(page)["last"]["category"] == "pass_block"
+
+    page.select_option("#category-select", "pass_rush")
+    page.select_option("#position-select", _options(page, "#position-select")[0])
+    _apply(page)
+
+    assert _stored(page).get("last") is None
+    _reload(page)
+    assert _view(page)[0] == "pass_rush"
+
+
+def test_the_remembered_view_loads_one_slice_not_the_default_one_first(page):
+    _apply_block_view(page)
+    requests = []
+    page.on("request", lambda request: requests.append(request.url))
+
+    _reload(page)
+
+    assert any("/pass_block" in url for url in requests)
+    assert not any("/pass_rush" in url for url in requests if "/api/" in url)
+
+
+def test_a_restored_position_shows_its_own_axes_not_the_first_positions(page):
+    ed_pair = _choose_other_axes(page)
+    _apply(page)
+    page.select_option("#category-select", "pass_block")
+    block_defaults = _axes(page)
+    position = _options(page, "#position-select")[-1]
+    page.select_option("#position-select", position)
+    _apply(page)
+
+    _reload(page)
+
+    assert _view(page) == ["pass_block", position]
+    assert _axes(page) == block_defaults
+    assert _axes(page) != ed_pair
+
+
+def test_a_remembered_view_the_page_no_longer_offers_is_ignored(page):
+    first_view = _view(page)
+    page.evaluate(
+        """(key) => localStorage.setItem(key, JSON.stringify({
+            version: 1, axes: {}, switches: {}, last: { category: 'gone', position: 'ZZ' } }))""",
+        NFL_KEY,
+    )
+    _reload(page)
+    assert _view(page) == first_view
+
+    page.evaluate(
+        """(key) => localStorage.setItem(key, JSON.stringify({
+            version: 1, axes: {}, switches: {}, last: { category: 'pass_block', position: 'ZZ' } }))""",
+        NFL_KEY,
+    )
+    _reload(page)
+    assert _view(page)[0] == "pass_block"
+    assert _view(page)[1] == _options(page, "#position-select")[0]
+
+
+def test_preferences_stored_before_the_view_was_remembered_still_work(page):
+    chosen = _choose_other_axes(page)
+    _apply(page)
+    stored = _stored(page)
+    stored.pop("last", None)
+    page.evaluate(
+        "([key, value]) => localStorage.setItem(key, value)",
+        [NFL_KEY, json.dumps(stored)],
+    )
+
+    _reload(page)
+
+    assert _axes(page) == chosen
+
+
+def test_the_career_page_remembers_its_own_view(
+    live_server_url, seeded_career_page_db, open_page  # noqa: F811
+):
+    page = open_page(f"{live_server_url}/ncaaf-career", ready_js=APP_READY_JS)
+    position = _apply_block_view(page)
+
+    assert _stored(page, CAREER_KEY)["last"] == {
+        "category": "pass_block",
+        "position": position,
+    }
+    assert _stored(page, NFL_KEY) is None
+
+    _reload(page)
+    assert _view(page) == ["pass_block", position]

@@ -1,11 +1,12 @@
 /* The last choices a visitor made, remembered per View in this browser's localStorage.
  *
  * A View is one page: NFL Season, NCAAF Season or NCAAF Career. Each has its own key, so what
- * is remembered on one never leaks into another. Two things are remembered:
+ * is remembered on one never leaks into another. Three things are remembered:
  *   - the X / Y axes, per category and position (ED and DI keep different pairs, OT, G and C too),
  *     written when the axes are applied, never while they are only pending;
- *   - the Player Names / Team Logos / Include metric notes switches, written as they are flipped.
- * Everything else (season, threshold, Teams, Players, category, position) is deliberately not kept.
+ *   - the Player Names / Team Logos / Include metric notes switches, written as they are flipped;
+ *   - the category and position last applied, so the page opens on them (written on Apply too).
+ * Everything else (season, threshold, Teams, Players) is deliberately not kept.
  * There is no reset button by decision: a visitor who wants the defaults back picks the default pair
  * and applies it (a pair equal to the default is dropped, not stored) and flips the switches back.
  *
@@ -34,7 +35,7 @@ function storageKey() {
 }
 
 function emptyPreferences() {
-  return { version: SCHEMA_VERSION, axes: {}, switches: {} };
+  return { version: SCHEMA_VERSION, axes: {}, switches: {}, last: null };
 }
 
 function isPlainObject(value) {
@@ -50,6 +51,7 @@ function readPreferences() {
       version: SCHEMA_VERSION,
       axes: isPlainObject(parsed.axes) ? parsed.axes : {},
       switches: isPlainObject(parsed.switches) ? parsed.switches : {},
+      last: isPlainObject(parsed.last) ? parsed.last : null,
     };
   } catch {
     return emptyPreferences();
@@ -86,6 +88,29 @@ export function forgetAxes(category, position) {
   if (!isPlainObject(forCategory) || !(position in forCategory)) return;
 
   delete forCategory[position];
+  writePreferences(preferences);
+}
+
+// The remembered { category, position } last applied, or null.
+export function rememberedView() {
+  const { last } = readPreferences();
+  if (!last || typeof last.category !== "string" || typeof last.position !== "string") return null;
+
+  return { category: last.category, position: last.position };
+}
+
+export function rememberView(category, position) {
+  const preferences = readPreferences();
+
+  preferences.last = { category, position };
+  writePreferences(preferences);
+}
+
+export function forgetView() {
+  const preferences = readPreferences();
+  if (!preferences.last) return;
+
+  preferences.last = null;
   writePreferences(preferences);
 }
 
