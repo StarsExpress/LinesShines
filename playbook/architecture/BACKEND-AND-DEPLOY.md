@@ -62,7 +62,7 @@
    *optional* query param — omitted, it returns every position in the category in one response. The college
    metadata adds `conference_order` and `team_conferences` (`{season: {franchise_id: conference}}`, read from
    the loaded rows), and its `teams` are keyed by franchise id with no colour (the frontend falls back to a
-   neutral grey). College thresholds are their own (`NCAAF_DEFAULT_THRESHOLDS` 220 / 360 and
+   neutral grey). College thresholds are their own (`NCAAF_DEFAULT_THRESHOLDS` 220 / 300 and
    `NCAAF_DYNAMIC_THRESHOLDS` in `config/thresholds.py`). Measured on the real data (2025/2026): the biggest college
    response (pass rush) is about 500 KB raw against about 150 KB for the NFL (the app compresses every
    response of 1,000 bytes or more with `GZipMiddleware`, about 65 KB for that one). `/health` stays a plain route.

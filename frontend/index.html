@@ -383,6 +383,26 @@
               Include metric notes
             </label>
           </div>
+          <script>
+            // Puts the remembered switches back while the page is still being parsed, so a switch
+            // left on is drawn on from the first paint instead of sliding on once the modules have
+            // loaded. The key must match viewKey() in preferences.js (a test holds the two together).
+            (function () {
+              try {
+                var league = window.LEAGUE;
+                var view = league.key + "-" + (league.mode === "career" ? "career" : "season");
+                var saved = JSON.parse(localStorage.getItem("linesshines.prefs.v1." + view));
+                var names = { labels: "labels-toggle", logos: "logos-toggle", notes: "metric-notes-toggle" };
+                Object.keys(names).forEach(function (name) {
+                  if (saved.version === 1 && typeof saved.switches[name] === "boolean") {
+                    document.getElementById(names[name]).checked = saved.switches[name];
+                  }
+                });
+              } catch (error) {
+                // Nothing remembered, or storage blocked: the switches keep the page's own defaults.
+              }
+            })();
+          </script>
 
           <!-- Mobile-only: sits between the toggles and Apply/Save Plot in the
            drawer. Hidden on desktop; see .drawer-divider in style.css. Its

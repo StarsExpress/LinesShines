@@ -34,7 +34,7 @@ it imports `render.js`'s label-emphasis constants (`POINT_LABEL_FONT_SIZE`,
 `LABEL_EMPHASIS_WEIGHT`, etc.) but nothing about trace-building, so the dependency runs only
 that one direction; `card-export.js` (the shared per-card Save-PNG button, see below) sits on
 `chart-export.js`, not `render.js` directly, and is imported one-directionally by all three card
-modules; `png-delivery.js` (how a finished PNG reaches the user, see `UI-LAYOUT-AND-EXPORT.md`) is a dependency-free leaf that `chart-export.js`'s `downloadCanvasAsPng()` delegates to, and `card-export.js`/`main.js` import its status-bar functions; `main.js` (event wiring, `attachEvents()`,
+modules; `png-delivery.js` (how a finished PNG reaches the user, see `UI-LAYOUT-AND-EXPORT.md`) is a dependency-free leaf that `chart-export.js`'s `downloadCanvasAsPng()` delegates to, and `card-export.js`/`main.js` import its status-bar functions; `preferences.js` (what the page remembers per View in `localStorage`, see `FILTERS-AND-SEARCH.md`) reads only `dom.js` and `data.js` and is imported by `filters.js` and `main.js`; `main.js` (event wiring, `attachEvents()`,
 `loadMetadata()`, the boot call) depends on everything. A handful of narrow, deliberate circular imports exist where the original
 single-file call graph genuinely goes both ways (documented in each file's header comment —
 `cards-base.js` ↔ the three card modules for `openCardsCount()`/`updateScoutEmptyHint()`;

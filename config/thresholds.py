@@ -30,11 +30,11 @@ DYNAMIC_THRESHOLDS: dict[int, dict[str, int]] = {
 
 
 # NCAAF thresholds, their own because the NFL values left too many or too few players on
-# the college chart: the front 7 uses a slightly lower 220 than the NFL's 230, the OL a stricter 360.
+# the college chart: the front 7 uses a slightly lower 220 than the NFL's 230, the OL the same 300 as the NFL.
 # Set by the owner after trying the real page; change them if they feel wrong.
 NCAAF_DEFAULT_THRESHOLDS: dict[str, int] = {
     "pass_rush": 220,  # Min PR Opp for pass rush filter.
-    "pass_block": 360,  # Min Non Spike PB Snaps for pass block filter.
+    "pass_block": 300,  # Min Non Spike PB Snaps for pass block filter.
 }
 
 # Set BY HAND each week, like the NFL ones above. The 2026 entry is a placeholder

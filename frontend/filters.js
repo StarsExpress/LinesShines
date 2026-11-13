@@ -53,6 +53,7 @@ import {
   retargetLinemateCard,
 } from "./linemate-card.js";
 import { workspaceSingles, mergeCards, refreshOpenMergeCards, distinctWorkspacePlayers } from "./merge-card.js";
+import { forgetAxes, rememberAxes, rememberedAxes } from "./preferences.js";
 import {
   clearWorkspace,
   showMergeInvalidationConfirm,
@@ -965,25 +966,67 @@ export function populateCategoryDependentControls() {
       select.appendChild(opt);
     });
   });
-  // Distinct defaults, mirroring the pipeline's canonical query pairs.
-  // Anything else falls back to generic non-TPS-vs-TPS heuristic.
-  if (els.category.value === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("TPS PRP")) {
-    els.xMetric.value = "Win Rate";
-    els.yMetric.value = "TPS PRP";
-  } else if (
-    els.category.value === "pass_block" &&
-    metricKeys.includes("TPS Proportion %") &&
-    metricKeys.includes("TPS PBE")
-  ) {
-    els.xMetric.value = "TPS Proportion %";
-    els.yMetric.value = "TPS PBE";
-  } else {
-    els.xMetric.value = metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0];
-    els.yMetric.value = metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[1] || metricKeys[0];
-  }
+  chooseDefaultAxes(metricKeys);
+  applyRememberedAxes();
 
   els.thresholdFieldLabel.textContent = thresholdFieldLabel(cat);
   els.thresholdProspectFieldLabel.textContent = thresholdFieldLabel(cat);
+}
+
+// The chartable metrics of the category now selected.
+function chartableMetricKeys() {
+  const metrics = currentCategoryMeta().metrics;
+  return Object.keys(metrics).filter((key) => metrics[key].chartable !== false);
+}
+
+// The curated pair of the category now selected. Each branch checks both metrics exist, so a
+// renamed metric never throws.
+function chooseDefaultAxes(metricKeys) {
+  const { x, y } = defaultAxes(els.category.value, metricKeys);
+  els.xMetric.value = x;
+  els.yMetric.value = y;
+}
+
+function defaultAxes(category, metricKeys) {
+  // Distinct defaults, mirroring the pipeline's canonical query pairs.
+  // Anything else falls back to generic non-TPS-vs-TPS heuristic.
+  if (category === "pass_rush" && metricKeys.includes("Win Rate") && metricKeys.includes("TPS PRP")) {
+    return { x: "Win Rate", y: "TPS PRP" };
+  }
+
+  if (category === "pass_block" && metricKeys.includes("TPS Proportion %") && metricKeys.includes("TPS PBE")) {
+    return { x: "TPS Proportion %", y: "TPS PBE" };
+  }
+
+  return {
+    x: metricKeys.find((m) => !m.startsWith("TPS")) || metricKeys[0],
+    y: metricKeys.find((m) => m.startsWith("TPS")) || metricKeys[1] || metricKeys[0],
+  };
+}
+
+// Called when the axes are applied. A pair that is just the category's default is not stored
+// (the entry is dropped), so "remembered" always means "different from the default" and a later
+// change of the curated default still reaches everyone who never chose anything else.
+export function rememberAppliedAxes() {
+  const { category, position, xMetric, yMetric } = currentFilterState();
+  const fallback = defaultAxes(category, chartableMetricKeys());
+
+  if (xMetric === fallback.x && yMetric === fallback.y) forgetAxes(category, position);
+  else rememberAxes(category, position, xMetric, yMetric);
+}
+
+// Puts the X / Y pair remembered for the category and position now selected over the defaults.
+// Nothing happens when none is remembered, or when either metric is no longer offered (a
+// metric that was renamed or dropped), so the axes stay as they are.
+export function applyRememberedAxes() {
+  const remembered = rememberedAxes(els.category.value, els.position.value);
+  if (!remembered) return;
+
+  const metricKeys = chartableMetricKeys();
+  if (!metricKeys.includes(remembered.x) || !metricKeys.includes(remembered.y)) return;
+
+  els.xMetric.value = remembered.x;
+  els.yMetric.value = remembered.y;
 }
 
 export async function loadCurrentSlice() {
@@ -1248,6 +1291,7 @@ export async function applyFilters() {
   // setAppliedFilters() replaces the original's direct `appliedFilters =`
   // assignment — see the comment in loadCurrentSlice() above for why.
   setAppliedFilters(currentFilterState());
+  rememberAppliedAxes();
   closeFiltersDrawer();
   render();
   // Carry surviving cards to the applied slice, then refresh their numbers
