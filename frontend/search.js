@@ -24,6 +24,14 @@ import {
 } from "./data.js";
 import { meetsThreshold } from "./pinned-impact.js";
 
+// True while an input method (Chinese, Japanese, Korean...) is composing text. Its Enter confirms the
+// composition and must not also commit the first suggestion, and its Escape cancels the composition.
+// Both checks are needed: Safari fires compositionend before the keydown of that Enter, so
+// isComposing is already false there and only keyCode 229 still tells.
+export function isImeComposing(event) {
+  return event.isComposing || event.keyCode === 229;
+}
+
 export const NAME_SUFFIXES = new Set(["Jr.", "Jr", "II", "III", "IV", "V", "Sr.", "Sr"]);
 
 export function parsePlayerName(fullName) {

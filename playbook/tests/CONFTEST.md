@@ -17,7 +17,7 @@
 
 | Name | What it gives you |
 |---|---|
-| `chromium_browser` | Headless Chromium for one test. A missing browser skips the test, or fails it when `REQUIRE_CHROMIUM` is set (the CI `browser` job). |
+| `chromium_browser` | Headless Chromium for one test. A missing browser skips the test, or fails it when `REQUIRE_CHROMIUM` is set (the CI `browser` job). Every page and context it makes fails any request to a host other than the live server at once (`_keep_requests_local()`): `index.html` loads Google Fonts and Font Awesome from their CDNs, `page.goto()` waits for them, and a CDN that stalled on the CI runner failed two tests in their setup with `Page.goto: Timeout 30000ms exceeded`. Tests therefore run with the fallback fonts and no icons. |
 | `open_page` | A function `open_page(url, viewport=None, ready_js=None, settle=False)` that opens a page, waits until `ready_js` is truthy and returns it. `settle=True` also waits for the network to go quiet and checks `ready_js` again, for a page that redraws once its logos load. |
 | `APP_READY_JS`, `RECORDS_READY_JS` | The usual `ready_js`: the app holds its metadata and applied filters (and a slice of records). |
 | `wait_until(page, expression, arg=None)` | Polls the expression in the page until it is truthy. Import it with `from conftest import wait_until`. |
