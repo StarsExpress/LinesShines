@@ -30,6 +30,13 @@ of an earlier conversation is not a substitute for the rules, and a rule recalle
 To find a work item or an architecture file, do not open whole folders. First read the top of each file (the title and one-line summary,
 or the "Load when" line), then open only the ones that apply. The commands are in `playbook/ROSTER.md`.
 
+## Modern Web Guidance
+
+When writing new frontend code (JS, CSS, HTML), first look up whether a newer native way exists with the Modern Web Guidance
+plugin (`search`, then `retrieve <id>`; `legacy-scan` for a whole folder). Its advice is a reference only: when it conflicts with
+`playbook/INVARIANTS.md` or `playbook/DECISIONS.md`, those win. Before using a newer API, check that iOS Safari supports it, and
+ask Jack before building on it.
+
 ## Where to look
 
 Start at `playbook/ROSTER.md`. It maps each kind of task to the file that holds the detail:

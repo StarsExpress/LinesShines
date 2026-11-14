@@ -11,7 +11,7 @@ Layer boundaries follow the dependency graph, not feature buckets: `dom.js` (the
 lookup, ~230 call sites) and `config.js` (pure constants) are dependency-free; `data.js` (fetch,
 `sliceCache`, `positionPool()`, percentile math, a preloaded `logoCache` of decoded team-logo
 `Image` objects so a filter/render change never blocks on image decode) and `search.js` (the
-hand-rolled fuzzy matcher) sit above those — `allTeamCodes()` lives in `data.js` rather than
+hand-rolled fuzzy matcher, plus `isImeComposing()`, the check the four name-search inputs make before acting on a key) sit above those — `allTeamCodes()` lives in `data.js` rather than
 alongside its sibling Teams-checklist helpers in `filters.js` (a historical placement: `render.js`
 once needed it too, and importing from `filters.js` there would have created a circular import); `table-sort.js` (Excel-style click-to-sort: `toggleSortState()`/`sortRows()`/
 `makeSortableHeader()`), `player-table-model.js` (pure, no DOM: the player table model shared by the Comparison and Linemate cards, with its Sort and Read layouts; the caller passes the identity columns), `info-popover.js` (`createInfoPopover()`, a click-toggled popup

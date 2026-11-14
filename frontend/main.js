@@ -52,6 +52,7 @@ import { render, setLogoRelayoutGuard } from "./render.js";
 import { exportChartPngWithFooter, sanitizeForFilename } from "./chart-export.js";
 import { failExportStatus, showExportStatus } from "./png-delivery.js";
 import { restoreAndWatchSwitches } from "./preferences.js";
+import { isImeComposing } from "./search.js";
 import { createInfoPopover } from "./info-popover.js";
 import { PLATFORM_ICONS } from "./config.js";
 import { isDesktopScoutLayout, clearScoutCardDragPositions } from "./cards-base.js";
@@ -431,6 +432,8 @@ function attachEvents() {
   });
 
   els.playersInput.addEventListener("keydown", (e) => {
+    if (isImeComposing(e)) return;
+
     if (e.key === "Escape") {
       // Autocomplete convention: Escape backs out one level at a time —
       // first close just the suggestion list, and only close the whole
@@ -648,6 +651,8 @@ function attachEvents() {
     if (els.pcsAddInput.value.trim()) runPcsAddSearch();
   });
   els.pcsAddInput.addEventListener("keydown", (e) => {
+    if (isImeComposing(e)) return;
+
     if (e.key === "Escape") {
       hidePcsAddDropdown();
     } else if (e.key === "Enter") {
@@ -663,6 +668,8 @@ function attachEvents() {
   els.mergeCreateSubmit.addEventListener("click", submitCreateMergePopup);
   els.mergeCreateInput.addEventListener("input", runCreateSearch);
   els.mergeCreateInput.addEventListener("keydown", (e) => {
+    if (isImeComposing(e)) return;
+
     if (e.key === "Escape") {
       if (!els.mergeCreateDropdown.hidden) hideCreateDropdown();
       else closeCreateMergePopup();
@@ -678,6 +685,8 @@ function attachEvents() {
   // suggestion; Escape backs out one level at a time).
   els.mergeEditInput.addEventListener("input", runMergeEditSearch);
   els.mergeEditInput.addEventListener("keydown", (e) => {
+    if (isImeComposing(e)) return;
+
     if (e.key === "Escape") {
       if (!els.mergeEditDropdown.hidden) hideMergeEditDropdown();
       else closeMergeEditPopup();
