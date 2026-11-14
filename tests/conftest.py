@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 _TEST_DB_DIR = tempfile.mkdtemp(prefix="lines_shines_test_")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
@@ -321,9 +322,46 @@ def wait_until(
         page.wait_for_timeout(WAIT_POLL_MILLISECONDS)
 
 
+LOCAL_HOSTS = ("127.0.0.1", "localhost")
+
+
+def _answer_local_requests_only(route) -> None:
+    if urlparse(route.request.url).hostname in LOCAL_HOSTS:
+        route.continue_()
+
+    else:
+        route.abort()
+
+
+def _keep_requests_local(browser) -> None:
+    """Makes every page of this browser fail any request to another host at once.
+
+    index.html loads Google Fonts and Font Awesome from their CDNs, and the `load` event that
+    `page.goto()` waits for waits for them too. A CDN that is slow or silent on the CI runner then
+    failed a test in its setup with "Page.goto: Timeout 30000ms exceeded", whatever the test was
+    about. The tests need only the app, so nothing outside the live server is fetched.
+    """
+    new_context = browser.new_context
+
+    def local_context(*args, **kwargs):
+        context = new_context(*args, **kwargs)
+        context.route("**/*", _answer_local_requests_only)
+
+        return context
+
+    def local_page(**kwargs):
+        return local_context(**kwargs).new_page()
+
+    browser.new_context = local_context
+    browser.new_page = local_page
+
+
 @pytest.fixture()
 def chromium_browser():
-    """Headless Chromium. A missing browser skips the test, unless REQUIRE_CHROMIUM is set (CI does)."""
+    """Headless Chromium that fetches nothing outside the live server.
+
+    A missing browser skips the test, unless REQUIRE_CHROMIUM is set (CI does).
+    """
     sync_api = pytest.importorskip("playwright.sync_api")
 
     with sync_api.sync_playwright() as playwright:
@@ -337,6 +375,8 @@ def chromium_browser():
                 pytest.fail(message)
 
             pytest.skip(message)
+
+        _keep_requests_local(browser)
 
         yield browser
         browser.close()
