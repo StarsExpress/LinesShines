@@ -363,7 +363,7 @@ def test_batted_pass_rate_is_a_ranked_bonus_metric_that_is_never_charted(
         assert metrics[key]["higher_is_better"] is True
         assert metrics[key]["chartable"] is False
         assert metrics[key]["line_summary"] is False
-        assert metrics[key]["decimals"] == 2
+        assert "decimals" not in metrics[key]
         assert "neutral" not in metrics[key]
 
     # Every other metric stays chartable.
