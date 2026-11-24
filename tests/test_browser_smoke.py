@@ -43,6 +43,9 @@ ORDINAL_PATTERN = re.compile(r"^\d+(st|nd|rd|th)$")
 # What a metric cell shows for a metric the seeded rows leave empty.
 NO_VALUE = "—"
 
+# The records load before Plotly draws them, so "ready" must also mean the chart holds points.
+CHART_DRAWN_JS = "document.querySelector('#chart')?.data?.[0]?.x?.length > 0"
+
 PINNED_QUOTA_LABEL = "#pcs-quota-label"
 SINGLES_ROWS = "#pcs-singles-list .pcs-row"
 MERGED_ROWS = "#pcs-merged-list .pcs-row"
@@ -106,6 +109,9 @@ def page(live_server_url, seeded_smoke_db, open_page):
         viewport={"width": 1280, "height": 900},
         ready_js=RECORDS_READY_JS,
     )
+
+    # The records arrive before Plotly draws them, so a slow machine can reach a test with an empty chart.
+    wait_until(page, CHART_DRAWN_JS)
 
     assert page.locator("#threshold-number").input_value() == str(DEFAULT_THRESHOLD)
 
