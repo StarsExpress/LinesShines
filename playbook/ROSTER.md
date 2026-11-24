@@ -72,6 +72,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | `METRICS-AND-NOTES.md` | adding or renaming a metric, info popovers, metric notes, export appendix |
 | `CLAUDE-HOOKS.md` | `tools/claude_hooks/`, the hook installer, the `browser` test marker |
 | `THRESHOLDS.md` | `config/thresholds.py` thresholds, `resolve_default_threshold`, the threshold input clamp |
+| `DIAGRAMS.md` | the shape of the system at a glance (Mermaid), or adding or changing a diagram |
 
 These files began as a verbatim split of the old `CLAUDE.md` "Architecture" section. Since then they have gained a few small edits and appended sections marked
 "carried over from the retired `BLUEPRINT.md`". Cross-references such as "see X above/below" may point to another file here; `architecture/INDEX.md` maps section titles to files.
