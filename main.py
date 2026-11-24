@@ -164,7 +164,7 @@ PASS_RUSH_METRICS = {
     },
     # Bonus, ranked on the rate like any other, but `chartable: False` keeps both out of the axis
     # menus (they are never plotted) and `line_summary: False` out of the Line Summary (a line mixes
-    # ED and DI). A batted pass is rare, so the rate is shown to `decimals` places, not the usual one.
+    # ED and DI). Shown to the usual one decimal, like every other rate.
     "Batted Pass Rate": {
         "unit": "%",
         "volume": "Batted Passes",
@@ -172,7 +172,6 @@ PASS_RUSH_METRICS = {
         "bonus": True,
         "chartable": False,
         "line_summary": False,
-        "decimals": 2,
         "pff_note": "Batted passes / pass rush opportunities",
     },
     "TPS Batted Pass Rate": {
@@ -182,7 +181,6 @@ PASS_RUSH_METRICS = {
         "bonus": True,
         "chartable": False,
         "line_summary": False,
-        "decimals": 2,
         "pff_note": "Batted pass rate on true pass sets",
     },
 }

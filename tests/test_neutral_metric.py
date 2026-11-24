@@ -297,7 +297,7 @@ def test_batted_pass_rate_is_left_out_of_the_line_summary_and_the_axis_menus(pag
     assert not {"Batted Pass Rate", "TPS Batted Pass Rate"} & set(axis_options)
 
 
-def test_batted_pass_rate_is_ranked_on_the_player_card_to_two_decimals(page):
+def test_batted_pass_rate_is_ranked_on_the_player_card_to_one_decimal(page):
     out = page.evaluate("async () => {" + SETUP_JS + """
   const s = await import('/scout-card.js');
   const dom = await import('/dom.js');
@@ -316,5 +316,5 @@ def test_batted_pass_rate_is_ranked_on_the_player_card_to_two_decimals(page):
 }""")
 
     assert out[0] == "7"
-    assert out[1] == "1.23%"
+    assert out[1] == "1.2%"
     assert re.fullmatch(r"#\d+/\d+ · \d+(st|nd|rd|th) pct", out[2])
