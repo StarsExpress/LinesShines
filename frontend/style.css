@@ -2267,7 +2267,12 @@ body {
 /* Required Metrics add a Volume column between the label and the rate (see addRow() in
    scout-card.js): label, volume, value, rank. The header row is four spans, one per column. */
 .scout-stat-grid--volume {
-  grid-template-columns: 1fr auto auto auto;
+  /* Each section is its own grid, so an `auto` rank column would be as wide as that section's widest
+     chip and the Volume / Rate columns would sit at a different x in each section. The rank column
+     therefore has a floor that holds the widest chip ("#100/104 · 100th pct", about 138px); the
+     Volume and Rate columns are already the same width in every section (their min-widths and header
+     texts decide), so the three line up from Context down to Bonus. */
+  grid-template-columns: 1fr auto auto minmax(142px, auto);
 }
 /* Metadata: a bordered table of one row, label and value cells side by side (see scout-card.js). */
 .scout-metadata-table {
