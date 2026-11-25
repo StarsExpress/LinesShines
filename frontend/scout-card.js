@@ -149,7 +149,7 @@ export function renderScoutCardStats(cardEl, record) {
     gridEl.appendChild(rankDd);
   };
 
-  // One titled <dl> grid per section, in the order Metadata, Required
+  // One titled <dl> grid per section, in the order Metadata, Context, Required
   // Metrics, Bonus Metrics. Each grid keeps the three-children-per-row layout
   // above, so its columns align inside the section.
   const addSection = (title, withVolume = false) => {
@@ -207,7 +207,11 @@ export function renderScoutCardStats(cardEl, record) {
   // never ranked (a count grows with playing time; the rate is what ranks). A metric with no single
   // count (PRP, PBE) leaves its cell empty. The column header sits in the grid as spans, not dt/dd,
   // so the row labels stay the metrics alone.
+  // The section title and this header share one line (CSS pulls the grid up under the title), so the
+  // two classes below mark the pair that does. Every section with a Volume column gets this header.
   const addVolumeHeader = (gridEl) => {
+    gridEl.classList.add("scout-stat-grid--headed");
+    gridEl.previousElementSibling.classList.add("scout-section-title--headed");
     ["", "Volume", "Rate", ""].forEach((text, index) => {
       const span = document.createElement("span");
       span.className = `scout-col-head scout-col-head-${index}`;
@@ -236,15 +240,27 @@ export function renderScoutCardStats(cardEl, record) {
         withVolume ? volumeText(meta) : null
       );
     });
+  // `context` metrics (TPS Proportion %, OL only) get a section above the required ones: how the line
+  // is used, not how well it does. It is only a card layout; the metric is charted like any other.
+  const contextEntries = metricEntries.filter(([, meta]) => meta.context);
+  if (contextEntries.length) {
+    const contextGrid = addSection("Context", true);
+    addVolumeHeader(contextGrid);
+    addMetricRows(contextGrid, contextEntries, true);
+  }
   const requiredGrid = addSection("Required Metrics", true);
   addVolumeHeader(requiredGrid);
   addMetricRows(
     requiredGrid,
-    metricEntries.filter(([, meta]) => !meta.bonus),
+    metricEntries.filter(([, meta]) => !meta.bonus && !meta.context),
     true
   );
   const bonusEntries = metricEntries.filter(([, meta]) => meta.bonus);
-  if (bonusEntries.length) addMetricRows(addSection("Bonus Metrics", true), bonusEntries, true);
+  if (bonusEntries.length) {
+    const bonusGrid = addSection("Bonus Metrics", true);
+    addVolumeHeader(bonusGrid);
+    addMetricRows(bonusGrid, bonusEntries, true);
+  }
 }
 
 // Re-renders every open Player Card's stats against the current

@@ -408,20 +408,22 @@ const READ_IDENTITY_COLUMNS = [
 ];
 
 // Read layout: players as columns, metrics as rows, grouped under Metadata /
-// Required Metrics / Bonus Metrics headings like the Comparison Card's Read. The
+// Context / Required Metrics / Bonus Metrics headings like the Comparison Card's Read. The
 // head block (name, position, Card button) is pinned at the top by CSS
 // (.merge-read-frozen) while the rows scroll vertically with the card's panel;
 // the card is sized to fit this table, so nothing scrolls sideways or freezes.
 function renderLinemateReadTable(tableEl, players, cat) {
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
+  const contextKeys = metricKeys.filter((key) => cat.metrics[key].context);
   const model = buildPlayerTableModel(
     players,
     cat.threshold_field,
     metricKeys,
     bonusKeys,
     READ_IDENTITY_COLUMNS,
-    IS_CAREER
+    IS_CAREER,
+    contextKeys
   );
   const layout = readLayout(model);
 

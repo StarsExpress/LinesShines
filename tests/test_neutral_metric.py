@@ -121,11 +121,21 @@ def test_the_player_card_shows_the_tps_count_right_under_the_threshold_field(pag
     assert out["values"] == ["17", "300", "120"]
 
 
-def test_the_pass_block_player_card_has_no_bonus_section(page):
+def test_the_pass_block_player_card_has_a_context_section_above_required_and_no_bonus(
+    page,
+):
     sections = page.evaluate(SECTIONS_JS, "pass_block")
+    rows = dict(sections)
 
-    assert [title for title, _ in sections] == ["Metadata", "Required Metrics"]
-    assert all(rows for _, rows in sections)
+    assert [title for title, _ in sections] == [
+        "Metadata",
+        "Context",
+        "Required Metrics",
+    ]
+    assert all(labels for _, labels in sections)
+    assert rows["Context"] == ["TPS Proportion"]
+    assert "TPS Proportion" not in rows["Required Metrics"]
+    assert rows["Required Metrics"][0] == "Allowed Pressure"
 
 
 # Five OL players; each metric rises with the player's index, as in SETUP_JS.

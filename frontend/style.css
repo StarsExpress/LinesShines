@@ -2302,6 +2302,20 @@ body {
   color: var(--chalk-dim);
   min-width: 34px;
 }
+/* Context and Required Metrics: the section title and the Volume / Rate header are one line. The title
+   keeps its own row in the flow, and the grid is pulled up by exactly that row, so the empty first header
+   cell sits under the title text and the title never needs a column of its own. Both lines are fixed
+   at the same height so the pull is exact. */
+.scout-section-title--headed {
+  margin-bottom: 0;
+  line-height: 14px;
+}
+.scout-stat-grid--headed {
+  margin-top: -14px;
+}
+.scout-stat-grid--headed .scout-col-head {
+  line-height: 14px;
+}
 .scout-col-head {
   font-family: var(--font-mono);
   font-size: 9.5px;

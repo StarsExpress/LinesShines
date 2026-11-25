@@ -189,10 +189,13 @@ PASS_RUSH_METRICS = {
 GZIP_MINIMUM_SIZE_BYTES = 1000
 
 PASS_BLOCK_METRICS = {
+    # `context: True` only moves it to its own Context section above Required Metrics on every card;
+    # it is still a regular chartable metric on the axes.
     "TPS Proportion %": {
         "unit": "%",
         "volume": "TPS Non Spike PB Snaps",
         "higher_is_better": True,
+        "context": True,
         "formula_note": TPS_PROPORTION_NOTE,
         "pff_note": "Share of non-spike pass block snaps that were true pass sets",
     },
@@ -240,13 +243,12 @@ PASS_BLOCK_METRICS = {
     },
     # Lower is better, and a flag costs the offense yards, so it is a regular chartable metric: unlike
     # Batted Pass Rate it is spread wider (about 17% of NFL linemen with 300+ snaps have none, against
-    # about 39% of front 7 players with no batted pass). A penalty is rare per snap, so two decimals.
+    # about 39% of front 7 players with no batted pass).
     # PFF has no true-pass-set split of it, so there is no TPS twin.
     "Penalty Rate": {
         "unit": "%",
         "volume": "Penalties",
         "higher_is_better": False,
-        "decimals": 2,
         "note": PENALTY_RATE_NOTE,
         "pff_note": "Penalties / non-spike pass block snaps",
     },
