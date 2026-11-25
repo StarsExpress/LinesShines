@@ -290,6 +290,12 @@ def test_tps_proportion_is_the_first_coloured_required_metric_of_the_line(
     assert metrics["TPS Proportion %"]["higher_is_better"] is True
     assert metrics["TPS Proportion %"]["unit"] == "%"
     assert "neutral" not in metrics["TPS Proportion %"]
+    # Only a card layout flag: it sits in the Context section, and stays chartable.
+    assert metrics["TPS Proportion %"]["context"] is True
+    assert metrics["TPS Proportion %"].get("chartable", True) is True
+    assert [key for key, meta in metrics.items() if meta.get("context")] == [
+        "TPS Proportion %"
+    ]
     assert metrics["TPS Proportion %"]["formula_note"].startswith("TPS Proportion %")
 
     # The front 7 has no counterpart.
@@ -381,7 +387,7 @@ def test_penalty_rate_is_a_regular_chartable_lower_is_better_ol_metric(
     penalty = metrics["Penalty Rate"]
 
     assert penalty["higher_is_better"] is False
-    assert penalty["decimals"] == 2
+    assert "decimals" not in penalty  # One decimal, like every other rate.
     assert penalty["unit"] == "%"
     # Unlike Batted Pass Rate, it is plotted and ranked with the main metrics.
     assert penalty.get("chartable", True) is True

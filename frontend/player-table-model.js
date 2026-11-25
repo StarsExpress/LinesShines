@@ -37,14 +37,17 @@ export function snapsLabel(field) {
 }
 
 // `bonusKeys` are the metrics flagged `bonus` in the metadata (Pass Cov Percent,
-// DL only): Read shows them in their own section after the required ones.
+// DL only): Read shows them in their own section after the required ones. `contextKeys` are the
+// metrics flagged `context` (TPS Proportion %, OL only): Read shows them in a Context section
+// above the required ones.
 export function buildPlayerTableModel(
   players,
   thresholdField,
   metricKeys,
   bonusKeys = [],
   identityColumns = MERGE_IDENTITY_COLUMNS,
-  includeStatus = false
+  includeStatus = false,
+  contextKeys = []
 ) {
   const columns = [
     ...identityColumns.map((column) => ({ ...column, identity: true })),
@@ -54,7 +57,12 @@ export function buildPlayerTableModel(
     { key: thresholdField, label: snapsLabel(thresholdField), kind: "snaps" },
     // Its true-pass-set counterpart ("TPS PR Opp"), right under it.
     { key: `TPS ${thresholdField}`, label: snapsLabel(`TPS ${thresholdField}`), kind: "snaps" },
-    ...metricKeys.map((key) => ({ key, kind: "metric", bonus: bonusKeys.includes(key) })),
+    ...metricKeys.map((key) => ({
+      key,
+      kind: "metric",
+      bonus: bonusKeys.includes(key),
+      context: contextKeys.includes(key),
+    })),
   ];
   return { players, columns };
 }
@@ -74,15 +82,17 @@ export function sortLayout(model) {
 // that column's cell for every player in the model's order.
 //
 // `body` is the flat list of rows; `sections` is the same rows grouped for display —
-// Metadata (Status on Career, Games, the threshold field and its TPS counterpart), Required Metrics, and Bonus Metrics, which
-// is left out when the category has none (pass block).
+// Metadata (Status on Career, Games, the threshold field and its TPS counterpart), Context (left out
+// when the category has none: pass rush), Required Metrics, and Bonus Metrics (left out when the
+// category has none: pass block).
 export function readLayout(model) {
   const row = (column) => ({ column, cells: model.players.map((player) => ({ player, column })) });
   const body = model.columns.filter((column) => !column.identity).map(row);
   const section = (title, keep) => ({ title, rows: body.filter((r) => keep(r.column)) });
   const sections = [
     section("Metadata", (c) => c.kind === "status" || c.kind === "games" || c.kind === "snaps"),
-    section("Required Metrics", (c) => c.kind === "metric" && !c.bonus),
+    section("Context", (c) => c.kind === "metric" && c.context),
+    section("Required Metrics", (c) => c.kind === "metric" && !c.bonus && !c.context),
     section("Bonus Metrics", (c) => c.kind === "metric" && c.bonus),
   ].filter((s) => s.rows.length > 0);
   return {

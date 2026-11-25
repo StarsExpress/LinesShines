@@ -226,7 +226,7 @@ def test_read_turns_the_roster_on_its_side_with_a_name_position_and_card_head(pa
     assert out["sortable"] == 0 and out["frozen"] == 0
 
 
-def test_read_groups_the_dl_rows_and_leaves_the_ol_without_a_bonus_section(page):
+def test_read_groups_the_dl_rows_and_gives_the_ol_a_context_section_and_no_bonus(page):
     dl = page.evaluate(READ_TABLE_JS, ["pass_rush", 3])
     rows = {title: labels for title, _, labels in dl["sections"]}
 
@@ -251,7 +251,14 @@ def test_read_groups_the_dl_rows_and_leaves_the_ol_without_a_bonus_section(page)
     assert all(span == 4 for _, span, _ in dl["sections"])  # Label column + 3 players.
 
     ol = page.evaluate(READ_TABLE_JS, ["pass_block", 3])
-    assert [title for title, _, _ in ol["sections"]] == ["Metadata", "Required Metrics"]
+    assert [title for title, _, _ in ol["sections"]] == [
+        "Metadata",
+        "Context",
+        "Required Metrics",
+    ]
+    ol_rows = {title: labels for title, _, labels in ol["sections"]}
+    assert ol_rows["Context"] == ["TPS Proportion %"]
+    assert "TPS Proportion %" not in ol_rows["Required Metrics"]
 
 
 CARD_MODE_JS = (

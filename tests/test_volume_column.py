@@ -46,13 +46,16 @@ async ({ category, position, drop }) => {
     };
   });
   return { sections, volumeByLabel: Object.fromEntries(
-    (() => {
-      const grid = [...card.querySelectorAll('.scout-section-title')]
-        .find((h) => h.textContent === 'Required Metrics').nextElementSibling;
+    // Every section with a Volume column: Context (TPS Proportion, OL) and Required Metrics.
+    ['Context', 'Required Metrics'].flatMap((title) => {
+      const heading = [...card.querySelectorAll('.scout-section-title')]
+        .find((h) => h.textContent === title);
+      if (!heading) return [];
+      const grid = heading.nextElementSibling;
       const labels = [...grid.querySelectorAll('dt')].map((e) => e.textContent);
       const volumes = [...grid.querySelectorAll('dd.scout-stat-volume')].map((e) => e.textContent);
       return labels.map((label, i) => [label, volumes[i]]);
-    })()
+    })
   ) };
 }
 """
@@ -80,6 +83,16 @@ def test_the_front_7_required_metrics_show_the_count_behind_each_rate(page):
     assert volumes["TPS Havoc"] == "105"
 
 
+def test_the_offensive_line_context_section_has_the_same_volume_and_rate_header(page):
+    sections = {s["title"]: s for s in _card(page, "pass_block", "T")["sections"]}
+
+    assert list(sections)[:3] == ["Metadata", "Context", "Required Metrics"]
+    assert sections["Context"]["heads"] == ["", "Volume", "Rate", ""]
+    assert sections["Context"]["labels"] == ["TPS Proportion"]
+    assert sections["Context"]["volumes"] == ["100"]
+    assert "TPS Proportion" not in sections["Required Metrics"]["labels"]
+
+
 def test_a_metric_with_no_count_carries_a_dash(page):
     volumes = _card(page, "pass_rush", "ED")["volumeByLabel"]
 
@@ -87,7 +100,7 @@ def test_a_metric_with_no_count_carries_a_dash(page):
     assert volumes["TPS PRP"] == "–"
 
 
-def test_the_required_section_has_a_volume_and_rate_header_and_no_other_section_does(
+def test_every_section_with_a_volume_column_has_the_volume_and_rate_header_and_metadata_has_none(
     page,
 ):
     sections = {s["title"]: s for s in _card(page, "pass_rush", "ED")["sections"]}
@@ -95,7 +108,7 @@ def test_the_required_section_has_a_volume_and_rate_header_and_no_other_section_
     assert sections["Required Metrics"]["heads"] == ["", "Volume", "Rate", ""]
     assert sections["Metadata"]["heads"] == []
     assert sections["Metadata"]["volumes"] == []
-    assert sections["Bonus Metrics"]["heads"] == []
+    assert sections["Bonus Metrics"]["heads"] == ["", "Volume", "Rate", ""]
 
     # Pass Cov Percent has no count, so it carries the dash; the Batted Pass rows show theirs.
     assert sections["Bonus Metrics"]["volumes"] == ["–", "–", "106", "107"]

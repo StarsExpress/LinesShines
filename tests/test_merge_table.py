@@ -13,9 +13,11 @@ def page(live_server_url, open_page):
 
 # The model on its own: plain strings stand in for players.
 MODEL_JS = """
-async ([players, thresholdField, metricKeys, bonusKeys]) => {
+async ([players, thresholdField, metricKeys, bonusKeys, contextKeys]) => {
   const m = await import('/player-table-model.js');
-  const model = m.buildPlayerTableModel(players, thresholdField, metricKeys, bonusKeys);
+  const model = m.buildPlayerTableModel(
+    players, thresholdField, metricKeys, bonusKeys, undefined, false, contextKeys
+  );
   const sort = m.sortLayout(model);
   const read = m.readLayout(model);
   const cell = (c) => [c.player, c.column.key];
@@ -109,9 +111,17 @@ def _model(
     threshold_field="PR Opp",
     metric_keys=("M1", "M2", "M3"),
     bonus_keys=(),
+    context_keys=(),
 ):
     return page.evaluate(
-        MODEL_JS, [players, threshold_field, list(metric_keys), list(bonus_keys)]
+        MODEL_JS,
+        [
+            players,
+            threshold_field,
+            list(metric_keys),
+            list(bonus_keys),
+            list(context_keys),
+        ],
     )
 
 
@@ -352,6 +362,27 @@ def test_read_layout_groups_the_rows_into_sections_and_leaves_out_an_empty_bonus
         "Metadata",
         "Required Metrics",
     ]
+
+
+def test_read_layout_puts_a_context_section_between_metadata_and_required(page):
+    out = _model(
+        page,
+        ["A", "B"],
+        metric_keys=("C1", "M1", "B1"),
+        bonus_keys=("B1",),
+        context_keys=("C1",),
+    )
+
+    assert out["readSections"] == [
+        ["Metadata", ["Games", "PR Opp", "TPS PR Opp"]],
+        ["Context", ["C1"]],
+        ["Required Metrics", ["M1"]],
+        ["Bonus Metrics", ["B1"]],
+    ]
+
+    # No context key, no Context section.
+    plain = _model(page, ["A", "B"], metric_keys=("M1",))
+    assert "Context" not in [title for title, _ in plain["readSections"]]
 
 
 def test_read_shows_a_heading_row_for_each_section_with_the_bonus_metrics_last(page):

@@ -621,7 +621,16 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sortedPools = sortRows(pools, sortState, (p) => mergeSortValue(p, sortState.key, cat));
   const metricKeys = Object.keys(cat.metrics);
   const bonusKeys = metricKeys.filter((key) => cat.metrics[key].bonus);
-  const model = buildPlayerTableModel(sortedPools, cat.threshold_field, metricKeys, bonusKeys, undefined, IS_CAREER);
+  const contextKeys = metricKeys.filter((key) => cat.metrics[key].context);
+  const model = buildPlayerTableModel(
+    sortedPools,
+    cat.threshold_field,
+    metricKeys,
+    bonusKeys,
+    undefined,
+    IS_CAREER,
+    contextKeys
+  );
 
   table.innerHTML = "";
   table.classList.toggle("merge-table--read", isRead);
