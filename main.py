@@ -16,6 +16,7 @@ Anything else falls through to StaticFiles serving `frontend/`.
 from __future__ import annotations
 import json
 import os
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from datetime import date
@@ -25,6 +26,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+from starlette.types import Scope
 from config import (
     ALLOWED_HAVOC_RATE_NOTE,
     PENALTY_RATE_NOTE,
@@ -259,7 +262,7 @@ PASS_BLOCK_METRICS = {
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Create tables if missing.
     # Real schema migrations belong in Alembic once schema starts evolving.
     Base.metadata.create_all(engine)
@@ -293,7 +296,7 @@ class _LeagueApi:
     has_conferences: bool = False  # NCAAF rows carry a conference per season.
 
 
-def _conference_payload(sess, league: _LeagueApi) -> dict:
+def _conference_payload(sess: Session, league: _LeagueApi) -> dict:
     """Each season's conference of every school with rows, for the Teams checklist.
 
     `team_conferences` is {season: {team: conference}}, read from the rows
@@ -387,7 +390,9 @@ def build_api_router(league: _LeagueApi) -> APIRouter:
             },
         }
 
-    def category_records(category: _CategoryApi, season: int, position) -> dict:
+    def category_records(
+        category: _CategoryApi, season: int, position: str | None
+    ) -> dict:
         if position is not None and position not in category.positions:
             raise HTTPException(
                 400,
@@ -785,7 +790,7 @@ class NoCacheStaticFiles(StaticFiles):
     "do not cache": an unchanged file costs one conditional request (304).
     """
 
-    async def get_response(self, path, scope):
+    async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = "no-cache"
         return response
@@ -808,7 +813,7 @@ _frontend_dir = _here / "frontend"
 if _frontend_dir.exists():
     _index_path = _frontend_dir / "index.html"
 
-    def _page_route(page: _Page):
+    def _page_route(page: _Page) -> Callable[[], HTMLResponse]:
         def serve_page() -> HTMLResponse:
             return HTMLResponse(
                 render_page(_index_path.read_text(), page),

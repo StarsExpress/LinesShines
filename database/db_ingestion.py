@@ -132,7 +132,7 @@ def _complement(value: float) -> float | None:
     return None if pd.isna(value) else round(100.0 - float(value), 10)
 
 
-def _player_id(row, path, sheet) -> int:
+def _player_id(row: pd.Series, path: Path, sheet: str) -> int:
     raw_player_id = row.get("Player Id")
     if pd.isna(raw_player_id):
         raise ValueError(
@@ -179,7 +179,7 @@ def upsert_ncaaf_teams(sess: Session) -> None:
     sess.commit()
 
 
-def _read_value(kind: str, value):
+def _read_value(kind: str, value: float) -> int | float | None:
     """Read one Excel cell the way its column's kind says."""
     if kind == "int":
         return _safe_int(value)

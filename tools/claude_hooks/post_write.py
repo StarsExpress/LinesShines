@@ -3,8 +3,7 @@
 A `.py` file goes through `black -S`, then through the code-style check (`tools/check_code_style.py`), which
 reports only violations that are new, so the old ones in `code_style_baseline.json` stay quiet. A
 `frontend/*.js` file goes through Prettier, then ESLint. Whatever the file, the change is noted in a marker
-file so the Stop gate knows to run. A tool that fails or is missing exits with code 2, which shows the
-message to Claude.
+file so Stop gate knows to run. A tool that fails or is missing exits with code 2, which shows message to Claude.
 """
 
 from __future__ import annotations

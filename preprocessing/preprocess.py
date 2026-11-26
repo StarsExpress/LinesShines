@@ -87,7 +87,7 @@ def apply_league_scope(
     return scoped_df[scoped_df["Conference"].notna()].copy()
 
 
-def percent_of(numerator, denominator):
+def percent_of(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     """A rate as a rounded percentage: numerator / denominator, zero-filled, x100."""
     rate = numerator / denominator
     rate = rate.fillna(0)
@@ -96,7 +96,12 @@ def percent_of(numerator, denominator):
     return rate.round(ROUNDING_DECIMALS)
 
 
-def write_position_sheets(league, category, season, positional_sheets) -> None:
+def write_position_sheets(
+    league: League,
+    category: str,
+    season: int,
+    positional_sheets: dict[str, pd.DataFrame],
+) -> None:
     """Write one sheet per position to the season's xlsx, in insertion order."""
     destination_path = season_file_path(league, category, season, "xlsx")
 

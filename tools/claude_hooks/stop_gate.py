@@ -9,7 +9,7 @@ Once the checks have run, pass or fail, it also removes the cache files they lea
 
 When a check fails, the gate blocks once and lists the failed steps, so Claude carries on and fixes them.
 When Claude Code reports `stop_hook_active` (the gate already blocked this turn), the gate never blocks
-again: it only warns, so a check that cannot pass cannot loop for ever.
+again: it only warns, so a check that cannot pass cannot loop forever.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from hook_common import REPO_ROOT, marker_path, read_event
 
 # Tests replace the real checks with a JSON list of {"name": ..., "command": [...]}.
 CHECKS_ENV_VAR = "LINES_SHINES_HOOK_CHECKS"
+
 # Tests point the cleanup at a temporary folder, so no test deletes the real repo's cache files.
 CLEAN_ROOT_ENV_VAR = "LINES_SHINES_HOOK_CLEAN_ROOT"
 CHECK_TIMEOUT_SECONDS = 540
@@ -131,7 +132,6 @@ def main() -> None:
 
     if not failed_results:
         marker.unlink(missing_ok=True)
-
         return
 
     description = describe_failures(failed_results)

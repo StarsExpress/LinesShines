@@ -388,7 +388,9 @@ def test_read_scrolls_sideways_with_a_frozen_label_column_when_players_overflow(
 
     assert wide["readColumns"] == 15  # 16 players, the anchor is not a linemate.
     assert wide["isWide"] is True
-    assert wide["hintDisplay"] == "list-item"  # "Please scroll right for more players."
+    assert (
+        wide["hintDisplay"] == "list-item"
+    )  # The "Please scroll right for more players." hint.
     assert wide["wrapOverflowX"] == "auto"
     assert wide["labelPosition"] == "sticky"
 

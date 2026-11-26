@@ -52,7 +52,7 @@ def _colour(value):
     named = re.fullmatch(r"var\(--([\w-]+)\)", value)
 
     colour = VARIABLES[named.group(1)] if named else value
-    if re.fullmatch(r"#[0-9a-fA-F]{3}", colour):  # #000 -> #000000
+    if re.fullmatch(r"#[0-9a-fA-F]{3}", colour):  # Short hex: #000 becomes #000000.
         colour = "#" + "".join(ch * 2 for ch in colour[1:])
 
     return colour.lower()

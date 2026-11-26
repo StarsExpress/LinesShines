@@ -1,3 +1,5 @@
+"""Preprocess the front-7 pass-rush export into one xlsx sheet per position."""
+
 import pandas as pd
 from config import FRONT_7_NAMES, ROUNDING_DECIMALS, League
 from preprocessing.preprocess import (

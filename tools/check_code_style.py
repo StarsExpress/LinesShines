@@ -35,6 +35,7 @@ SKIPPED_DIRECTORY_NAMES = {
     "playbook",
     "__pycache__",
 }
+
 BRANCH_KEYWORDS = {"elif", "else", "except", "finally"}
 IGNORED_TOKEN_TYPES = {
     tokenize.NL,
@@ -43,10 +44,13 @@ IGNORED_TOKEN_TYPES = {
     tokenize.DEDENT,
     tokenize.ENCODING,
 }
+
 SENTENCE_ENDINGS = (".", "?", "!")
 MAX_STATEMENTS_WITHOUT_BLANK_LINE = 6
+
 SNAKE_CASE_PATTERN = re.compile(r"^_*[a-z][a-z0-9_]*$")
 UPPER_SNAKE_PATTERN = re.compile(r"^_*[A-Z][A-Z0-9_]*$")
+
 CAP_WORDS_PATTERN = re.compile(r"^_*[A-Z][A-Za-z0-9]*$")
 COMMAND_WORDS = (
     "python",
@@ -64,6 +68,7 @@ COMMAND_WORDS = (
     "PUT",
     "DELETE",
 )
+
 # Rules left out of a top-level folder: a test takes pytest's fixture names and has no signature to hint.
 RULE_SKIPPED_DIRECTORIES = {
     "tests": {
@@ -73,9 +78,11 @@ RULE_SKIPPED_DIRECTORIES = {
         "blank-between-steps",
     }
 }
+
 COMMENT_DIRECTIVE_PATTERN = re.compile(
     r"^(noqa|fmt:|type:|pragma|pylint|isort|ruff|mypy|pyright|!|-\*-)"
 )
+
 DATAFRAME_FACTORY_NAMES = {
     "DataFrame",
     "concat",
@@ -86,6 +93,7 @@ DATAFRAME_FACTORY_NAMES = {
     "read_parquet",
     "read_sql",
 }
+
 ABBREVIATIONS = {
     "arr",
     "btn",
