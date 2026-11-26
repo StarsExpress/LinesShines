@@ -58,6 +58,7 @@ def build_checks() -> list[dict]:
             "name": "npm run format:js:check",
             "command": ["npm", "run", "format:js:check"],
         },
+        {"name": "npm run test:js", "command": ["npm", "run", "test:js"]},
         {
             "name": 'pytest -m "not browser"',
             "command": [

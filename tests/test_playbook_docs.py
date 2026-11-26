@@ -22,6 +22,10 @@ LINK_TARGET = re.compile(r"\]\(([^)\s]+)\)")
 SCHEME = re.compile(r"[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 
 
+# The browser-free JavaScript tests in tests/js/ share one document.
+JS_TESTS_DOC = "TEST_JS_INVARIANTS.md"
+
+
 def _expected_doc_name(script: Path) -> str:
     """tests/test_pinned_impact.py -> TEST_PINNED_IMPACT.md, conftest.py -> CONFTEST.md."""
     return f"{script.stem.upper()}.md"
@@ -52,6 +56,8 @@ def test_every_test_script_has_a_document():
         for script in _scripts()
         if _expected_doc_name(script) not in present
     ]
+    if (TESTS_DIR / "js").is_dir() and JS_TESTS_DOC not in present:
+        missing.append(f"tests/js/ -> playbook/tests/{JS_TESTS_DOC}")
 
     assert not missing, (
         "These test scripts have no document in playbook/tests/ "
@@ -62,6 +68,8 @@ def test_every_test_script_has_a_document():
 
 def test_every_document_has_a_test_script():
     expected = {_expected_doc_name(script) for script in _scripts()}
+    if (TESTS_DIR / "js").is_dir():
+        expected.add(JS_TESTS_DOC)
     orphans = [doc.name for doc in _docs() if doc.name not in expected]
 
     assert not orphans, (

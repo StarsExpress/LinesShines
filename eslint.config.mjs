@@ -20,6 +20,15 @@ export default [
       globals: { ...globals.serviceworker },
     },
   },
+  {
+    files: ["tests/js/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      // The tests install a fake browser, and read the globals it sets.
+      globals: { ...globals.node, ...globals.browser, Plotly: "writable" },
+    },
+  },
   // Last: turns off ESLint rules that conflict with Prettier's formatting.
   prettier,
 ];

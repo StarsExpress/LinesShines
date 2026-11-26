@@ -139,8 +139,8 @@ Detail: `CLAUDE-HOOKS.md`. The gate is for local Claude Code sessions; GitHub Ac
 flowchart TD
     stop["Claude tries to stop"]
     marker{"Session marker exists?<br/>a write under the repo was seen"}
-    run["Run in parallel:<br/>black -S --check, lint:js,<br/>format:js:check, pytest not browser"]
-    ok{"All four pass?"}
+    run["Run in parallel:<br/>black -S --check, lint:js,<br/>format:js:check, test:js, pytest not browser"]
+    ok{"All five pass?"}
     again{"stop_hook_active already set<br/>this turn?"}
     done["Delete the marker and let Claude stop"]
     block["Block: report each failed step<br/>and the output tail"]

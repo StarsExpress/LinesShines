@@ -32,6 +32,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | Updating a traded player's team mid-season (`midseason_trades.py`) | `test_midseason_trades.py` ([doc](TEST_MIDSEASON_TRADES.md)) | pure Python |
 | The folder layout of `data/` and `frontend/` | `test_paths.py` ([doc](TEST_PATHS.md)) | pure Python |
 | The Comparison (Merge) Card's table: Read and Sort layouts, and how it follows the sort order | `test_merge_table.py` ([doc](TEST_MERGE_TABLE.md)) | browser |
+| Percentile pools, ties, Teams/Players/Status highlighting, Pinned Players and Selected Players eligibility, without a browser (INVARIANTS 1, 2, 3, 9, 17) | `tests/js/*.test.mjs` ([doc](TEST_JS_INVARIANTS.md)) | Node, in the Stop gate |
 | How percentiles, ranks and percentile pools are computed | `test_percentiles.py` ([doc](TEST_PERCENTILES.md)) | browser |
 | Which players the chart plots or highlights from Teams, Players and the threshold | `test_filters.py` ([doc](TEST_FILTERS.md)) | browser |
 | What happens to Pinned Players and Comparisons when filters change, and who stays eligible in the Players filter | `test_pinned_impact.py` ([doc](TEST_PINNED_IMPACT.md)) | browser |
