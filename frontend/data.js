@@ -142,6 +142,24 @@ export function thresholdClauses(spec, fieldLabel, onlyStatus = null) {
   return [`≥ ${spec.joined} ${fieldLabel} (${JOINED_NFL})`, `≥ ${spec.prospect} ${fieldLabel} (${PROSPECTS})`];
 }
 
+// The unit a pool bar is counted in. Every OL card says "only non-spike pass block snaps are considered"
+// once, in the scope note under the pool note, so there the bar just says "snaps".
+export function thresholdPoolUnit(cat) {
+  return scopeNote(cat) ? "snaps" : thresholdFieldLabel(cat);
+}
+
+// The bars as label / value pairs a card lists under "Percentiles calculated among 91 ED:": one pair on a
+// Season page ("Players" / "≥ 170 pass rush opportunities."), one per status on Career ("Joined NFL:" /
+// "≥ 450 pass rush opportunities.").
+export function thresholdPoolLines(spec, unit) {
+  if (typeof spec === "number") return [{ label: "Players", value: `≥ ${spec} ${unit}.` }];
+
+  return [
+    { label: `${JOINED_NFL}:`, value: `≥ ${spec.joined} ${unit}.` },
+    { label: `${PROSPECTS}:`, value: `≥ ${spec.prospect} ${unit}.` },
+  ];
+}
+
 // Which statuses are lit on the Career page (empty on a Season page). A status
 // that is off only dims its players; it never leaves the percentile pool.
 export function litStatuses(statusesText) {
@@ -291,7 +309,7 @@ export function thresholdFieldLabel(cat) {
   return cat.threshold_field === "PR Opp" ? "pass rush opportunities" : "non-spike pass block snaps";
 }
 
-// The sentence under the threshold line on every OL card (Player, Comparison, Linemate/NFL
+// The sentence under the pool note (or roster line) on every OL card (Player, Comparison, Linemate/NFL
 // Alumni): the OL's snap count is the non-spike one. The front 7 has none ("").
 export function scopeNote(cat) {
   return cat.threshold_field === "PR Opp" ? "" : "For OL, only non-spike pass block snaps are considered.";

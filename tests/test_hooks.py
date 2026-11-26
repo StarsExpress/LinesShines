@@ -7,6 +7,7 @@ the environment variable the gate offers for this.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -20,14 +21,27 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = REPO_ROOT / "tools" / "claude_hooks"
 STATE_DIR_ENV_VAR = "LINES_SHINES_HOOK_STATE_DIR"
 CHECKS_ENV_VAR = "LINES_SHINES_HOOK_CHECKS"
+CLEAN_ROOT_ENV_VAR = "LINES_SHINES_HOOK_CLEAN_ROOT"
 PKILL_COMMAND = 'pkill -f "uvicorn main:app *"'
 
 
 def run_hook(
-    script_name: str, event: dict, state_dir: Path, checks: list[dict] | None = None
+    script_name: str,
+    event: dict,
+    state_dir: Path,
+    checks: list[dict] | None = None,
+    clean_root: Path | None = None,
 ):
-    """Run one hook script with the event on stdin; returns the finished process."""
-    environment = {"PATH": "/usr/bin:/bin", STATE_DIR_ENV_VAR: str(state_dir)}
+    """Run one hook script with the event on stdin; returns the finished process.
+
+    The Stop gate's cleanup is pointed at a folder that does not exist unless a test names one,
+    so no test run deletes the cache files of the real repo.
+    """
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        STATE_DIR_ENV_VAR: str(state_dir),
+        CLEAN_ROOT_ENV_VAR: str(clean_root or state_dir.parent / "nothing_to_clean"),
+    }
 
     if checks is not None:
         environment[CHECKS_ENV_VAR] = json.dumps(checks)
@@ -198,6 +212,90 @@ def test_post_write_hook_ignores_a_file_outside_the_repo(
     assert not (state_dir / "abc.changed").exists()
 
 
+def load_post_write_module(monkeypatch: pytest.MonkeyPatch):
+    """The post-write hook, loaded by path; it imports `hook_common` from its own folder."""
+    monkeypatch.syspath_prepend(str(HOOKS_DIR))
+    spec = importlib.util.spec_from_file_location(
+        "post_write", HOOKS_DIR / "post_write.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return module
+
+
+def test_post_write_style_check_reports_a_new_violation_and_names_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    post_write = load_post_write_module(monkeypatch)
+    bad_file = tmp_path / "bad.py"
+    bad_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+    failures = post_write.style_failures(
+        bad_file, root=tmp_path, baseline_path=tmp_path / "none.json"
+    )
+
+    assert len(failures) == 1
+    assert "bad.py" in failures[0]
+    assert "module-docstring" in failures[0]
+    assert "do not add them to tools/code_style_baseline.json" in failures[0]
+
+
+def test_post_write_style_check_is_silent_for_a_clean_file_and_for_a_baselined_violation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from tools import check_code_style
+
+    post_write = load_post_write_module(monkeypatch)
+    clean_file = tmp_path / "clean.py"
+    clean_file.write_text('"""Clean."""\n\nVALUE = 1\n', encoding="utf-8")
+    old_file = tmp_path / "old.py"
+    old_file.write_text("VALUE = 1\n", encoding="utf-8")
+    baseline_path = tmp_path / "baseline.json"
+    check_code_style.write_baseline(
+        check_code_style.check_files([old_file], root=tmp_path), baseline_path
+    )
+
+    assert post_write.style_failures(clean_file, tmp_path, baseline_path) == []
+    assert post_write.style_failures(old_file, tmp_path, baseline_path) == []
+
+
+def test_post_write_style_check_leaves_node_modules_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    post_write = load_post_write_module(monkeypatch)
+    vendored_file = tmp_path / "node_modules" / "package" / "tool.py"
+    vendored_file.parent.mkdir(parents=True)
+    vendored_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert post_write.style_failures(vendored_file, tmp_path, tmp_path / "x.json") == []
+
+
+def test_post_write_runs_the_style_check_only_after_black_passed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    post_write = load_post_write_module(monkeypatch)
+    python_file = tmp_path / "module.py"
+    style_calls: list[Path] = []
+
+    def fake_style_failures(file_path: Path) -> list[str]:
+        style_calls.append(file_path)
+
+        return ["style says no"]
+
+    monkeypatch.setattr(post_write, "style_failures", fake_style_failures)
+
+    monkeypatch.setattr(post_write, "run_tool", lambda command: (True, ""))
+    assert post_write.format_file(python_file) == ["style says no"]
+
+    monkeypatch.setattr(post_write, "run_tool", lambda command: (False, "boom"))
+    failures = post_write.format_file(python_file)
+
+    assert len(failures) == 1
+    assert "black -S failed" in failures[0]
+    assert style_calls == [python_file]
+
+
 def test_stop_gate_does_nothing_when_the_repo_did_not_change(state_dir: Path):
     failing_check = [
         {
@@ -269,6 +367,102 @@ def test_stop_gate_clears_the_marker_when_every_check_passes(state_dir: Path):
     assert result.returncode == 0
     assert result.stdout == ""
     assert not (state_dir / "abc.changed").exists()
+
+
+def load_cache_files_module():
+    """The cache cleanup module, loaded by path: tools/claude_hooks/ is a script folder, not a package."""
+    spec = importlib.util.spec_from_file_location(
+        "cache_files", HOOKS_DIR / "cache_files.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return module
+
+
+def make_messy_tree(root: Path) -> None:
+    """A tree with every kind of cache file, one each at the top and nested, and files that must stay."""
+    for folder in ("pkg/__pycache__", "__MACOSX", "deep/er/__pycache__"):
+        (root / folder).mkdir(parents=True)
+        (root / folder / "inside.pyc").write_text("x")
+
+    (root / ".DS_Store").write_text("x")
+    (root / "deep" / ".DS_Store").write_text("x")
+    (root / "main.py").write_text("keep")
+    (root / "pkg" / "module.py").write_text("keep")
+    (root / "node_modules" / "left").mkdir(parents=True)
+    (root / "node_modules" / "left" / ".DS_Store").write_text("left alone")
+    (root / ".git").mkdir()
+    (root / ".git" / ".DS_Store").write_text("left alone")
+
+
+def test_cache_cleanup_removes_pycache_macosx_and_ds_store_everywhere(tmp_path: Path):
+    make_messy_tree(tmp_path)
+
+    removed_count = load_cache_files_module().remove_cache_files(tmp_path)
+
+    assert removed_count == 5
+    assert not list(tmp_path.rglob("__pycache__"))
+    assert not (tmp_path / "__MACOSX").exists()
+    assert not (tmp_path / ".DS_Store").exists()
+    assert not (tmp_path / "deep" / ".DS_Store").exists()
+
+
+def test_cache_cleanup_keeps_real_files_and_skips_node_modules_and_git(tmp_path: Path):
+    make_messy_tree(tmp_path)
+
+    load_cache_files_module().remove_cache_files(tmp_path)
+
+    assert (tmp_path / "main.py").read_text() == "keep"
+    assert (tmp_path / "pkg" / "module.py").read_text() == "keep"
+    assert (tmp_path / "node_modules" / "left" / ".DS_Store").exists()
+    assert (tmp_path / ".git" / ".DS_Store").exists()
+
+
+def test_cache_cleanup_of_a_missing_folder_is_a_quiet_zero(tmp_path: Path):
+    assert load_cache_files_module().remove_cache_files(tmp_path / "nowhere") == 0
+
+
+@pytest.mark.parametrize("check_passes", [True, False])
+def test_stop_gate_cleans_the_cache_files_whether_the_checks_pass_or_fail(
+    check_passes: bool, tmp_path: Path, state_dir: Path
+):
+    make_messy_tree(tmp_path / "repo")
+    exit_code = 0 if check_passes else 1
+    checks = [
+        {
+            "name": "step",
+            "command": [sys.executable, "-c", f"raise SystemExit({exit_code})"],
+        }
+    ]
+
+    run_hook(
+        "stop_gate.py",
+        {"session_id": "abc"},
+        marked_state_dir(state_dir),
+        checks,
+        clean_root=tmp_path / "repo",
+    )
+
+    assert not list((tmp_path / "repo").rglob("__pycache__"))
+    assert not (tmp_path / "repo" / ".DS_Store").exists()
+    assert (tmp_path / "repo" / "main.py").exists()
+
+
+def test_stop_gate_leaves_the_cache_files_when_the_repo_did_not_change(
+    tmp_path: Path, state_dir: Path
+):
+    make_messy_tree(tmp_path / "repo")
+
+    run_hook(
+        "stop_gate.py",
+        {"session_id": "abc"},
+        state_dir,
+        [],
+        clean_root=tmp_path / "repo",
+    )
+
+    assert (tmp_path / "repo" / ".DS_Store").exists()
 
 
 def test_stop_gate_counts_a_missing_program_as_a_failure(state_dir: Path):

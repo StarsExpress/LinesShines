@@ -11,10 +11,10 @@ import {
   teamName,
   teamLabel,
   logoSrc,
-  thresholdFieldLabel,
+  thresholdPoolUnit,
   metadata,
   appliedThreshold,
-  thresholdClauses,
+  thresholdPoolLines,
   scopeNote,
   IS_CAREER,
 } from "./data.js";
@@ -29,6 +29,7 @@ import {
   onScoutDragMove,
   endScoutDrag,
   updateScoutEmptyHint,
+  renderPoolNote,
 } from "./cards-base.js";
 import { toggleLinemateCard, setPlayerCardOpener, rosterNoun } from "./linemate-card.js";
 import { attachCardSave, sanitizeForFilename } from "./card-export.js";
@@ -100,14 +101,13 @@ export function renderScoutCardStats(cardEl, record) {
   // For a player at the applied position this is the same set as currentFiltered.
   const pool = positionPool(record.position);
   const poolEl = cardEl.querySelector(".scout-card-pool");
-  poolEl.textContent = `Percentiles calculated among ${pool.length} ${record.position}.`;
+  renderPoolNote(
+    poolEl,
+    `${pool.length} ${record.position}`,
+    thresholdPoolLines(appliedThreshold(), thresholdPoolUnit(cat))
+  );
 
-  const thresholdEl = cardEl.querySelector(".scout-card-threshold");
-  // One line per status on Career (the note's CSS keeps the line break), one line otherwise.
-  const thresholdLines = thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).map((clause) => `${clause}.`);
-  thresholdEl.textContent = `Threshold: ${thresholdLines.join("\n")}`;
-
-  // The OL's snaps are the non-spike ones, said once under the threshold; the Metadata table then
+  // The OL's snaps are the non-spike ones, said once under the pool note; the Metadata table then
   // calls them "PB Snaps". The front 7 has no such note.
   const scopeEl = cardEl.querySelector(".scout-card-scope");
   scopeEl.textContent = scopeNote(cat);

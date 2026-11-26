@@ -4,6 +4,9 @@ It runs only when the PostToolUse hook noted that this session changed the repo.
 are `black -S --check .`, `npm run lint:js`, `npm run format:js:check` and `pytest -m "not browser"`.
 The browser tests take about ten minutes, so they stay the owner's local run.
 
+Once the checks have run, pass or fail, it also removes the cache files they leave behind
+(`cache_files.py`: `__pycache__`, `__MACOSX` and `.DS_Store`).
+
 When a check fails, the gate blocks once and lists the failed steps, so Claude carries on and fixes them.
 When Claude Code reports `stop_hook_active` (the gate already blocked this turn), the gate never blocks
 again: it only warns, so a check that cannot pass cannot loop for ever.
@@ -17,11 +20,15 @@ import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
+from cache_files import remove_cache_files
 from hook_common import REPO_ROOT, marker_path, read_event
 
 # Tests replace the real checks with a JSON list of {"name": ..., "command": [...]}.
 CHECKS_ENV_VAR = "LINES_SHINES_HOOK_CHECKS"
+# Tests point the cleanup at a temporary folder, so no test deletes the real repo's cache files.
+CLEAN_ROOT_ENV_VAR = "LINES_SHINES_HOOK_CLEAN_ROOT"
 CHECK_TIMEOUT_SECONDS = 540
 OUTPUT_TAIL_LINES = 25
 
@@ -116,6 +123,9 @@ def main() -> None:
 
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(run_check, build_checks()))
+
+    # After the checks, never during them: they are what write the cache files.
+    remove_cache_files(Path(os.environ.get(CLEAN_ROOT_ENV_VAR) or REPO_ROOT))
 
     failed_results = [result for result in results if not result["passed"]]
 

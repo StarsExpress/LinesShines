@@ -2867,28 +2867,51 @@ body {
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
+  line-height: 1.45;
   color: var(--flag-gold);
+}
+/* Air between the bullets of the Player and Comparison Cards' notes; they used to touch. */
+.merge-card-note-list > li + li,
+.scout-card-note-list > li + li {
+  margin-top: 4px;
+}
+/* The pool note of the Player and Comparison Cards lists its bar (Season) or one bar per status (Career) under its
+   sentence, inside the same bullet (renderPoolNote() in cards-base.js). A two-column grid, so the "≥" of every
+   line starts at the same x whatever the width of its label. */
+.card-pool-lines {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.3em;
+  row-gap: 2px;
+  margin: 2px 0 0;
+  padding-left: 12px;
+}
+.card-pool-lines dt,
+.card-pool-lines dd {
+  margin: 0;
+}
+.card-pool-lines dd {
+  font-variant-numeric: tabular-nums;
 }
 /* Player Card's own single-line pool sentence — same bulleted, gold/italic
    treatment as .merge-card-note-list/.linemate-card-note-list above, rather
    than the plain dim paragraph it used to be. Still just one <li>; the list
    wrapper exists so a single line reads identically to the two-line notes
    on Merge/Linemate Cards instead of looking like a different component. */
-/* Negative margins pull the bullets toward the divider above and the
+/* Small negative margins pull the bullets toward the divider above and the
    Metadata heading below: .scout-card-body already puts a 16px gap between
-   its children, which read as too loose around a three-line note. */
+   its children, which read as too loose around a multi-line note. Kept small
+   (it was -8px / -6px) so the note does not crowd either neighbour. */
 .scout-card-note-list {
-  margin: -8px 0 -6px;
+  margin: -4px 0 -2px;
   padding-left: 16px;
   list-style: disc;
-}
-.scout-card-threshold {
-  white-space: pre-line;
 }
 .scout-card-note {
   font-family: var(--font-body);
   font-size: 11px;
   font-style: italic;
+  line-height: 1.45;
   color: var(--flag-gold);
 }
 /* Excel-style click-to-sort headers (table-sort.js) — shared by Merge

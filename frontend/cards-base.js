@@ -24,6 +24,29 @@ import { scoutCards } from "./scout-card.js";
 import { mergeCards } from "./merge-card.js";
 import { linemateCards } from "./linemate-card.js";
 
+// The percentile note the Player and Comparison Cards open with, in two steps: how many players the
+// percentiles are among ("Percentiles calculated among 91 ED:"), then the bar that chose them, a label and
+// a value per line, in a definition list inside the same bullet (a grid, so the values line up). On Career
+// each player is measured against the bar of his own status, so there is still one pool.
+export function renderPoolNote(poolEl, poolSubject, poolLines) {
+  poolEl.textContent = `Percentiles calculated among ${poolSubject}:`;
+
+  const listEl = document.createElement("dl");
+  listEl.className = "card-pool-lines";
+
+  for (const { label, value } of poolLines) {
+    const labelEl = document.createElement("dt");
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement("dd");
+    valueEl.textContent = value;
+
+    listEl.append(labelEl, valueEl);
+  }
+
+  poolEl.append(listEl);
+}
+
 // Below 860px scouting cards are static blocks stacked under the chart (see
 // the @media (max-width: 860px) rules in style.css), not floating overlays
 // — dragging/cascading only makes sense above that breakpoint, same cutoff

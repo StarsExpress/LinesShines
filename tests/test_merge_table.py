@@ -91,6 +91,9 @@ async ([sort, mode, rows]) => {
     }, []),
     sortableHeaders: table.querySelectorAll('thead .sortable-th').length,
     sortStateAfter: sortState,
+    poolLead: card.querySelector('.merge-card-pool').firstChild.textContent,
+    poolLines: [...card.querySelectorAll('.card-pool-lines dt')].map((dt) => dt.textContent + ' ' + dt.nextElementSibling.textContent),
+    threshold: d.appliedThreshold(),
   };
 }
 """
@@ -127,6 +130,16 @@ def _model(
 
 def _render(page, sort=NO_SORT, mode=None):
     return page.evaluate(RENDER_JS, [sort, mode, ROWS])
+
+
+def test_the_pool_note_says_how_many_players_then_the_bar_that_chose_them(page):
+    out = _render(page)
+
+    assert out["poolLead"].startswith("Percentiles calculated among ")
+    assert out["poolLead"].endswith(" ED:")
+    assert out["poolLines"] == [
+        f"Players ≥ {out['threshold']} pass rush opportunities."
+    ]
 
 
 def _names(result):

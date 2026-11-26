@@ -48,11 +48,11 @@ import {
   logoSrc,
   teamSwatch,
   findRecordByPlayer,
-  thresholdFieldLabel,
+  thresholdPoolUnit,
   metadata,
   teamLabel,
   appliedThreshold,
-  thresholdClauses,
+  thresholdPoolLines,
   scopeNote,
   IS_CAREER,
 } from "./data.js";
@@ -72,6 +72,7 @@ import {
   endScoutDrag,
   updateScoutEmptyHint,
   withTrailingPeriod,
+  renderPoolNote,
 } from "./cards-base.js";
 import { toggleLinemateCard, closeLinemateCard, attachAppTooltip, rosterNoun } from "./linemate-card.js";
 import { renderPlayerCardsSpace } from "./workspace.js";
@@ -597,12 +598,10 @@ export function renderMergeCardBody(cardEl, memberRecords, sortState, mode = TAB
   const sharedPosition = pools.every((p) => p.record.position === pools[0].record.position)
     ? pools[0].record.position
     : null;
-  const thresholdClause = `with ${thresholdClauses(appliedThreshold(), thresholdFieldLabel(cat)).join(" / ")}`;
-  poolEl.textContent = sharedPosition
-    ? `Percentiles calculated among ${pools[0].pool.length} ${sharedPosition} ${thresholdClause}.`
-    : `Percentiles calculated among ${pools
-        .map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`)
-        .join(", ")} ${thresholdClause}.`;
+  const poolSubject = sharedPosition
+    ? `${pools[0].pool.length} ${sharedPosition}`
+    : pools.map((p) => `${p.pool.length} ${p.record.position} (${p.record.abbr_name || p.record.player})`).join(", ");
+  renderPoolNote(poolEl, poolSubject, thresholdPoolLines(appliedThreshold(), thresholdPoolUnit(cat)));
 
   const scopeEl = cardEl.querySelector(".merge-card-scope");
   scopeEl.textContent = scopeNote(cat);
