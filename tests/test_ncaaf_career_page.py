@@ -435,18 +435,21 @@ def test_a_career_player_card_marks_the_status_and_writes_the_bar_of_each_status
   return {
     labels: [...metadata.querySelectorAll('th')].map((e) => e.textContent),
     values: [...metadata.querySelectorAll('td')].map((e) => e.textContent),
-    threshold: card.querySelector('.scout-card-threshold').textContent,
+    lead: card.querySelector('.scout-card-pool').firstChild.textContent,
+    lines: [...card.querySelectorAll('.card-pool-lines dt')].map((dt) => dt.textContent + ' ' + dt.nextElementSibling.textContent),
+    label: d.thresholdPoolUnit(d.appliedCategoryMeta()),
     bars: d.appliedThreshold(),
   };
 }""")
 
     assert out["labels"][0] == "Status"
     assert out["values"][0] == "Prospects"
-    joined_line, prospect_line = out["threshold"].split("\n")
-    assert joined_line.startswith(f"Threshold: ≥ {out['bars']['joined']} ")
-    assert joined_line.endswith("(Joined NFL).")
-    assert prospect_line.startswith(f"≥ {out['bars']['prospect']} ")
-    assert prospect_line.endswith("(Prospects).")
+    assert out["lead"].startswith("Percentiles calculated among ")
+    assert out["lead"].endswith(":")
+    assert out["lines"] == [
+        f"Joined NFL: ≥ {out['bars']['joined']} {out['label']}.",
+        f"Prospects: ≥ {out['bars']['prospect']} {out['label']}.",
+    ]
 
 
 def test_the_nfl_alumni_card_has_no_line_summary(page):
@@ -502,13 +505,20 @@ def test_a_career_comparison_card_marks_each_status_and_writes_both_bars(page):
   );
   return {
     status: [...row.querySelectorAll('td')].map((e) => e.textContent),
-    pool: card.querySelector('.merge-card-pool').textContent,
+    lead: card.querySelector('.merge-card-pool').firstChild.textContent,
+    lines: [...card.querySelectorAll('.card-pool-lines dt')].map((dt) => dt.textContent + ' ' + dt.nextElementSibling.textContent),
+    label: d.thresholdPoolUnit(d.appliedCategoryMeta()),
+    bars: d.appliedThreshold(),
   };
 }""")
 
     assert out["status"] == ["Joined NFL", "Prospects"]
-    assert "(Joined NFL)" in out["pool"]
-    assert "(Prospects)" in out["pool"]
+    assert out["lead"].startswith("Percentiles calculated among ")
+    assert out["lead"].endswith(":")
+    assert out["lines"] == [
+        f"Joined NFL: ≥ {out['bars']['joined']} {out['label']}.",
+        f"Prospects: ≥ {out['bars']['prospect']} {out['label']}.",
+    ]
 
 
 def test_the_season_pages_keep_one_bar_and_no_status_filter(

@@ -42,10 +42,10 @@ def discover_csv_seasons(league: League, category: str) -> list[int]:
 
 
 def require_columns(
-    df: pd.DataFrame, required: list[str], league: League, season: int
+    export_df: pd.DataFrame, required: list[str], league: League, season: int
 ) -> None:
     """Fail with one clear error before any calculation if a column is missing."""
-    missing = [column for column in required if column not in df.columns]
+    missing = [column for column in required if column not in export_df.columns]
     if missing:
         raise ValueError(
             f"{league.value} {season}: the CSV lacks the columns {missing}; "
@@ -53,7 +53,9 @@ def require_columns(
         )
 
 
-def apply_league_scope(df: pd.DataFrame, league: League, season: int) -> pd.DataFrame:
+def apply_league_scope(
+    export_df: pd.DataFrame, league: League, season: int
+) -> pd.DataFrame:
     """NCAAF: add the Conference column and drop the schools outside the scope.
 
     The NFL has no conference, so its rows come back untouched. A school the
@@ -61,12 +63,12 @@ def apply_league_scope(df: pd.DataFrame, league: League, season: int) -> pd.Data
     in a PFF export is noticed instead of silently dropped.
     """
     if league is not League.NCAAF:
-        return df
+        return export_df
 
-    require_columns(df, ["Team", "Franchise Id"], league, season)
+    require_columns(export_df, ["Team", "Franchise Id"], league, season)
 
     conference_by_franchise_id = dict()
-    schools_df = df[["Franchise Id", "Team"]].drop_duplicates()
+    schools_df = export_df[["Franchise Id", "Team"]].drop_duplicates()
     for franchise_id, team in schools_df.itertuples(index=False):
         try:
             conference_by_franchise_id[franchise_id] = conference_of(
@@ -79,13 +81,13 @@ def apply_league_scope(df: pd.DataFrame, league: League, season: int) -> pd.Data
                 f"(franchise_id {franchise_id}); add it to teams/ncaaf.py."
             ) from None
 
-    scoped_df = df.copy()
+    scoped_df = export_df.copy()
     scoped_df["Conference"] = scoped_df["Franchise Id"].map(conference_by_franchise_id)
 
     return scoped_df[scoped_df["Conference"].notna()].copy()
 
 
-def percent_of(numerator, denominator):
+def percent_of(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     """A rate as a rounded percentage: numerator / denominator, zero-filled, x100."""
     rate = numerator / denominator
     rate = rate.fillna(0)
@@ -94,7 +96,12 @@ def percent_of(numerator, denominator):
     return rate.round(ROUNDING_DECIMALS)
 
 
-def write_position_sheets(league, category, season, positional_sheets) -> None:
+def write_position_sheets(
+    league: League,
+    category: str,
+    season: int,
+    positional_sheets: dict[str, pd.DataFrame],
+) -> None:
     """Write one sheet per position to the season's xlsx, in insertion order."""
     destination_path = season_file_path(league, category, season, "xlsx")
 

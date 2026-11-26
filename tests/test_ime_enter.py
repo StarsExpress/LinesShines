@@ -68,7 +68,7 @@ def _open_edit(page) -> None:
     ).first.wait_for()
 
 
-# (input, how to open it with a suggestion showing, what shows the pick happened)
+# (input, how to open it with a suggestion showing, what shows the pick happened).
 CASES = {
     "players": (
         "#players-input",

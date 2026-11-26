@@ -220,7 +220,9 @@ def test_the_metric_order_puts_the_bonus_metrics_after_the_required_ones(page):
     ]
 
 
-def test_the_front_7_player_card_has_only_the_pool_and_threshold_bullets(page):
+def test_the_front_7_player_card_has_only_the_pool_bullet_and_an_empty_scope_bullet(
+    page,
+):
     notes = page.evaluate("async () => {" + SETUP_JS + """
   const s = await import('/scout-card.js');
   const dom = await import('/dom.js');
@@ -229,10 +231,10 @@ def test_the_front_7_player_card_has_only_the_pool_and_threshold_bullets(page):
   return [...card.querySelectorAll('.scout-card-note')].map((e) => e.textContent);
 }""")
 
-    # The third note is the OL's scope note, empty (and hidden) on the front 7 card.
-    assert len(notes) == 3
-    assert notes[2] == ""
-    assert notes[1].startswith("Threshold: ≥ 100")
+    # The second note is the OL's scope note, empty (and hidden) on the front 7 card.
+    assert len(notes) == 2
+    assert notes[1] == ""
+    assert notes[0].endswith("≥ 100 pass rush opportunities.")
 
 
 def test_player_card_shows_a_neutral_chip_with_rank_and_percentile(page):

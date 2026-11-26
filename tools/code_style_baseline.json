@@ -1,0 +1,13 @@
+{
+  "database/columns.py|constants-above-functions|IDENTITY_EXCEL_HEADERS = (\"Team\", \"Player Id\", \"Player\", \"Abbr Name\")": 1,
+  "database/columns.py|constants-above-functions|TPS_PROPORTION_API_KEY = \"TPS Proportion %\"": 1,
+  "database/columns.py|constants-above-functions|TPS_PROPORTION_DECIMALS = 1": 1,
+  "main.py|constants-above-functions|CAREER_BYLINE = (": 1,
+  "main.py|constants-above-functions|CAREER_META_NOTE = (": 1,
+  "main.py|constants-above-functions|CAREER_SPECS = {\"pass_rush\": PASS_RUSH_CAREER, \"pass_block\": PASS_BLOCK_CAREER}": 1,
+  "main.py|constants-above-functions|DEFAULT_BYLINE = (": 1,
+  "main.py|constants-above-functions|NCAAF_SCOPE_SEGMENT = (": 1,
+  "main.py|constants-above-functions|SEASON_BYLINE = (": 1,
+  "teams/ncaaf.py|constants-above-functions|OUT_OF_SCOPE_FRANCHISE_IDS = frozenset(": 1,
+  "teams/ncaaf.py|constants-above-functions|SCHOOL_NAMES: dict[int, str] = {": 1
+}

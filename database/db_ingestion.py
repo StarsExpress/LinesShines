@@ -119,37 +119,39 @@ def _discover_seasons(data_dir: Path, league: League = League.NFL) -> list[int]:
     return list(seasons)
 
 
-def _safe_int(val):
-    return None if pd.isna(val) else int(val)
+def _safe_int(value: float) -> int | None:
+    return None if pd.isna(value) else int(value)
 
 
-def _safe_float(val):
-    return None if pd.isna(val) else float(val)
+def _safe_float(value: float) -> float | None:
+    return None if pd.isna(value) else float(value)
 
 
-def _complement(val):
+def _complement(value: float) -> float | None:
     """Pass Cov Percent = 100 - Pass Rush Percent (the source file holds the latter)."""
-    return None if pd.isna(val) else round(100.0 - float(val), 10)
+    return None if pd.isna(value) else round(100.0 - float(value), 10)
 
 
-def _player_id(row, path, sheet) -> int:
-    val = row.get("Player Id")
-    if pd.isna(val):
+def _player_id(row: pd.Series, path: Path, sheet: str) -> int:
+    raw_player_id = row.get("Player Id")
+    if pd.isna(raw_player_id):
         raise ValueError(
             f"{path} sheet {sheet}: row for {row.get('Player')!r} has no Player Id"
         )
 
-    return int(val)
+    return int(raw_player_id)
 
 
-def _require_columns(df: pd.DataFrame, columns, path, sheet) -> None:
-    missing = [c for c in columns if c not in df.columns]
+def _require_columns(
+    sheet_df: pd.DataFrame, columns: tuple[str, ...], path: Path, sheet: str
+) -> None:
+    missing = [column for column in columns if column not in sheet_df.columns]
     if missing:
         raise ValueError(f"{path} sheet {sheet} is missing columns: {missing}")
 
 
 def upsert_nfl_teams(sess: Session) -> None:
-    existing = {t.code for t in sess.query(NFLTeam).all()}
+    existing = {team.code for team in sess.query(NFLTeam).all()}
 
     for code, (full_name, color) in TEAMS.items():
         if code in existing:
@@ -177,7 +179,7 @@ def upsert_ncaaf_teams(sess: Session) -> None:
     sess.commit()
 
 
-def _read_value(kind: str, value):
+def _read_value(kind: str, value: float) -> int | float | None:
     """Read one Excel cell the way its column's kind says."""
     if kind == "int":
         return _safe_int(value)

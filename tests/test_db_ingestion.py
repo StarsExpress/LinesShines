@@ -67,7 +67,7 @@ def _write_front_7_xlsx(
 def _write_ol_xlsx(
     path, team="MIA", player="O. Line", player_id=2001, extra=None
 ) -> None:
-    df = pd.DataFrame(
+    workbook_df = pd.DataFrame(
         {
             "Team": [team],
             "Player Id": [player_id],
@@ -93,7 +93,7 @@ def _write_ol_xlsx(
     )
 
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="T", index=False)
+        workbook_df.to_excel(writer, sheet_name="T", index=False)
 
 
 def _fresh_session():

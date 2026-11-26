@@ -96,8 +96,8 @@ async () => {
   const card = dom.els.scoutCardTemplate.content.firstElementChild.cloneNode(true);
   s.renderScoutCardStats(card, record);
   return {
-    text: card.querySelector('.scout-card-pool').textContent,
-    expected: `Percentiles calculated among ${d.positionPool(record.position).length} ${record.position}.`,
+    text: card.querySelector('.scout-card-pool').firstChild.textContent,
+    expected: `Percentiles calculated among ${d.positionPool(record.position).length} ${record.position}:`,
     plotPosition: d.appliedFilters.position,
     position: record.position,
   };
@@ -388,7 +388,9 @@ def test_read_scrolls_sideways_with_a_frozen_label_column_when_players_overflow(
 
     assert wide["readColumns"] == 15  # 16 players, the anchor is not a linemate.
     assert wide["isWide"] is True
-    assert wide["hintDisplay"] == "list-item"  # "Please scroll right for more players."
+    assert (
+        wide["hintDisplay"] == "list-item"
+    )  # The "Please scroll right for more players." hint.
     assert wide["wrapOverflowX"] == "auto"
     assert wide["labelPosition"] == "sticky"
 

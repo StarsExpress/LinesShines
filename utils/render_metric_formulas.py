@@ -51,6 +51,7 @@ def render_all() -> None:
         fig = plt.figure(figsize=(0.1, 0.1))
         fig.patch.set_alpha(0.0)
         fig.text(0, 0, formula, fontsize=FONT_SIZE, color=TEXT_COLOR)
+
         out_path = OUTPUT_DIR / f"{name}.svg"
         fig.savefig(
             out_path,
@@ -59,6 +60,7 @@ def render_all() -> None:
             pad_inches=0.08,
             transparent=True,
         )
+
         plt.close(fig)
         print(f"Wrote {out_path.relative_to(OUTPUT_DIR.parent.parent.parent)}")
 

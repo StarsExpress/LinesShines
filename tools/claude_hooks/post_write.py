@@ -1,8 +1,9 @@
 """PostToolUse hook on Write and Edit: format what Claude just wrote, and note that the repo changed.
 
-A `.py` file goes through `black -S`. A `frontend/*.js` file goes through Prettier, then ESLint.
-Whatever the file, the change is noted in a marker file so the Stop gate knows to run.
-A formatter that fails or is missing exits with code 2, which shows the message to Claude.
+A `.py` file goes through `black -S`, then through the code-style check (`tools/check_code_style.py`), which
+reports only violations that are new, so the old ones in `code_style_baseline.json` stay quiet. A
+`frontend/*.js` file goes through Prettier, then ESLint. Whatever the file, the change is noted in a marker
+file so Stop gate knows to run. A tool that fails or is missing exits with code 2, which shows message to Claude.
 """
 
 from __future__ import annotations
@@ -20,6 +21,11 @@ from hook_common import (
     marker_path,
     read_event,
 )
+
+# The checker lives in the repo, not next to this script, and the hook may run from any folder.
+sys.path.insert(0, str(REPO_ROOT))
+
+from tools import check_code_style  # noqa: E402
 
 FRONTEND_DIR = REPO_ROOT / "frontend"
 VENDOR_DIR = FRONTEND_DIR / "vendor"
@@ -59,6 +65,31 @@ def is_formatted_javascript(file_path: Path) -> bool:
     )
 
 
+def style_failures(
+    file_path: Path, root: Path | None = None, baseline_path: Path | None = None
+) -> list[str]:
+    """The code-style violations in one Python file that the baseline does not list, as one message."""
+    try:
+        violations = check_code_style.check_files([file_path], root=root)
+
+    except (OSError, SyntaxError, ValueError) as error:
+        return [f"the code-style check could not read {file_path.name}: {error}"]
+
+    new_violations, _ = check_code_style.split_by_baseline(
+        violations, check_code_style.load_baseline(baseline_path)
+    )
+
+    if not new_violations:
+        return []
+
+    listing = "\n".join(violation.render() for violation in new_violations)
+
+    return [
+        f"the code-style check found new violations in {file_path.name}:\n{listing}\n"
+        "Fix them in the code; do not add them to tools/code_style_baseline.json."
+    ]
+
+
 def format_file(file_path: Path) -> list[str]:
     """Format one file; returns one message per tool that failed."""
     failures: list[str] = []
@@ -68,6 +99,9 @@ def format_file(file_path: Path) -> list[str]:
 
         if not passed:
             failures.append(f"black -S failed on {file_path.name}:\n{output}")
+
+        else:
+            failures.extend(style_failures(file_path))
 
     elif is_formatted_javascript(file_path):
         passed, output = run_tool(

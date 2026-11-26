@@ -1,3 +1,6 @@
+"""Spell out the PFF export's column names and shorten players' first names."""
+
+
 def shorten_first_name(player_name: str) -> str:
     names_components = player_name.split(" ")
     if "." not in names_components[0]:  # First name isn't already shortened.

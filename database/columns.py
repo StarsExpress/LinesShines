@@ -11,6 +11,7 @@ college tables reuse it unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -145,7 +146,7 @@ def required_excel_headers(data_columns: tuple[DataColumn, ...]) -> tuple[str, .
     )
 
 
-def row_to_payload(row, data_columns: tuple[DataColumn, ...]) -> dict:
+def row_to_payload(row: Any, data_columns: tuple[DataColumn, ...]) -> dict:
     """The /api payload for one ORM row: the common identity keys plus each data key."""
     payload = {
         "id": row.id,

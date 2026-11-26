@@ -286,8 +286,8 @@ async (category) => {
 def test_the_offensive_line_card_says_once_that_only_non_spike_snaps_count(page):
     notes = page.evaluate(NOTES_JS, "pass_block")
 
-    assert notes[1]["text"].startswith("Threshold: ≥ 100")
-    assert notes[2] == {
+    assert notes[0]["text"].endswith("≥ 100 snaps.")
+    assert notes[1] == {
         "text": "For OL, only non-spike pass block snaps are considered.",
         "hidden": False,
     }
@@ -296,5 +296,5 @@ def test_the_offensive_line_card_says_once_that_only_non_spike_snaps_count(page)
 def test_the_front_7_card_has_no_such_note(page):
     notes = page.evaluate(NOTES_JS, "pass_rush")
 
-    assert notes[2]["hidden"] is True
-    assert notes[2]["text"] == ""
+    assert notes[1]["hidden"] is True
+    assert notes[1]["text"] == ""
