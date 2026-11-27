@@ -70,44 +70,6 @@ class FakeClient:
         return self.made
 
 
-def test_collected_counts_are_per_file_and_ignore_summary_lines():
-    output = (
-        "tests/test_a.py::test_one\n"
-        "tests/test_a.py::test_two[x]\n"
-        "tests/test_b.py::TestThing::test_three\n"
-        "\n321/400 tests collected (79 deselected) in 1.2s\n"
-    )
-
-    assert sandbox_tests.parse_collected_counts(output) == Counter(
-        {"tests/test_a.py": 2, "tests/test_b.py": 1}
-    )
-
-
-def test_dealing_balances_the_test_counts_and_loses_no_file():
-    counts = Counter({"a": 50, "b": 40, "c": 30, "d": 20, "e": 10, "f": 10})
-
-    shards = sandbox_tests.deal_into_shards(counts, 3)
-    totals = sorted(sum(counts[path] for path in files) for files in shards)
-
-    assert totals == [50, 50, 60]
-    assert sorted(path for files in shards for path in files) == sorted(counts)
-
-
-def test_dealing_is_the_same_every_time():
-    counts = Counter({f"file_{number}": number % 7 + 1 for number in range(30)})
-
-    assert sandbox_tests.deal_into_shards(counts, 5) == sandbox_tests.deal_into_shards(
-        counts, 5
-    )
-
-
-def test_dealing_drops_shards_that_would_be_empty():
-    shards = sandbox_tests.deal_into_shards(Counter({"a": 3, "b": 2}), 5)
-
-    assert len(shards) == 2
-    assert all(shards)
-
-
 def test_the_api_key_comes_from_the_environment_first(monkeypatch, tmp_path):
     monkeypatch.setattr(sandbox_tests, "REPO_ROOT", tmp_path)
     (tmp_path / ".env").write_text("NOVITA_API_KEY=from-file\n")
@@ -331,12 +293,3 @@ def test_main_fails_when_the_browser_tests_cannot_be_collected(monkeypatch, caps
 
     assert code == sandbox_tests.EXIT_TESTS_FAILED
     assert "could not collect" in capsys.readouterr().out
-
-
-def test_the_real_collection_finds_the_browser_tests_and_every_file_gets_dealt():
-    counts = sandbox_tests.count_browser_tests()
-    shards = sandbox_tests.deal_into_shards(counts, 5)
-
-    assert sum(counts.values()) > 100
-    assert len(shards) == 5
-    assert sorted(path for files in shards for path in files) == sorted(counts)

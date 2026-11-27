@@ -27,10 +27,17 @@ jobs:
       - name: Run tests
         run: pytest -m "not browser" -v
 
-  # Playwright tests (tests marked `browser` by tests/conftest.py), on pull requests only.
-  browser:
+  # Playwright tests (tests marked `browser` by tests/conftest.py), on pull requests only, in parallel shards:
+  # each job asks `tools.browser_shards` for its own share of the test files (same dealing on every job, so
+  # together they run every file once). `browser` below is the one check name to require in branch protection.
+  browser-shards:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    strategy:
+      # A failing shard must not hide what the others found.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     env:
       # A missing Chromium fails the job instead of skipping every test.
       REQUIRE_CHROMIUM: "1"
@@ -60,5 +67,17 @@ jobs:
         if: steps.chromium-cache.outputs.cache-hit == 'true'
         run: playwright install-deps chromium
 
-      - name: Run browser tests
-        run: pytest -m browser -v
+      - name: Run browser tests (shard ${{ matrix.shard }} of ${{ strategy.job-total }})
+        run: |
+          shard_files=$(python -m tools.browser_shards --shards ${{ strategy.job-total }} --index ${{ matrix.shard }})
+          echo "shard ${{ matrix.shard }}: $shard_files"
+          pytest $shard_files -m browser -v
+
+  # One stable check for the shards, whatever their number.
+  browser:
+    if: always() && github.event_name != 'push'
+    needs: browser-shards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed
+        run: test "${{ needs.browser-shards.result }}" = "success"
