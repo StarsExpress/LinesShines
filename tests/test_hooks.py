@@ -405,6 +405,7 @@ def load_stop_gate_module(monkeypatch: pytest.MonkeyPatch):
         ("requirements-dev.txt", True),
         ("pytest.ini", True),
         ("tools/sandbox_tests.py", True),
+        ("tools/browser_shards.py", True),
         ("tests/js/percentiles.test.mjs", False),
         ("playbook/INVARIANTS.md", False),
         ("preprocessing/front_7.py", False),

@@ -4,8 +4,7 @@
     python -m tools.sandbox_tests --shards 3
 
 The repo is packed (without data/, playbook/, .git, node_modules, sandbox/, .env or caches), the browser tests are
-counted locally with pytest's own collection, and the test files are dealt out so each shard gets about the same
-number of tests. Every shard starts from the template, unpacks the repo, brings the requirements up to date and
+counted locally and dealt out so each shard gets about the same number of tests (`tools/browser_shards.py`). Every shard starts from the template, unpacks the repo, brings the requirements up to date and
 runs its files. Every sandbox is killed at the end and also expires on its own after `SANDBOX_LIFETIME_SECONDS`.
 
 Exit code: 0 when every shard passed, 1 when a test (or the collection) failed, 3 when the check could not run at all
@@ -20,15 +19,15 @@ from __future__ import annotations
 import argparse
 import io
 import os
-import subprocess
 import sys
 import tarfile
 import time
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from tools.browser_shards import count_browser_tests, deal_into_shards
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,7 +45,6 @@ SANDBOX_LIFETIME_SECONDS = 900
 UNPACK_SECONDS = 180
 SETUP_SECONDS = 300
 SHARD_TEST_SECONDS = 420
-COLLECT_SECONDS = 180
 OUTPUT_TAIL_LINES = 6
 
 REMOTE_ARCHIVE = "/tmp/repo.tar.gz"
@@ -127,67 +125,6 @@ def pack_repo() -> bytes:
                 archive.add(path, arcname=relative.as_posix(), recursive=False)
 
     return buffer.getvalue()
-
-
-def parse_collected_counts(collect_output: str) -> Counter:
-    """How many tests each file holds, from the lines `path::test_name` of `pytest --collect-only -q`."""
-    counts: Counter = Counter()
-
-    for line in collect_output.splitlines():
-        if "::" in line:
-            counts[line.split("::", 1)[0].strip()] += 1
-
-    return counts
-
-
-def count_browser_tests() -> Counter:
-    """Count the browser tests per file with pytest's own collection (no browser is started)."""
-    command = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "-m",
-        "browser",
-        "--collect-only",
-        "-q",
-        "-p",
-        "no:cacheprovider",
-    ]
-
-    try:
-        result = subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=COLLECT_SECONDS,
-        )
-
-    except (OSError, subprocess.TimeoutExpired) as error:
-        raise Unavailable(f"could not collect the browser tests: {error}") from error
-
-    counts = parse_collected_counts(result.stdout)
-
-    if result.returncode != 0 or not counts:
-        tail = "\n".join((result.stdout + result.stderr).strip().splitlines()[-15:])
-        raise RuntimeError(f"pytest could not collect the browser tests:\n{tail}")
-
-    return counts
-
-
-def deal_into_shards(counts: Counter, shard_count: int) -> list[list[str]]:
-    """Largest files first, each to the shard with the fewest tests so far; empty shards are dropped."""
-    shards: list[list[str]] = [[] for _ in range(shard_count)]
-    totals = [0] * shard_count
-
-    for path, test_count in sorted(
-        counts.items(), key=lambda item: (-item[1], item[0])
-    ):
-        lightest = totals.index(min(totals))
-        shards[lightest].append(path)
-        totals[lightest] += test_count
-
-    return [files for files in shards if files]
 
 
 def last_lines(text: str, line_count: int = OUTPUT_TAIL_LINES) -> str:

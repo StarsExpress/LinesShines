@@ -48,6 +48,7 @@ BROWSER_RELEVANT_FILES = {
     "requirements.txt",
     "requirements-dev.txt",
     "tools/sandbox_tests.py",
+    "tools/browser_shards.py",
 }
 NODE_TESTS_DIRECTORY = "tests/js/"
 
