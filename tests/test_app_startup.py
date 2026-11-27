@@ -139,8 +139,8 @@ def test_each_page_has_its_own_text_under_the_subtitle(client):
     assert "No Line No Shine." in nfl and "grit &amp; grind styles" in nfl
     assert "A place to let you trace paths for:" in season
     assert "• ⌛️The past of NFL professionals." in season
-    assert "• ⏳The present of College players." in season
-    assert "NCAAF prospects VS. Already joined NFL people:" in career
+    assert "• ⏳The present of college players." in season
+    assert "NCAAF prospects VS. NFL alumni:" in career
     assert "🔬Draft evaluations powered by history as a benchmark." in career
 
     # The NFL text stays on the NFL page only.

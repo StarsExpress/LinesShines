@@ -1,6 +1,6 @@
 # tests/js/ (the browser-free invariant tests)
 
-> **Add tests here when:** a rule in INVARIANTS 1, 2, 3, 9 or 17 changes, or a regression in one of them is only found by a browser test. These run in seconds and in the Stop gate, which skips the browser tests. Run them with `npm run test:js`.
+> **Add tests here when:** a rule in INVARIANTS 1, 2, 3, 9 or 17 changes, or a regression in one of them is only found by a browser test. These run in seconds and in the Stop gate, which runs the browser tests only in a sandbox and only when a browser-relevant file changed. Run them with `npm run test:js`.
 
 - **Kind:** Node's built-in runner (`node --test`), no install and no browser. `tests/js/run.mjs` lists the `*.test.mjs` files and starts the runner on them by name (Node 20 in CI and Node 22 locally treat directory and glob arguments differently). One file is one process, so each file picks the Season or the Career page once.
 - **Needs:** Node 20 or newer. `support/browser_stub.mjs` installs a just-enough `document`, `window`, `localStorage` and a recording `Plotly` before the app modules are imported (`dom.js` looks up its elements while it loads). `pinned_impact.test.mjs` needs no stub: `pinned-impact.js` is pure.

@@ -57,3 +57,4 @@ Start at `playbook/ROSTER.md`. It maps each kind of task to the file that holds 
 | Metrics, info popovers, metric notes | `playbook/architecture/METRICS-AND-NOTES.md` |
 | Thresholds and the threshold input | `playbook/architecture/THRESHOLDS.md` |
 | Claude Code hooks and the CI gate | `playbook/architecture/CLAUDE-HOOKS.md` |
+| Browser tests in Novita sandboxes (runner, template, shards, measurements) | `playbook/architecture/SANDBOX.md` |

@@ -3,7 +3,7 @@
 A `.py` file goes through `black -S`, then through the code-style check (`tools/check_code_style.py`), which
 reports only violations that are new, so the old ones in `code_style_baseline.json` stay quiet. A
 `frontend/*.js` file goes through Prettier, then ESLint. Whatever the file, the change is noted in a marker
-file so Stop gate knows to run. A tool that fails or is missing exits with code 2, which shows message to Claude.
+file, with the path, so the Stop gate knows to run and which checks apply. A tool that fails or is missing exits with code 2, which shows message to Claude.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from hook_common import (
     is_under_repo,
     marker_path,
     read_event,
+    record_written_path,
 )
 
 # The checker lives in the repo, not next to this script, and the hook may run from any folder.
@@ -126,10 +127,9 @@ def main() -> None:
     if file_path is None or not is_under_repo(file_path):
         return
 
-    # The Stop gate runs only for sessions that changed the repo.
+    # The Stop gate runs only for sessions that changed the repo, and reads which paths changed.
     marker = marker_path(event.get("session_id") or "")
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.touch()
+    record_written_path(marker, file_path)
 
     if not file_path.is_file():
         return

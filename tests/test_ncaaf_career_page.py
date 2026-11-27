@@ -238,7 +238,8 @@ def test_the_chart_title_names_career_and_the_subtitle_counts_each_status(page):
     title = page.evaluate("document.querySelector('#chart').layout.title")
     subtitle = title["subtitle"]["text"]
 
-    assert "Career" in title["text"]
+    assert " Career " in title["text"]
+    assert title["text"].startswith("NCAAF ")
 
     # Two lines: Prospects first, then Joined NFL, each with its own count and bar.
     prospect_line, joined_line = subtitle.split("<br>")

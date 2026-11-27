@@ -20,5 +20,8 @@
     "html2canvas": "^1.4.1",
     "plotly.js-dist-min": "^3.7.0",
     "prettier": "^3"
+  },
+  "dependencies": {
+    "novita-sandbox": "^2.1.5"
   }
 }

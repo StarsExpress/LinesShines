@@ -1,0 +1,1 @@
+novita-sandbox>=2.1,<3.0  # Only tools/sandbox_tests.py (the Stop gate's browser check in a Novita sandbox). CI and the template never install it.

@@ -70,6 +70,7 @@ grep -H "Add tests here when" playbook/tests/*.md
 | `PERCENTILES.md` | any percentile or rank computation |
 | `PINNED-INVALIDATION.md` | filter changes that remove Pinned Players, the confirm dialog, Comparison shrink/dissolve |
 | `METRICS-AND-NOTES.md` | adding or renaming a metric, info popovers, metric notes, export appendix |
+| `SANDBOX.md` | `tools/sandbox_tests.py`, `tools/sandbox_template.py`, the browser tests in Novita sandboxes, shards, the template |
 | `CLAUDE-HOOKS.md` | `tools/claude_hooks/`, the hook installer, the `browser` test marker |
 | `THRESHOLDS.md` | `config/thresholds.py` thresholds, `resolve_default_threshold`, the threshold input clamp |
 | `DIAGRAMS.md` | the shape of the system at a glance (Mermaid), or adding or changing a diagram |
