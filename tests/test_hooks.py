@@ -201,6 +201,16 @@ def test_post_write_hook_marks_the_session_when_the_repo_changed(state_dir: Path
     assert (state_dir / "abc.changed").exists()
 
 
+def test_post_write_hook_notes_each_written_path_in_the_marker(state_dir: Path):
+    for name in ("frontend/render.js", "playbook/COMMANDS.md"):
+        event = {**write_event(str(REPO_ROOT / name)), "session_id": "abc"}
+        run_hook("post_write.py", event, state_dir)
+
+    marker_text = (state_dir / "abc.changed").read_text()
+
+    assert marker_text.splitlines() == ["frontend/render.js", "playbook/COMMANDS.md"]
+
+
 def test_post_write_hook_ignores_a_file_outside_the_repo(
     tmp_path: Path, state_dir: Path
 ):
@@ -367,6 +377,157 @@ def test_stop_gate_clears_the_marker_when_every_check_passes(state_dir: Path):
     assert result.returncode == 0
     assert result.stdout == ""
     assert not (state_dir / "abc.changed").exists()
+
+
+def load_stop_gate_module(monkeypatch: pytest.MonkeyPatch):
+    """The Stop gate, loaded by path; it imports `hook_common` and `cache_files` from its own folder."""
+    monkeypatch.syspath_prepend(str(HOOKS_DIR))
+    spec = importlib.util.spec_from_file_location(
+        "stop_gate", HOOKS_DIR / "stop_gate.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return module
+
+
+@pytest.mark.parametrize(
+    "relative_path, relevant",
+    [
+        ("frontend/render.js", True),
+        ("frontend/vendor/html2canvas.min.js", True),
+        ("main.py", True),
+        ("database/db_models.py", True),
+        ("config/metrics.py", True),
+        ("teams/nfl.py", True),
+        ("tests/test_browser_smoke.py", True),
+        ("tests/conftest.py", True),
+        ("requirements-dev.txt", True),
+        ("pytest.ini", True),
+        ("tools/sandbox_tests.py", True),
+        ("tests/js/percentiles.test.mjs", False),
+        ("playbook/INVARIANTS.md", False),
+        ("preprocessing/front_7.py", False),
+        ("tools/check_code_style.py", False),
+        ("README.md", False),
+        ("mainly.py", False),
+    ],
+)
+def test_stop_gate_runs_the_sandbox_check_only_for_browser_relevant_paths(
+    relative_path: str, relevant: bool, monkeypatch: pytest.MonkeyPatch
+):
+    stop_gate = load_stop_gate_module(monkeypatch)
+
+    assert stop_gate.is_browser_relevant(relative_path) is relevant
+
+
+def test_stop_gate_adds_the_sandbox_check_last_and_only_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    stop_gate = load_stop_gate_module(monkeypatch)
+    monkeypatch.delenv(CHECKS_ENV_VAR, raising=False)
+
+    without_sandbox = stop_gate.build_checks(False)
+    with_sandbox = stop_gate.build_checks(True)
+
+    assert len(without_sandbox) == 5
+    assert with_sandbox[:5] == without_sandbox
+    assert with_sandbox[5]["command"][1:] == ["-m", "tools.sandbox_tests"]
+    assert with_sandbox[5]["unavailable_exit_code"] == 3
+
+
+def sandbox_like_check(exit_code: int, text: str) -> dict:
+    """A stand-in for the sandbox check: prints something and ends with the exit code, flagged as the real one is."""
+    return {
+        "name": "sandbox step",
+        "command": [
+            sys.executable,
+            "-c",
+            f"print({text!r}); raise SystemExit({exit_code})",
+        ],
+        "unavailable_exit_code": 3,
+    }
+
+
+def test_stop_gate_only_warns_when_the_sandbox_check_could_not_run(state_dir: Path):
+    checks = [
+        {"name": "good step", "command": [sys.executable, "-c", "pass"]},
+        sandbox_like_check(3, "RESULT: UNAVAILABLE: no NOVITA_API_KEY"),
+    ]
+
+    result = run_hook(
+        "stop_gate.py", {"session_id": "abc"}, marked_state_dir(state_dir), checks
+    )
+    output = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert "decision" not in output
+    assert "[sandbox step] could not run" in output["systemMessage"]
+    assert "no NOVITA_API_KEY" in output["systemMessage"]
+    assert not (state_dir / "abc.changed").exists()
+
+
+def test_stop_gate_blocks_on_a_failing_sandbox_test(state_dir: Path):
+    checks = [sandbox_like_check(1, "RESULT: browser tests FAILED in the sandbox.")]
+
+    result = run_hook(
+        "stop_gate.py", {"session_id": "abc"}, marked_state_dir(state_dir), checks
+    )
+    decision = json.loads(result.stdout)
+
+    assert decision["decision"] == "block"
+    assert "FAILED in the sandbox" in decision["reason"]
+    assert (state_dir / "abc.changed").exists()
+
+
+def test_stop_gate_exit_code_3_is_a_failure_for_a_check_that_does_not_use_it(
+    state_dir: Path,
+):
+    checks = [
+        {"name": "plain step", "command": [sys.executable, "-c", "raise SystemExit(3)"]}
+    ]
+
+    result = run_hook(
+        "stop_gate.py", {"session_id": "abc"}, marked_state_dir(state_dir), checks
+    )
+
+    assert json.loads(result.stdout)["decision"] == "block"
+
+
+def test_stop_gate_says_what_it_skipped_when_a_check_failed_and_another_could_not_run(
+    state_dir: Path,
+):
+    checks = [
+        {"name": "bad step", "command": [sys.executable, "-c", "raise SystemExit(1)"]},
+        sandbox_like_check(3, "RESULT: UNAVAILABLE: no balance"),
+    ]
+
+    result = run_hook(
+        "stop_gate.py", {"session_id": "abc"}, marked_state_dir(state_dir), checks
+    )
+    reason = json.loads(result.stdout)["reason"]
+
+    assert "[bad step]" in reason
+    assert "WARNING: [sandbox step] could not run" in reason
+
+
+def test_the_marker_lists_what_was_written_and_a_bare_marker_lists_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.syspath_prepend(str(HOOKS_DIR))
+    hook_common = importlib.import_module("hook_common")
+    marker = tmp_path / "state" / "abc.changed"
+
+    assert hook_common.read_written_paths(marker) == []
+
+    hook_common.record_written_path(marker, REPO_ROOT / "main.py")
+    hook_common.record_written_path(marker, REPO_ROOT / "frontend" / "render.js")
+
+    assert hook_common.read_written_paths(marker) == ["main.py", "frontend/render.js"]
+
+    marker.write_text("")
+
+    assert hook_common.read_written_paths(marker) == []
 
 
 def load_cache_files_module():

@@ -455,7 +455,7 @@ def test_the_command_line_fails_on_a_new_violation_and_on_a_stale_baseline(
 
 
 def test_virtual_environments_node_modules_and_the_playbook_are_not_scanned(tmp_path):
-    for folder in ("venv", "node_modules", "playbook", "package"):
+    for folder in ("venv", "node_modules", "playbook", "sandbox", "package"):
         (tmp_path / folder).mkdir()
         (tmp_path / folder / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
 

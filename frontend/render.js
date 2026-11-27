@@ -25,6 +25,7 @@ import {
   teamKeyOfRecord,
   LEAGUE,
   IS_CAREER,
+  CAREER_SEASON,
   appliedThreshold,
   thresholdPhrase,
   litStatuses,
@@ -453,7 +454,10 @@ export function render() {
   // Teams dims players rather than removing them (see DIM_OPACITY above),
   // so count shouldn't shrink just because some teams are unchecked.
   const positionLabel = (cat.positions && cat.positions[appliedFilters.position]) || appliedFilters.position;
-  const titleText = `${appliedFilters.season} ${LEAGUE.name} ${positionLabel} ${xKey} & ${yKey}`;
+  // Season: "2025 NFL Edge x & y". Career has no season, so its word follows the position: "NCAAF Edge Career x & y".
+  const titleText = IS_CAREER
+    ? `${LEAGUE.name} ${positionLabel} ${CAREER_SEASON} ${xKey} & ${yKey}`
+    : `${appliedFilters.season} ${LEAGUE.name} ${positionLabel} ${xKey} & ${yKey}`;
   const subtitleText = highlightSubtitle(cat, currentFiltered, threshold);
 
   const layout = {

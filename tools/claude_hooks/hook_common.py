@@ -93,6 +93,25 @@ def marker_path(session_id: str) -> Path:
     return state_dir / f"{safe_session_id}.changed"
 
 
+def record_written_path(marker: Path, file_path: Path) -> None:
+    """Note in the marker file that this repo file was written; the marker is created if it is not there yet."""
+    marker.parent.mkdir(parents=True, exist_ok=True)
+
+    with marker.open("a", encoding="utf-8") as marker_file:
+        marker_file.write(file_path.relative_to(REPO_ROOT).as_posix() + "\n")
+
+
+def read_written_paths(marker: Path) -> list[str]:
+    """The repo-relative paths noted in the marker file; an empty or missing marker gives an empty list."""
+    try:
+        text = marker.read_text(encoding="utf-8")
+
+    except OSError:
+        return []
+
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
 def block(reason: str) -> None:
     """Refuse the action: exit code 2 sends the reason back to Claude."""
     print(reason, file=sys.stderr)

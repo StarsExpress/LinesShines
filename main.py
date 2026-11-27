@@ -644,11 +644,11 @@ class _Page:
 SEASON_BYLINE = (
     "A place to let you trace paths for:<br />"
     "• ⌛️The past of NFL professionals.<br />"
-    "• ⏳The present of College players."
+    "• ⏳The present of college players."
 )
 
 CAREER_BYLINE = (
-    "NCAAF prospects VS. Already joined NFL people:<br />"
+    "NCAAF prospects VS. NFL alumni:<br />"
     "🔬Draft evaluations powered by history as a benchmark."
 )
 

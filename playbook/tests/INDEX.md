@@ -51,6 +51,8 @@ grep -H "Add tests here when" playbook/tests/*.md
 | The NFL Teams checklist's conference and division buttons | `test_teams_group_buttons.py` ([doc](TEST_TEAMS_GROUP_BUTTONS.md)) | browser |
 | The Teams (i) info popover | `test_teams_info_popover.py` ([doc](TEST_TEAMS_INFO_POPOVER.md)) | browser |
 | Which requests the Service Worker intercepts | `test_sw_cache_bypass.py` ([doc](TEST_SW_CACHE_BYPASS.md)) | browser |
+| The sandbox runner `tools/sandbox_tests.py` (dealing test files into shards, the API key lookup, the repo archive, one shard's life, the exit codes) | `test_sandbox_tests.py` ([doc](TEST_SANDBOX_TESTS.md)) | pure Python |
+| The sandbox template builder `tools/sandbox_template.py` (layers, tags, size, exit codes) | `test_sandbox_template.py` ([doc](TEST_SANDBOX_TEMPLATE.md)) | pure Python |
 | The Claude Code hooks in `tools/claude_hooks/` and their installer | `test_hooks.py` ([doc](TEST_HOOKS.md)) | pure Python |
 | The code-style checker (`tools/check_code_style.py`): a rule, an exemption, the baseline | `test_code_style.py` ([doc](TEST_CODE_STYLE.md)) | pure Python |
 | Anything else | a new `tests/test_*.py` plus its own `TEST_*.md` here, in the same change | |

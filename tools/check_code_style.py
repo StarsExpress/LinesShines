@@ -33,6 +33,7 @@ SKIPPED_DIRECTORY_NAMES = {
     "venv",
     "node_modules",
     "playbook",
+    "sandbox",
     "__pycache__",
 }
 
@@ -677,7 +678,7 @@ def check_source(text: str, path: str) -> list[Violation]:
 
 
 def is_skipped(relative_path: Path) -> bool:
-    """Whether a path sits in a virtual environment, `node_modules` or the playbook, which are never checked."""
+    """Whether a path sits in a virtual environment, `node_modules`, the playbook or `sandbox/`, which are never checked."""
     return bool(SKIPPED_DIRECTORY_NAMES.intersection(relative_path.parts))
 
 

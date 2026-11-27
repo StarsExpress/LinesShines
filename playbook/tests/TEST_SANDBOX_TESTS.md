@@ -1,0 +1,9 @@
+# test_sandbox_tests.py
+
+> **Add tests here when:** changing `tools/sandbox_tests.py` (how test files are dealt into shards, where the API key is read from, what goes into the repo archive, what one shard does, what each exit code means).
+
+- **Kind:** pure Python. A fake sandbox and a fake client stand in for Novita's; no network, no SDK, no sandbox and no key are needed.
+- **Needs:** nothing. One test runs pytest's own collection (`pytest -m browser --collect-only`) in a subprocess; it starts no browser.
+- **Covers:** the per-file counts parsed from the collection output; dealing (balanced totals, no file lost or repeated, the same result every time, empty shards dropped); the API key (the environment first, a `.env` in the repo root as the fallback, quotes and spaces, a missing or empty key); the archive (data, `.env`, `sandbox/`, `playbook/`, caches, `.db`, `.xlsx` and `node_modules` left out, source kept); one shard (passes and kills its sandbox, a failing test is a failed shard, a service error or a failure to create the sandbox is an infrastructure error and the sandbox is still killed, the sandbox expires on its own, the template name from the environment); the report and its exit codes (0 passed, 1 a test failed even if another shard could not run, 3 only the service failed); `main()` without a key, without the SDK, and when collection fails; the real collection finds the browser tests and every file gets a shard.
+- **Not here:** that Novita really starts the sandboxes, runs the tests and bills as expected (only a real run shows that: `python -m tools.sandbox_tests`); the template's contents; how the Stop gate reacts to the exit codes (`TEST_HOOKS.md`).
+- **Known gaps:** the SDK's own exception types are not imported, so "a command that ran and exited non-zero carries an exit code" is the assumption the fake relies on; a real run of a failing test is the check.

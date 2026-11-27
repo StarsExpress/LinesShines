@@ -21,12 +21,15 @@ data/*.db-wal
 
 node_modules/
 
+# Experiments for sandbox: holds .env with an API key. Never committed.
+sandbox/
+
 # Kept on the owner's machine only.
 utils/download_ncaaf_logos.py
 
 .claude/
 
-# `playbook/` is private by defaul.
+# `playbook/` is private by default.
 # Allow-list below publishes only what is meant to be public.
 # Use `playbook/*` (not `playbook/`): git cannot re-include a path whose parent directory is excluded.
 playbook/*

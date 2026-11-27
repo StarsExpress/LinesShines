@@ -91,3 +91,11 @@ test("a status that is off lights nobody and never changes who is plotted", () =
 test("a stricter bar for one status removes only that status", () => {
   assert.deepEqual(Object.keys(drawn({ prospectThreshold: "250" })).sort(), ["J-one", "J-two"]);
 });
+
+test("the chart title puts the position before the word Career", () => {
+  drawn({});
+
+  const [, , layout] = globalThis.Plotly.reactCalls.at(-1);
+
+  assert.equal(layout.title.text, "NCAAF Edge Career x_metric & y_metric");
+});

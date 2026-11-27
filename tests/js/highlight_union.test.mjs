@@ -87,3 +87,11 @@ test("the threshold is a hard gate: a player under it is not plotted even on a c
   assert.ok(!("E. Low" in drawn({ teams: "BUF", players: "E. Low" })));
   assert.ok("E. Low" in drawn({ teams: "BUF", threshold: "50" }));
 });
+
+test("the chart title starts with the season on a Season page", () => {
+  drawn({});
+
+  const [, , layout] = globalThis.Plotly.reactCalls.at(-1);
+
+  assert.equal(layout.title.text, "2025 NFL Edge x_metric & y_metric");
+});
